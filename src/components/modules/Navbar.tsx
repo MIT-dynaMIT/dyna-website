@@ -17,14 +17,14 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-blue-600 shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-14">
+    <nav className="bg-primary shadow-md">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-14 justify-between">
           <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
+            <div className="flex flex-shrink-0 items-center">
               <Link 
                 to="/" 
-                className="text-lg font-bold text-white hover:text-orange-400 transition-colors duration-200"
+                className="text-lg font-bold text-white transition-colors duration-200 hover:text-secondary"
               >
                 dynaMIT
               </Link>
@@ -38,8 +38,8 @@ const Navbar = () => {
                   to={item.href}
                   className={`inline-flex items-center px-1 pt-1 text-sm font-medium
                     ${isCurrentPage(item.href)
-                      ? 'text-white border-b-2 border-orange-400'
-                      : 'text-white hover:text-orange-400 border-b-2 border-transparent hover:border-orange-400'
+                      ? 'border-b-2 border-secondary text-white'
+                      : 'border-b-2 border-transparent text-white hover:border-secondary hover:text-secondary'
                     }`}
                 >
                   {item.name}
@@ -52,7 +52,7 @@ const Navbar = () => {
           <div className="flex items-center sm:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-white hover:text-orange-400 hover:bg-blue-700 focus:outline-none"
+              className="inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-primary hover:text-secondary focus:outline-none"
             >
               <span className="sr-only">Open main menu</span>
               {!isMenuOpen ? (
@@ -71,16 +71,16 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="sm:hidden bg-blue-700">
-          <div className="pt-2 pb-3 space-y-1">
+        <div className="bg-primary sm:hidden">
+          <div className="space-y-1 pb-3 pt-2">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`block pl-3 pr-4 py-2 text-base font-medium
+                className={`block py-2 pl-3 pr-4 text-base font-medium
                   ${isCurrentPage(item.href)
-                    ? 'text-orange-400 bg-blue-800'
-                    : 'text-white hover:text-orange-400 hover:bg-blue-800'
+                    ? 'bg-primary text-secondary'
+                    : 'text-white hover:bg-primary hover:text-secondary'
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >

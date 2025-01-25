@@ -1,13 +1,13 @@
 const Footer = () => {
   return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+    <footer className="border-t border-gray-200 bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-center justify-between space-y-4 md:flex-row md:space-y-0">
           {/* Contact */}
-          <div className="text-blue-600">
+          <div className="text-primary">
             <a 
               href="mailto:dynamit_board@mit.edu"
-              className="text-blue-600 hover:text-orange-400 transition-colors duration-200"
+              className="text-primary transition-colors duration-200 hover:text-secondary"
             >
               dynamit_board@mit.edu
             </a>
@@ -19,7 +19,7 @@ const Footer = () => {
               href="https://www.facebook.com/dynamitnonprofit/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-orange-400 transition-colors duration-200"
+              className="text-primary transition-colors duration-200 hover:text-secondary"
               aria-label="Facebook"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -30,7 +30,7 @@ const Footer = () => {
               href="https://www.instagram.com/mitdynamit/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-orange-400 transition-colors duration-200"
+              className="text-primary transition-colors duration-200 hover:text-secondary"
               aria-label="Instagram"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -41,7 +41,7 @@ const Footer = () => {
               href="https://github.com/MIT-dynaMIT"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-orange-400 transition-colors duration-200"
+              className="text-primary transition-colors duration-200 hover:text-secondary"
               aria-label="GitHub"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -51,12 +51,12 @@ const Footer = () => {
           </div>
 
           {/* Accessibility Link */}
-          <div className="text-blue-600">
+          <div className="text-primary">
             <a
               href="https://accessibility.mit.edu"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-orange-400 transition-colors duration-200"
+              className="text-primary transition-colors duration-200 hover:text-secondary"
             >
               Accessibility
             </a>

@@ -52,29 +52,29 @@ const Board: React.FC = () => {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center text-primary-blue mb-8">
-        Meet Our Board
-      </h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {boardMembers.map((member, index) => {
-          const displayName = `${member['First Name']} ${member['Preferred Name'] ? `(${member['Preferred Name']})` : ''} ${member['Last Name']}`;
-          const imagePath = `/images_${member.Year}s/${member['First Name'].toLowerCase()}-${member['Last Name'].toLowerCase()}.jpg`;
-          
-          return <BoardMember
-            key={index}
-            name={displayName}
-            year={member.Year}
-            major={member.Major}
-            hobbies={member.Hobbies}
-            favoriteExperiment={member['Favorite STEM Experiment']}
-            funFact={member['Fun Fact']}
-            pronouns={member.Pronouns}
-            imagePath={imagePath}
-          />
-        })}
+    <>
+      <h1 className="mb-12 text-center font-bold">Meet Our Board</h1>
+      <div className="">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {boardMembers.map((member, index) => {
+            const displayName = `${member['First Name']} ${member['Preferred Name'] ? `(${member['Preferred Name']})` : ''} ${member['Last Name']}`;
+            const imagePath = `/images_${member.Year}s/${member['First Name'].toLowerCase()}-${member['Last Name'].toLowerCase()}.jpg`;
+            
+            return <BoardMember
+              key={index}
+              name={displayName}
+              year={member.Year}
+              major={member.Major}
+              hobbies={member.Hobbies}
+              favoriteExperiment={member['Favorite STEM Experiment']}
+              funFact={member['Fun Fact']}
+              pronouns={member.Pronouns}
+              imagePath={imagePath}
+            />
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

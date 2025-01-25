@@ -22,26 +22,26 @@ const BoardMember: React.FC<BoardMemberProps> = ({
   imagePath
 }) => {
   return (
-    <div className="flex flex-col items-center p-6 bg-white rounded-lg shadow-lg m-4 max-w-sm">
-      <div className="w-48 h-48 mb-4 overflow-hidden rounded-full">
+    <div className="m-4 flex max-w-sm flex-col items-center rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+      <div className="mb-4 h-48 w-48 overflow-hidden rounded-full">
         {imagePath ? (
           <img
             src={imagePath}
             alt={`${name}'s profile`}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-            <span className="text-4xl text-gray-400">{name[0]}</span>
+          <div className="flex h-full w-full items-center justify-center bg-base">
+            <span className="text-4xl text-dark">{name[0]}</span>
           </div>
         )}
       </div>
       
-      <h3 className="text-xl font-bold text-primary-blue mb-1">{name}</h3>
-      <p className="text-gray-600 mb-1">{pronouns}</p>
-      <p className="text-gray-700 mb-2">{major} '{year.substring(2)}</p>
+      <h3 className="text-primary-blue mb-1 text-xl font-bold">{name}</h3>
+      <p className="mb-1 text-dark">{pronouns}</p>
+      <p className="mb-2 text-dark">{major} '{year.substring(2)}</p>
       
-      <div className="w-full space-y-2 mt-2">
+      <div className="mt-2 w-full space-y-2">
         <div>
           <span className="font-semibold">Hobbies:</span> {hobbies}
         </div>

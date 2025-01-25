@@ -4,7 +4,9 @@ import formResponsesCsv from '../../assets/form_responses.csv';
 import Papa from 'papaparse';
 
 interface BoardMemberData {
-  Name: string;
+  'First Name': string;
+  'Last Name': string;
+  'Preferred Name': string;
   Year: string;
   Major: string;
   Hobbies: string;
@@ -30,7 +32,9 @@ const Board: React.FC = () => {
         });
 
         const members = data.map((row) => ({
-          Name: row['Name'] || '',
+          'First Name': row['First Name'] || '',
+          'Last Name': row['Last Name'] || '',
+          'Preferred Name': row['Preferred Name'] || '',
           Year: row['Year'] || '',
           Major: row['Major'] || '',
           Hobbies: row['Hobbies'] || '',
@@ -38,8 +42,6 @@ const Board: React.FC = () => {
           'Fun Fact': row['Fun Fact'] || '',
           Pronouns: row['Pronouns'] || ''
         }));
-        
-        console.log('Parsed members:', members);
         setBoardMembers(members);
       } catch (error) {
         console.error('Error loading board members:', error);
@@ -56,19 +58,21 @@ const Board: React.FC = () => {
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {boardMembers.map((member, index) => {
-          console.log(`/images_${member.Year}s/${member.Name.toLowerCase().replace(' ', '_')}.jpg`);
+          const displayName = `${member['First Name']} ${member['Preferred Name'] ? `(${member['Preferred Name']})` : ''} ${member['Last Name']}`;
+          const imagePath = `/images_${member.Year}s/${member['First Name'].toLowerCase()}-${member['Last Name'].toLowerCase()}.jpg`;
+          
           return <BoardMember
             key={index}
-            name={member.Name}
+            name={displayName}
             year={member.Year}
             major={member.Major}
             hobbies={member.Hobbies}
             favoriteExperiment={member['Favorite STEM Experiment']}
             funFact={member['Fun Fact']}
             pronouns={member.Pronouns}
-            imagePath={`/images_${member.Year}s/${member.Name.toLowerCase().replace(' ', '-')}.jpg`}
+            imagePath={imagePath}
           />
-})}
+        })}
       </div>
     </div>
   );

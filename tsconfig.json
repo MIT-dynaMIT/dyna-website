@@ -1,6 +1,8 @@
 {
   "files": [],
-  "typeRoots": ["node_modules/@types"],
+  "compilerOptions": {
+    "typeRoots": ["node_modules/@types"]
+  },
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }

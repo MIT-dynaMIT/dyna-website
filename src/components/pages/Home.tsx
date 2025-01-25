@@ -1,4 +1,3 @@
-import React from 'react';
 import ContentBox from '../modules/ContentBox';
 
 const Home = () => {

@@ -1,5 +1,3 @@
-import React from 'react';
-
 const Apply = () => {
   return (
     <div className="min-h-screen">

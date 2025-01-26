@@ -1,3 +1,4 @@
+import { formatDateToReadableString,week1Start, week1End, week2Start, week2End } from '../../utils';
 import ContentBox from '../modules/ContentBox';
 import FAQItem from '../modules/FAQItem';
 import React from 'react';
@@ -9,8 +10,8 @@ interface FAQItemObj {
 
 const faqs: FAQItemObj[] = [
   {
-    question: "When is the dynaMIT Summer 2025 program?",
-    answer: "Week 1 will run from August 11th to August 15th, hosting rising 6th/7th graders. Week 2 will run from August 18th to August 22nd, hosting rising 8th/9th graders. Our program is fully in-person on MIT campus!"
+    question: `When is the dynaMIT Summer ${week1Start.getFullYear()} program?`,
+    answer: `Week 1 will run from ${formatDateToReadableString(week1Start)} to ${formatDateToReadableString(week1End)}, hosting rising 6th/7th graders. Week 2 will run from ${formatDateToReadableString(week2Start)} to ${formatDateToReadableString(week2End)}, hosting rising 8th/9th graders. Our program is fully in-person on MIT campus!`  
   },
   {
     question: "Where is dynaMIT located?",

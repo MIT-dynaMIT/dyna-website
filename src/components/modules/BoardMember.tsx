@@ -22,7 +22,7 @@ const BoardMember: React.FC<BoardMemberProps> = ({
   imagePath
 }) => {
   return (
-    <div className="m-4 flex max-w-sm flex-col items-center rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+    <div className="m-4 flex max-w-sm flex-col items-center rounded-lg bg-white p-6 shadow-lg">
       <div className="mb-4 h-48 w-48 overflow-hidden rounded-full">
         {imagePath ? (
           <img

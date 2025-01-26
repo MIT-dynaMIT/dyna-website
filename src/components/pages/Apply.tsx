@@ -1,4 +1,17 @@
+import AppCard from '../modules/AppCard.tsx';
+import { 
+  formatDateToReadableString, 
+  formatDateToStringWithYear, 
+  studentDeadline, 
+  mentorDeadline, 
+  week1Start, 
+  week1End, 
+  week2Start, 
+  week2End 
+} from '../../utils.ts';
+
 const Apply = () => {
+
   return (
     <>
       <h1 className="mb-12 text-center text-4xl font-bold">Join dynaMIT!</h1>
@@ -16,69 +29,36 @@ const Apply = () => {
         {/* Application Cards */}
         <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2">
           {/* Students Card */}
-          <div className="rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
-            <div className="p-8">
-              <h2 className="mb-4 text-2xl font-bold text-dark">Students</h2>
-              <div className="space-y-4">
-                <div className="rounded-lg bg-light p-4">
-                  <p className="font-semibold text-dark">
-                    Applications are open until March 10th!
-                  </p>
-                </div>
-                <p className="text-dark">
-                  We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
-                  2025-2026 School Year.
-                </p>
-                <a
-                  href="https://forms.gle/Xd2DrjGATbq175NC6"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:bg-primary-700 inline-block rounded-lg bg-primary px-6 py-3 text-white transition-colors duration-200"
-                >
-                  Apply to dynaMIT!
-                </a>
-              </div>
-            </div>
-          </div>
-
+          <AppCard 
+            title="Students" 
+            deadline={studentDeadline} 
+            link="https://forms.gle/Xd2DrjGATbq175NC6" 
+            description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
+                  ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
+            linkText="Apply to dynaMIT!"
+          />
           {/* Mentors Card */}
-          <div className="rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
-            <div className="p-8">
-              <h2 className="mb-4 text-2xl font-bold text-dark">Mentors</h2>
-              <div className="space-y-4">
-                <div className="rounded-lg bg-light p-4">
-                  <p className="font-semibold text-dark">
-                    Applications for dynaMIT mentors are open!
-                  </p>
-                </div>
-                <p className="text-dark">
-                  Join us as a mentor and help inspire the next generation of STEM enthusiasts.
-                  All MIT undergraduate students are welcome to apply!
-                </p>
-                <a
-                  href="https://forms.gle/9xV1USV2REbJL5716"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block rounded-lg bg-primary px-6 py-3 text-white transition-colors duration-200 hover:bg-primary"
-                >
-                  Teach at dynaMIT!
-                </a>
-              </div>
-            </div>
-          </div>
+          <AppCard 
+            title="Mentors" 
+            deadline={mentorDeadline} 
+            link="https://forms.gle/1X1JXJGZzVY2G6bC9" 
+            description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
+                  All MIT undergraduate students are welcome to apply!`}
+            linkText="Apply to be a mentor!"
+          />
         </div>
 
         {/* Additional Information */}
-        <div className="mt-16 rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+        <div className="mt-16 rounded-lg bg-white p-6 shadow-lg">
           <h2 className="mb-4 text-2xl font-bold text-dark">Important Dates</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <h3 className="mb-2 text-lg font-semibold text-dark">Week 1: Rising 6th/7th Graders</h3>
-              <p className="text-dark">August 11th to August 15th, 2025</p>
+              <p className="text-dark">{formatDateToReadableString(week1Start)} to {formatDateToStringWithYear(week1End)}</p>
             </div>
             <div>
               <h3 className="mb-2 text-lg font-semibold text-dark">Week 2: Rising 8th/9th Graders</h3>
-              <p className="text-dark">August 18th to August 22nd, 2025</p>
+              <p className="text-dark">{formatDateToReadableString(week2Start)} to {formatDateToStringWithYear(week2End)}</p>
             </div>
           </div>
           <div className="mt-6">

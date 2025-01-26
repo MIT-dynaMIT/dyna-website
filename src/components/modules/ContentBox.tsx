@@ -11,7 +11,7 @@ interface ContentBoxProps {
 
 const ContentBox: React.FC<ContentBoxProps> = ({ title, children, buttonText, buttonLink, image }) => {
   return (
-    <div className="rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+    <div className="rounded-lg bg-white p-6 shadow-lg">
       {image && (
         <img
           src={image}

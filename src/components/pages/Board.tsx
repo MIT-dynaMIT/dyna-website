@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import BoardMember from '../modules/BoardMember';
-import formResponsesCsv from '../../assets/form_responses.csv';
+import formResponsesCsv from '../../assets/board_info.csv';
 import Papa from 'papaparse';
 
 interface BoardMemberData {

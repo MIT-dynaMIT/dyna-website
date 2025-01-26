@@ -12,12 +12,14 @@ const Home = () => {
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      const targetElement = document.getElementById(hash.replace("#", ""));
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth" });
-      }
+      setTimeout(() => {
+        const targetElement = document.getElementById(hash.replace("#", ""));
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 200);
     }
-  }, [location.hash]); // Runs whenever the hash changes
+  }, [location.hash]);
 
   return (
     <>

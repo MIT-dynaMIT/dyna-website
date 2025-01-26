@@ -44,7 +44,7 @@ const Apply = () => {
             link="https://forms.gle/1X1JXJGZzVY2G6bC9" 
             description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                   All MIT undergraduate students are welcome to apply!`}
-            linkText="Apply to be a mentor!"
+            linkText="Teach at dynaMIT!"
           />
         </div>
 

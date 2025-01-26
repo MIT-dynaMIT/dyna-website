@@ -6,11 +6,19 @@ interface ContentBoxProps {
   children: React.ReactNode;
   buttonText?: string;
   buttonLink?: string;
+  image?: string; // New optional image prop
 }
 
-const ContentBox: React.FC<ContentBoxProps> = ({ title, children, buttonText, buttonLink }) => {
+const ContentBox: React.FC<ContentBoxProps> = ({ title, children, buttonText, buttonLink, image }) => {
   return (
     <div className="rounded-lg bg-white p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+      {image && (
+        <img
+          src={image}
+          alt={title}
+          className="h-75 mb-4 w-full object-cover" // CSS for constant size and aspect ratio
+        />
+      )}
       <h2 className="mb-4 text-2xl font-bold text-dark">{title}</h2>
       <div className="text-dark">
         {children}

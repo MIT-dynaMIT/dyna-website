@@ -7,9 +7,8 @@ const Navbar = () => {
 
   const navigation = [
     { name: 'Home', href: '/' },
-    { name: 'Board', href: '/board' },
-    { name: 'FAQ', href: '/faq' },
     { name: 'Apply', href: '/apply' },
+    { name: 'Board', href: '/board' },
   ];
 
   const isCurrentPage = (path: string) => {

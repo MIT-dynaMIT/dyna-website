@@ -1,13 +1,52 @@
 import ContentBox from '../modules/ContentBox';
+import FAQItem from '../modules/FAQItem';
+import React from 'react';
+
+interface FAQItemObj {
+  question: string;
+  answer: string;
+}
+
+const faqs: FAQItemObj[] = [
+  {
+    question: "When is the dynaMIT Summer 2025 program?",
+    answer: "Week 1 will run from August 11th to August 15th, hosting rising 6th/7th graders. Week 2 will run from August 18th to August 22nd, hosting rising 8th/9th graders. Our program is fully in-person on MIT campus!"
+  },
+  {
+    question: "Where is dynaMIT located?",
+    answer: "dynaMIT is located on MIT campus and the entire duration of the program happens in MIT."
+  },
+  {
+    question: "Will dynaMIT provide housing or transportation?",
+    answer: "No, dynaMIT is not a sleepaway camp so we rely on parents to provide housing and transportation to and from camp. Ideally students will be coming from the Boston area (or somewhere close), so housing should not be an issue."
+  },
+  {
+    question: "Is dynaMIT free?",
+    answer: "Yes, dynaMIT is completely free of charge to the students, though individuals are more than welcome to donate to our cause in order to help us keep the camp free. However, donations are not required by any means."
+  },
+  {
+    question: "Who are the instructors at dynaMIT? How can I volunteer?",
+    answer: "All of our mentors are current MIT undergraduate students who volunteer a week of their time in the summer to teach at camp. MIT students interested in applying to be a mentor should apply now!"
+  },
+  {
+    question: "How are students selected for the program?",
+    answer: "We do our best to accept students based on need as we hope to make STEM education more accessible for the underserved."
+  }
+];
 
 const Home = () => {
+  const [openIndex, setOpenIndex] = React.useState<number | null>(null);
+
   return (
     <>
       {/* Hero Section */}
       <div className="text-center">
-        <h1 className="mb-12 text-4xl font-bold sm:text-5xl md:text-6xl">
-          MIT <span className="text-primary">dynaMIT</span>
+        <h1 className="mb-6 text-4xl font-bold sm:text-5xl md:text-6xl">
+          <span className="text-primary">dyna</span><span className="text-secondary">MIT</span>
         </h1>
+        <p className="mx-auto mb-6 max-w-3xl text-center text-xl font-bold">
+          Igniting the STEM Interests of the Next Generation
+        </p>
         <p className="mx-auto max-w-3xl text-center text-xl">
           A free summer program at MIT where middle school students can explore their passion for science and engineering through hands-on activities.
         </p>
@@ -17,6 +56,7 @@ const Home = () => {
       <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
         <ContentBox 
           title="Our Mission"
+          image="/home_images/our_mission.jpg"
         >
           <p className="mb-4">
             Our mission is to provide students from low-income families with an opportunity to explore and
@@ -27,6 +67,7 @@ const Home = () => {
 
         <ContentBox 
           title="Students"
+          image="/home_images/students.jpg"
           buttonText="Apply as a Student"
           buttonLink="/apply"
         >
@@ -41,6 +82,7 @@ const Home = () => {
 
         <ContentBox 
           title="Mentors: MIT Students"
+          image="/home_images/mentors.jpg"
           buttonText="Apply as a Mentor"
           buttonLink="/apply"
         >
@@ -55,7 +97,8 @@ const Home = () => {
         </ContentBox>
 
         <ContentBox 
-          title="Board"
+          title="Executive Board"
+          image="/home_images/board.jpg"
           buttonText="Meet Our Board"
           buttonLink="/board"
         >
@@ -67,6 +110,26 @@ const Home = () => {
             Meet our dedicated board members who make dynaMIT possible!
           </p>
         </ContentBox>
+      </div>
+
+      {/* FAQ Section */}
+      <h1 className="p-12 text-center text-4xl font-bold" id="faq">
+        Frequently Asked Questions
+      </h1>
+      <div className="space-y-4">
+        {faqs.map((faq, index) => (
+          <div
+            key={index}
+            className="flex justify-center"
+          >
+            <FAQItem
+              question={faq.question}
+              answer={faq.answer}
+              isOpen={openIndex === index}
+              onClick={() => setOpenIndex(openIndex === index ? null : index)}
+            />
+          </div>
+        ))}
       </div>
     </>
   );

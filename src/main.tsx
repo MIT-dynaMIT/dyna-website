@@ -12,7 +12,6 @@ import {
 
 import Home from './components/pages/Home.tsx';
 import Board from './components/pages/Board.tsx';
-import FAQ from './components/pages/FAQ.tsx';
 import Apply from './components/pages/Apply.tsx';
 
 const router = createBrowserRouter(
@@ -21,7 +20,6 @@ const router = createBrowserRouter(
       <Route path="/" element={<Home />} />
       <Route path="/board" element={<Board />} />
       <Route path="/apply" element={<Apply />} />
-      <Route path="/faq" element={<FAQ />} />
     </Route>
   )
 )

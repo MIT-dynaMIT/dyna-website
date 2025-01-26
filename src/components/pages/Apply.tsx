@@ -1,8 +1,7 @@
-
 const Apply = () => {
   return (
     <>
-      <h1 className="mb-12 text-center font-bold">Be Part of DynaMIT</h1>
+      <h1 className="mb-12 text-center text-4xl font-bold">Join dynaMIT!</h1>
       <div className="">
         {/* Header */}
         <div className="mb-16 text-center">
@@ -28,7 +27,7 @@ const Apply = () => {
                 </div>
                 <p className="text-dark">
                   We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
-                  2024-2025 School Year.
+                  2025-2026 School Year.
                 </p>
                 <a
                   href="https://forms.gle/Xd2DrjGATbq175NC6"
@@ -85,7 +84,7 @@ const Apply = () => {
           <div className="mt-6">
             <p className="text-dark">
               All sessions are held in-person on the MIT campus. For any questions about the application process,
-              please check our <a href="/faq" className="text-primary hover:underline">FAQ page</a> or contact us directly.
+              please check our <a href="/#faq" className="text-primary hover:underline">FAQ</a> or contact us directly.
             </p>
           </div>
         </div>

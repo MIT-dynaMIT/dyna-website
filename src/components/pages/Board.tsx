@@ -53,7 +53,7 @@ const Board: React.FC = () => {
 
   return (
     <>
-      <h1 className="mb-12 text-center font-bold">Meet Our Board</h1>
+      <h1 className="mb-12 text-center text-4xl font-bold">Meet Our Board</h1>
       <div className="">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {boardMembers.map((member, index) => {

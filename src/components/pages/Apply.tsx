@@ -31,7 +31,7 @@ const Apply = () => {
           {/* Students Card */}
           <AppCard 
             title="Students" 
-            deadline={studentDeadline} 
+            deadline={new Date(studentDeadline.toLocaleString())} 
             link="https://forms.gle/Xd2DrjGATbq175NC6" 
             description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
                   ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
@@ -40,7 +40,7 @@ const Apply = () => {
           {/* Mentors Card */}
           <AppCard 
             title="Mentors" 
-            deadline={mentorDeadline} 
+            deadline={new Date(mentorDeadline.toLocaleString())} 
             link="https://forms.gle/1X1JXJGZzVY2G6bC9" 
             description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                   All MIT undergraduate students are welcome to apply!`}

@@ -10,7 +10,8 @@ interface AppCardProps {
 }
 
 const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, linkText }) => {
-  const daysRemaining = calculateRemainingDays(deadline);
+  const localDeadline = new Date(deadline.toLocaleString('default', { timeZone: 'UTC' })); // Convert to local time
+  const daysRemaining = calculateRemainingDays(localDeadline);
     return (
       <div className="rounded-lg bg-white p-6 shadow-lg">
       <div className="p-8">
@@ -19,7 +20,7 @@ const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, l
             {daysRemaining > 0 ? (
               <div className="rounded-lg bg-light p-4">
                 <p className="font-semibold text-dark">
-                  Applications open until {formatDateToReadableString(deadline)}!
+                  Applications open until {formatDateToReadableString(localDeadline)}!
                 </p>
               </div>
             ) : (

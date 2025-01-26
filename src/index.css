@@ -6,6 +6,7 @@
   --primary: #3083DC;
   --secondary: #FF5714;
   --light: #97d4ff;
+  --secondary-light: #FFBFA6;
   --base: #FBF2C0;
   --dark: #01161E;
   --accent: #FFE3E3;
@@ -21,13 +22,13 @@
 
 a {
   font-weight: 500;
-  color: var(--secondary);
+  color: var(--secondary-light);
   text-decoration: inherit;
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: var(--secondary);
+  color: var(--secondary-light);
 }
 
 .nav-link {
@@ -42,7 +43,7 @@ a:hover {
   left: 0;
   width: 0;
   height: 2px;
-  background-color: var(--secondary);
+  background-color: var(--secondary-light);
   transition: width 0.3s ease;
 }
 
@@ -51,7 +52,7 @@ a:hover {
 }
 
 .nav-link.active {
-  color: var(--secondary);
+  color: var(--secondary-light);
 }
 
 .nav-link.active::after {
@@ -64,7 +65,7 @@ h1 {
 }
 
 button {
-  background-color: var(--secondary);
+  background-color: var(--secondary-light);
   color: var(--base);
   border: none;
   padding: 10px 20px;

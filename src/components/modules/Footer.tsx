@@ -7,7 +7,7 @@ const Footer = () => {
           <div className="text-primary">
             <a 
               href="mailto:dynamit_board@mit.edu"
-              className="text-primary transition-colors duration-200 hover:text-secondary"
+              className="text-primary transition-colors duration-200 hover:text-secondary-light"
             >
               dynamit_board@mit.edu
             </a>
@@ -19,7 +19,7 @@ const Footer = () => {
               href="https://www.facebook.com/dynamitnonprofit/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary transition-colors duration-200 hover:text-secondary"
+              className="text-primary transition-colors duration-200 hover:text-secondary-light"
               aria-label="Facebook"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -30,7 +30,7 @@ const Footer = () => {
               href="https://www.instagram.com/mitdynamit/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary transition-colors duration-200 hover:text-secondary"
+              className="text-primary transition-colors duration-200 hover:text-secondary-light"
               aria-label="Instagram"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -41,7 +41,7 @@ const Footer = () => {
               href="https://github.com/MIT-dynaMIT"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary transition-colors duration-200 hover:text-secondary"
+              className="text-primary transition-colors duration-200 hover:text-secondary-light"
               aria-label="GitHub"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@ const Footer = () => {
               href="https://accessibility.mit.edu"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary transition-colors duration-200 hover:text-secondary"
+              className="text-primary transition-colors duration-200 hover:text-secondary-light"
             >
               Accessibility
             </a>

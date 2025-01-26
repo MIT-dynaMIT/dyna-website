@@ -23,7 +23,7 @@ const Navbar = () => {
             <div className="flex flex-shrink-0 items-center">
               <Link 
                 to="/" 
-                className="text-lg font-bold text-white transition-colors duration-200 hover:text-secondary"
+                className="text-lg font-bold text-white transition-colors duration-200 hover:text-secondary-light"
               >
                 dynaMIT
               </Link>
@@ -37,8 +37,8 @@ const Navbar = () => {
                   to={item.href}
                   className={`inline-flex items-center px-1 pt-1 text-sm font-medium
                     ${isCurrentPage(item.href)
-                      ? 'border-b-2 border-secondary text-white'
-                      : 'border-b-2 border-transparent text-white hover:border-secondary hover:text-secondary'
+                      ? 'border-b-2 border-secondary-light text-white'
+                      : 'border-b-2 border-transparent text-white hover:border-secondary-light hover:text-secondary-light'
                     }`}
                 >
                   {item.name}
@@ -51,7 +51,7 @@ const Navbar = () => {
           <div className="flex items-center sm:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-primary hover:text-secondary focus:outline-none"
+              className="inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-primary hover:text-secondary-light focus:outline-none"
             >
               <span className="sr-only">Open main menu</span>
               {!isMenuOpen ? (
@@ -78,8 +78,8 @@ const Navbar = () => {
                 to={item.href}
                 className={`block py-2 pl-3 pr-4 text-base font-medium
                   ${isCurrentPage(item.href)
-                    ? 'bg-primary text-secondary'
-                    : 'text-white hover:bg-primary hover:text-secondary'
+                    ? 'bg-primary text-secondary-light'
+                    : 'text-white hover:bg-primary hover:text-secondary-light'
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >

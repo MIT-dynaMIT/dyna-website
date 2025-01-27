@@ -1,6 +1,6 @@
+"use client";
 import React, { useEffect, useState } from 'react';
-import BoardMember from '../modules/BoardMember';
-import formResponsesCsv from '../../assets/board_info.csv';
+import BoardMember from '../../components/BoardMember';
 import Papa from 'papaparse';
 
 interface BoardMemberData {
@@ -21,7 +21,7 @@ const Board: React.FC = () => {
   useEffect(() => {
     const fetchBoardMembers = async () => {
       try {
-        const response = await fetch(formResponsesCsv);
+        const response = await fetch('/board_info.csv');
         const csvText = await response.text();
         
         // Parse CSV using papaparse

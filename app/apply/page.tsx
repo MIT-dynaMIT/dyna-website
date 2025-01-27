@@ -1,4 +1,4 @@
-import AppCard from '../modules/AppCard.tsx';
+import AppCard from '../../components/AppCard';
 import { 
   formatDateToReadableString, 
   formatDateToStringWithYear, 
@@ -8,7 +8,8 @@ import {
   week1End, 
   week2Start, 
   week2End 
-} from '../../utils.ts';
+} from '../utils';
+import Link from 'next/link';
 
 const Apply = () => {
 
@@ -20,7 +21,7 @@ const Apply = () => {
         <div className="mb-16 text-center">
           <p className="mx-auto mt-4 max-w-3xl text-xl text-dark">
             Whether you are a parent looking to enroll your kids in our program
-            or an MIT student who wants to be a mentor for the summer, we'd love for
+            or an MIT student who wants to be a mentor for the summer, we&apos;d love for
             you to join us. All applications for camp and for mentors open in the spring.
             If you want to join our internal team, board applications typically open in the fall!
           </p>
@@ -64,7 +65,7 @@ const Apply = () => {
           <div className="mt-6">
             <p className="text-dark">
               All sessions are held in-person on the MIT campus. For any questions about the application process,
-              please check our <a href="/#faq" className="text-primary hover:underline">FAQ</a> or contact us directly.
+              please check our <Link href="/#faq" className="text-primary hover:underline">FAQ</Link> or contact us directly.
             </p>
           </div>
         </div>

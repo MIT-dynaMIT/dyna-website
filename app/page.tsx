@@ -1,25 +1,11 @@
-import ContentBox from '../modules/ContentBox';
-import FAQItem from '../modules/FAQItem';
-import React, { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { faqs } from '../../utils';
+"use client";
+import ContentBox from '../components/ContentBox';
+import FAQItem from '../components/FAQItem';
+import React from 'react';
+import { faqs } from '../app/utils';
 
 const Home = () => {
   const [openIndex, setOpenIndex] = React.useState<number | null>(null);
-
-  const location = useLocation();
-
-  useEffect(() => {
-    const hash = location.hash;
-    if (hash) {
-      setTimeout(() => {
-        const targetElement = document.getElementById(hash.replace("#", ""));
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 200);
-    }
-  }, [location.hash]);
 
   return (
     <>
@@ -56,7 +42,7 @@ const Home = () => {
           buttonLink="/apply"
         >
           <p className="mb-4">
-            Rising 6th-9th grade students are eligible for this year's program.
+            Rising 6th-9th grade students are eligible for this year&apos;s program.
           </p>
           <p>
             We particularly encourage applications from students who might not otherwise have access to STEM
@@ -120,3 +106,4 @@ const Home = () => {
 };
 
 export default Home;
+

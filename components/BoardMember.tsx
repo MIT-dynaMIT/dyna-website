@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 interface BoardMemberProps {
   name: string;
@@ -25,9 +26,12 @@ const BoardMember: React.FC<BoardMemberProps> = ({
     <div className="m-4 flex max-w-sm flex-col items-center rounded-lg bg-white p-6 shadow-lg">
       <div className="mb-4 h-48 w-48 overflow-hidden rounded-full">
         {imagePath ? (
-          <img
+          <Image
             src={imagePath}
             alt={`${name}'s profile`}
+            layout="responsive"
+            width={500}
+            height={500}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -39,7 +43,7 @@ const BoardMember: React.FC<BoardMemberProps> = ({
       
       <h3 className="text-primary-blue mb-1 text-xl font-bold">{name}</h3>
       <p className="mb-1 text-dark">{pronouns}</p>
-      <p className="mb-2 text-dark">{major} '{year.substring(2)}</p>
+      <p className="mb-2 text-dark">{major} &apos;{year.substring(2)}</p>
       
       <div className="mt-2 w-full space-y-2">
         <div>

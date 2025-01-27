@@ -1,9 +1,11 @@
+"use client";
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const location = useLocation();
+  const pathname = usePathname();
 
   const navigation = [
     { name: 'Home', href: '/' },
@@ -12,7 +14,7 @@ const Navbar = () => {
   ];
 
   const isCurrentPage = (path: string) => {
-    return location.pathname === path;
+    return pathname === path;
   };
 
   return (
@@ -22,7 +24,7 @@ const Navbar = () => {
           <div className="flex">
             <div className="flex flex-shrink-0 items-center">
               <Link 
-                to="/" 
+                href="/" 
                 className="text-lg font-bold text-white transition-colors duration-200 hover:text-secondary-light"
               >
                 dynaMIT
@@ -34,7 +36,7 @@ const Navbar = () => {
               {navigation.map((item) => (
                 <Link
                   key={item.name}
-                  to={item.href}
+                  href={item.href}
                   className={`inline-flex items-center px-1 pt-1 text-sm font-medium
                     ${isCurrentPage(item.href)
                       ? 'border-b-2 border-secondary-light text-white'
@@ -75,7 +77,7 @@ const Navbar = () => {
             {navigation.map((item) => (
               <Link
                 key={item.name}
-                to={item.href}
+                href={item.href}
                 className={`block py-2 pl-3 pr-4 text-base font-medium
                   ${isCurrentPage(item.href)
                     ? 'bg-primary text-secondary-light'

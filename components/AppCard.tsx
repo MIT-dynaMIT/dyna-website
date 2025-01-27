@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDateToReadableString, calculateRemainingDays } from '../../utils';
+import { formatDateToReadableString, calculateRemainingDays } from '../app/utils';
 
 interface AppCardProps {
     title: string;

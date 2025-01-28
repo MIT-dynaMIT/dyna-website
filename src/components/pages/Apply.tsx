@@ -9,7 +9,8 @@ import {
   week1Start, 
   week1End, 
   week2Start, 
-  week2End 
+  week2End, 
+  studentInterestLink
 } from '../../utils.ts';
 
 const Apply = () => {
@@ -38,6 +39,9 @@ const Apply = () => {
             description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
                   ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
             linkText="Apply to dynaMIT!"
+            // Comment these to remove the interest form
+            interestLink={studentInterestLink}
+            interestLinkText="Interest Form"
           />
           {/* Mentors Card */}
           <AppCard 

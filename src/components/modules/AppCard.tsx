@@ -7,9 +7,11 @@ interface AppCardProps {
     link: string;
     description: string;
     linkText: string;
+    interestLink?: string;
+    interestLinkText?: string;
 }
 
-const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, linkText }) => {
+const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, linkText, interestLink, interestLinkText }) => {
   const localDeadline = new Date(deadline.toLocaleString('default', { timeZone: 'UTC' })); // Convert to local time
   const daysRemaining = calculateRemainingDays(localDeadline);
 
@@ -41,7 +43,7 @@ const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, l
       <div className="space-y-4">
         {banner}
         <p className="text-dark">{description}</p>
-        {(daysRemaining > 0) && (
+        {(daysRemaining > 0) ? (
         <a
           href={link}
           target="_blank"
@@ -49,6 +51,15 @@ const AppCard: React.FC<AppCardProps> = ({ title, deadline, link, description, l
           className="inline-block rounded-lg bg-primary px-6 py-3 text-white transition-colors duration-200"
         >
           {linkText}
+        </a>
+        ) : ( (interestLink && interestLinkText) &&
+          <a
+          href={interestLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-lg bg-primary px-6 py-3 text-white transition-colors duration-200"
+        >
+          {interestLinkText}
         </a>
         )}
       </div>

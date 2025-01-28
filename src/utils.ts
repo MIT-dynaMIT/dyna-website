@@ -7,6 +7,7 @@ const week2Start = new Date('2025-08-18');
 const week2End = new Date('2025-08-22');
 
 const studentAppLink = "https://forms.gle/Xd2DrjGATbq175NC6";
+const studentInterestLink = "https://forms.gle/pvHSn4WCAc7Rzp3H7";
 const mentorAppLink = "https://forms.gle/9xV1USV2REbJL5716";
 
 const calculateRemainingDays = (deadline: Date): number => {
@@ -89,5 +90,6 @@ export {
   formatDateToReadableString,
   formatDateToStringWithYear,
   studentAppLink,
-  mentorAppLink
+  mentorAppLink,
+  studentInterestLink
 };

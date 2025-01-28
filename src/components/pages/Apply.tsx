@@ -4,6 +4,8 @@ import {
   formatDateToStringWithYear, 
   studentDeadline, 
   mentorDeadline, 
+  studentAppLink, 
+  mentorAppLink,
   week1Start, 
   week1End, 
   week2Start, 
@@ -32,7 +34,7 @@ const Apply = () => {
           <AppCard 
             title="Students" 
             deadline={new Date(studentDeadline.toLocaleString())} 
-            link="https://forms.gle/Xd2DrjGATbq175NC6" 
+            link={studentAppLink} 
             description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
                   ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
             linkText="Apply to dynaMIT!"
@@ -41,7 +43,7 @@ const Apply = () => {
           <AppCard 
             title="Mentors" 
             deadline={new Date(mentorDeadline.toLocaleString())} 
-            link="https://forms.gle/1X1JXJGZzVY2G6bC9" 
+            link={mentorAppLink}
             description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                   All MIT undergraduate students are welcome to apply!`}
             linkText="Teach at dynaMIT!"

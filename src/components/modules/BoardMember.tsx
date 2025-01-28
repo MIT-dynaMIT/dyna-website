@@ -16,7 +16,7 @@ const BoardMember: React.FC<BoardMemberProps> = ({
   year,
   major,
   hobbies,
-  favoriteExperiment,
+  // favoriteExperiment,
   funFact,
   pronouns,
   imagePath
@@ -43,11 +43,11 @@ const BoardMember: React.FC<BoardMemberProps> = ({
       
       <div className="mt-2 w-full space-y-2">
         <div>
-          <span className="font-semibold">Hobbies:</span> {hobbies}
+          <span className="font-semibold">Hobbies/Extracurriculars:</span> {hobbies}
         </div>
-        <div>
+        {/* <div>
           <span className="font-semibold">Favorite STEM Experiment:</span> {favoriteExperiment}
-        </div>
+        </div> */}
         <div>
           <span className="font-semibold">Fun Fact:</span> {funFact}
         </div>

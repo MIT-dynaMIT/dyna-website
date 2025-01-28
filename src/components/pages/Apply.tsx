@@ -33,7 +33,7 @@ const Apply = () => {
           {/* Students Card */}
           <AppCard 
             title="Students" 
-            deadline={new Date(studentDeadline.toLocaleString())} 
+            deadline={studentDeadline} 
             link={studentAppLink} 
             description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
                   ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
@@ -42,7 +42,7 @@ const Apply = () => {
           {/* Mentors Card */}
           <AppCard 
             title="Mentors" 
-            deadline={new Date(mentorDeadline.toLocaleString())} 
+            deadline={mentorDeadline} 
             link={mentorAppLink}
             description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                   All MIT undergraduate students are welcome to apply!`}

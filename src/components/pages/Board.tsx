@@ -58,7 +58,9 @@ const Board: React.FC = () => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {boardMembers.map((member, index) => {
             const displayName = `${member['First Name']} ${member['Preferred Name'] ? `(${member['Preferred Name']})` : ''} ${member['Last Name']}`;
-            const imagePath = `/images_${member.Year}s/${member['First Name'].toLowerCase()}-${member['Last Name'].toLowerCase()}.jpg`;
+            const fileName = `${member['First Name'].toLowerCase()} ${member['Last Name'].toLowerCase()}.jpg`.replace(/ /g, '-');
+            const imagePath = `/images_${member.Year}s/${fileName}`;
+            console.log(imagePath);
             
             return <BoardMember
               key={index}

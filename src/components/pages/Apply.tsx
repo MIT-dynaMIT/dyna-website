@@ -13,12 +13,29 @@ import {
   studentInterestLink
 } from '../../utils.ts';
 
+import { useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+
 const Apply = () => {
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash) {
+      requestAnimationFrame(() => {
+        const targetElement = document.getElementById(hash.replace("#", ""));
+        if (targetElement) {
+          targetElement.scrollIntoView({ block: "start" });
+        }
+      });
+    }
+  }, [location.hash]);
 
   return (
     <>
       <h1 className="mb-12 text-center text-4xl font-bold">Join dynaMIT!</h1>
-      <div className="">
+      <div>
         {/* Header */}
         <div className="mb-16 text-center">
           <p className="mx-auto mt-4 max-w-3xl text-xl text-dark">
@@ -32,26 +49,30 @@ const Apply = () => {
         {/* Application Cards */}
         <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2">
           {/* Students Card */}
-          <AppCard 
-            title="Students" 
-            deadline={studentDeadline} 
-            link={studentAppLink} 
-            description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
-                  ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
-            linkText="Apply to dynaMIT!"
-            // Comment these to remove the interest form
-            interestLink={studentInterestLink}
-            interestLinkText="Interest Form"
-          />
+          <span id="students">
+            <AppCard 
+              title="Students" 
+              deadline={studentDeadline} 
+              link={studentAppLink} 
+              description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
+                    ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
+              linkText="Apply to dynaMIT!"
+              // Comment these to remove the interest form
+              interestLink={studentInterestLink}
+              interestLinkText="Interest Form"
+            />
+          </span>
           {/* Mentors Card */}
-          <AppCard 
-            title="Mentors" 
-            deadline={mentorDeadline} 
-            link={mentorAppLink}
-            description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
-                  All MIT undergraduate students are welcome to apply!`}
-            linkText="Teach at dynaMIT!"
-          />
+          <span id="mentors">
+            <AppCard 
+              title="Mentors" 
+              deadline={mentorDeadline} 
+              link={mentorAppLink}
+              description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
+                    All MIT undergraduate students are welcome to apply!`}
+              linkText="Teach at dynaMIT!"
+            />
+          </span>
         </div>
 
         {/* Additional Information */}

@@ -12,12 +12,12 @@ const Home = () => {
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const targetElement = document.getElementById(hash.replace("#", ""));
         if (targetElement) {
-          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+          targetElement.scrollIntoView({ block: "start" });
         }
-      }, 200);
+      });
     }
   }, [location.hash]);
 
@@ -53,7 +53,7 @@ const Home = () => {
           title="Students"
           image="/home_images/students.jpg"
           buttonText="Apply as a Student"
-          buttonLink="/apply"
+          buttonLink="/apply/#students"
         >
           <p className="mb-4">
             Rising 6th-9th grade students are eligible for this year's program.
@@ -68,7 +68,7 @@ const Home = () => {
           title="Mentors: MIT Students"
           image="/home_images/mentors.jpg"
           buttonText="Apply as a Mentor"
-          buttonLink="/apply"
+          buttonLink="/apply/#mentors"
         >
           <p className="mb-4">
             Throughout each week, MIT undergraduate and graduate students serve as mentors to instruct the

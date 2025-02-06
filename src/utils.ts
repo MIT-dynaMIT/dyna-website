@@ -1,14 +1,14 @@
-const studentDeadline = new Date('2024-03-01'); // Example date for student applications
-const mentorDeadline = new Date('2024-03-01'); // Example date for mentor applications
+const studentDeadline = new Date('2025-03-03'); // Example date for student applications
+const mentorDeadline = new Date('2025-02-23'); // Example date for mentor applications
 
 const week1Start = new Date('2025-08-11');
 const week1End = new Date('2025-08-15');
 const week2Start = new Date('2025-08-18');
 const week2End = new Date('2025-08-22');
 
-const studentAppLink = "https://forms.gle/Xd2DrjGATbq175NC6";
+const studentAppLink = "https://forms.gle/ZV34bjNpGNvboC8t7";
 const studentInterestLink = "https://forms.gle/pvHSn4WCAc7Rzp3H7";
-const mentorAppLink = "https://forms.gle/9xV1USV2REbJL5716";
+const mentorAppLink = "https://forms.gle/rmdtGE5DMwzWLxs27";
 
 const calculateRemainingDays = (deadline: Date): number => {
   const today = new Date();

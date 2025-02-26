@@ -1,5 +1,5 @@
-const studentDeadline = new Date('2025-03-03'); // Example date for student applications
-const mentorDeadline = new Date('2025-02-23'); // Example date for mentor applications
+const studentDeadline = new Date('2025-03-03');
+const mentorDeadline = new Date('2025-03-02');
 
 const week1Start = new Date('2025-08-11');
 const week1End = new Date('2025-08-15');

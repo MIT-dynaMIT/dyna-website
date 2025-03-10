@@ -7,7 +7,7 @@ const week2Start = new Date('2025-08-18');
 const week2End = new Date('2025-08-22');
 
 const studentAppLink = "https://forms.gle/ZV34bjNpGNvboC8t7";
-const studentInterestLink = "https://forms.gle/pvHSn4WCAc7Rzp3H7";
+const studentInterestLink = "https://forms.gle/DCDAQWJayEc6MNTQA";
 const mentorAppLink = "https://forms.gle/rmdtGE5DMwzWLxs27";
 
 const calculateRemainingDays = (deadline: Date): number => {

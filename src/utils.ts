@@ -1,10 +1,10 @@
 const studentDeadline = new Date("2026-03-10");
 const mentorDeadline = new Date("2026-03-02");
 
-const week1Start = new Date("2026-08-10");
-const week1End = new Date("2026-08-14");
-const week2Start = new Date("2026-08-17");
-const week2End = new Date("2026-08-21");
+const week1Start = new Date("2026-08-17");
+const week1End = new Date("2026-08-21");
+const week2Start = new Date("2026-08-24");
+const week2End = new Date("2026-08-28");
 
 export const openApps: number = 0; // whether apps are open or not
 
@@ -20,7 +20,7 @@ const calculateRemainingDays = (deadline: Date): number => {
 
 const formatDateToReadableString = (date: Date): string => {
   const localDate = new Date(
-    date.toLocaleString("default", { timeZone: "UTC" })
+    date.toLocaleString("default", { timeZone: "UTC" }),
   ); // Convert to local time
   const monthNames = [
     "January",
@@ -73,13 +73,13 @@ const faqs: FAQItemObj[] = [
   {
     question: `When is the dynaMIT Summer ${week1Start.getFullYear()} program?`,
     answer: `Week 1 will run from ${formatDateToReadableString(
-      new Date(week1Start.toLocaleString())
+      new Date(week1Start.toLocaleString()),
     )} to ${formatDateToReadableString(
-      new Date(week1End.toLocaleString())
+      new Date(week1End.toLocaleString()),
     )}, hosting rising 6th/7th graders. Week 2 will run from ${formatDateToReadableString(
-      new Date(week2Start.toLocaleString())
+      new Date(week2Start.toLocaleString()),
     )} to ${formatDateToReadableString(
-      new Date(week2End.toLocaleString())
+      new Date(week2End.toLocaleString()),
     )}, hosting rising 8th/9th graders. Our program is fully in-person on MIT campus!`,
   },
   {

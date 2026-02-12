@@ -6,7 +6,7 @@ const week1End = new Date("2026-08-21");
 const week2Start = new Date("2026-08-24");
 const week2End = new Date("2026-08-28");
 
-export const openApps: number = 0; // whether apps are open or not
+export const openApps: number = 1; // whether apps are open or not
 
 const studentAppLink = "https://forms.gle/yHc43JRgiVPTpegx5";
 const studentInterestLink = "https://forms.gle/DCDAQWJayEc6MNTQA";

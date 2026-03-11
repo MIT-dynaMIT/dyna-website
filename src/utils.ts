@@ -1,4 +1,4 @@
-const studentDeadline = new Date("2026-03-10");
+const studentDeadline = new Date("2026-03-15");
 const mentorDeadline = new Date("2026-03-02");
 
 const week1Start = new Date("2026-08-17");

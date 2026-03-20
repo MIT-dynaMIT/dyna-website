@@ -9,7 +9,7 @@ const week2End = new Date("2026-08-28");
 export const openApps: number = 1; // whether apps are open or not
 
 const studentAppLink = "https://forms.gle/yHc43JRgiVPTpegx5";
-const studentInterestLink = "https://forms.gle/DCDAQWJayEc6MNTQA";
+const studentInterestLink = "https://forms.gle/soBvXqLWYAcdR8Do8";
 const mentorAppLink =
   "https://docs.google.com/forms/d/e/1FAIpQLScf5AVJsZ7CnKaLcBe3GEUQOyjnxQXWBfHtRNxCr2pa8ly2Vw/viewform?usp=dialog";
 

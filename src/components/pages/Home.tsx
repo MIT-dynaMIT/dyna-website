@@ -1,5 +1,6 @@
 import ContentBox from "../modules/ContentBox";
 import FAQItem from "../modules/FAQItem";
+import HomeToasts from "../modules/HomeToasts";
 import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { faqs } from "../../utils";
@@ -23,6 +24,7 @@ const Home = () => {
 
   return (
     <>
+      <HomeToasts />
       {/* Hero Section */}
       <div className="text-center">
         <h1 className="mb-6 font-display text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl">

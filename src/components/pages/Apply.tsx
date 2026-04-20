@@ -65,13 +65,15 @@ const Apply = () => {
           </span>
           {/* Mentors Card */}
           <span id="mentors">
-            <AppCard 
-              title="Mentors" 
-              deadline={mentorDeadline} 
+            <AppCard
+              title="Mentors"
+              deadline={mentorDeadline}
               link={mentorAppLink}
               description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                     All MIT undergraduate students are welcome to apply!`}
               linkText="Teach at dynaMIT!"
+              rollingEmail="dynamit_board@mit.edu"
+              rollingMessage="We're still looking for mentors! Email the board if you'd like to chat more."
             />
           </span>
         </div>

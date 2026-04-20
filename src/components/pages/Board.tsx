@@ -55,8 +55,10 @@ const Board: React.FC = () => {
 
   return (
     <>
-      <h1 className="mb-12 text-center text-4xl font-bold">Meet Our Board</h1>
-      <div className="">
+      <h1 className="mb-12 text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+        Meet Our Board
+      </h1>
+      <div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {boardMembers.map((member, index) => {
             const displayName = `${member["First Name"]} ${

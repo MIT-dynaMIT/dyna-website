@@ -10,25 +10,36 @@
   --base: #FBF2C0;
   --dark: #01161E;
   --accent: #FFE3E3;
-  
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
   color: var(--dark);
+  min-height: 100vh;
 }
 
-a {
-  font-weight: 500;
-  color: var(--secondary-light);
-  text-decoration: inherit;
-  transition: color 0.2s ease;
-}
+@layer utilities {
+  .bg-app {
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 227, 227, 0.65) 0%, rgba(255, 227, 227, 0) 55%),
+      radial-gradient(circle at 88% 92%, rgba(151, 212, 255, 0.55) 0%, rgba(151, 212, 255, 0) 55%),
+      linear-gradient(135deg, #FFF8E1 0%, #FFF3E6 50%, #FFE9EE 100%);
+    background-attachment: fixed;
+  }
 
-a:hover {
-  color: var(--secondary-light);
+  .font-display {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
 }
 
 .nav-link {
@@ -57,36 +68,4 @@ a:hover {
 
 .nav-link.active::after {
   width: 100%;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  background-color: var(--secondary-light);
-  color: var(--base);
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-button:hover {
-  background-color: var(--primary);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
 }

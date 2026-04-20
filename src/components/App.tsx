@@ -6,10 +6,10 @@ import './App.css';
 
 function App() {
   return (
-    <div className="app-container">
+    <div className="app-container bg-app">
       <ApplicationBanner />
       <Navbar />
-      <div className="app-main mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="app-main mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <Outlet />
       </div>
       <Footer />

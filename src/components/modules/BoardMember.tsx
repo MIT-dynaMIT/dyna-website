@@ -24,40 +24,38 @@ const BoardMember: React.FC<BoardMemberProps> = ({
   imagePath,
 }) => {
   return (
-    <div className="m-4 flex max-w-sm flex-col items-center rounded-lg bg-white p-6 shadow-lg">
-      <div className="mb-4 h-48 w-48 overflow-hidden rounded-full">
+    <div className="flex h-full flex-col items-center rounded-2xl bg-white p-6 text-center ring-1 ring-dark/5 shadow-card">
+      <div className="mb-4 h-44 w-44 overflow-hidden rounded-full">
         {imagePath ? (
           <img
             src={imagePath}
             alt={`${name}'s profile`}
             className="h-full w-full object-cover"
+            loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-base">
-            <span className="text-4xl text-dark">{name[0]}</span>
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-base to-accent">
+            <span className="text-5xl font-bold text-dark/60">{name[0]}</span>
           </div>
         )}
       </div>
 
-      <h3 className="text-primary-blue mb-1 text-xl font-bold">{name}</h3>
-      <div className="flex gap-2">
-        <p className="mb-1 text-dark">{pronouns}</p>
-        <p className="mb-1 text-dark">{emojis}</p>
+      <h3 className="mb-1 font-display text-xl font-bold text-dark">{name}</h3>
+      <div className="mb-1 flex items-center justify-center gap-2 text-sm text-dark/70">
+        <span>{pronouns}</span>
+        {emojis && <span aria-hidden="true">{emojis}</span>}
       </div>
-      <p className="mb-2 text-dark">
+      <p className="mb-4 text-sm font-medium text-primary">
         {major} '{year.substring(2)}
       </p>
 
-      <div className="mt-2 w-full space-y-2">
+      <div className="mt-auto w-full space-y-3 border-t border-dark/5 pt-4 text-left text-sm text-dark/80">
         <div>
-          <span className="font-semibold">Hobbies/Extracurriculars:</span>{" "}
+          <span className="font-semibold text-dark">Hobbies:</span>{" "}
           {hobbies}
         </div>
-        {/* <div>
-          <span className="font-semibold">Favorite STEM Experiment:</span> {favoriteExperiment}
-        </div> */}
         <div>
-          <span className="font-semibold">Fun Fact:</span> {funFact}
+          <span className="font-semibold text-dark">Fun Fact:</span> {funFact}
         </div>
       </div>
     </div>

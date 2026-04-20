@@ -7,16 +7,16 @@ const ApplicationBanner = () => {
   if (studentDaysRemaining <= 0 || openApps == 0) return null;
 
   return (
-    <div className="bg-accent p-0 text-center">
-      <p className="text-sm font-bold text-dark">
-        Student Applications close in{" "}
-        <span className="text-secondary">{studentDaysRemaining}</span> day
-        {studentDaysRemaining === 1 ? "" : "s"}!
+    <div className="bg-secondary py-2 text-center">
+      <p className="text-sm text-white">
+        Student applications close in{" "}
+        <span className="font-semibold">{studentDaysRemaining}</span> day
+        {studentDaysRemaining === 1 ? "" : "s"}.{" "}
         <Link
           to="/apply"
-          className="text-primary transition-colors duration-200 hover:text-dark"
+          className="font-semibold text-white underline-offset-2 hover:underline"
         >
-          {` Apply Now`}
+          Apply now
         </Link>
       </p>
     </div>

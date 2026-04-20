@@ -2,8 +2,6 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to right, var(--base), var(--accent));
-  text-align: center;
 }
 
 .app-main {

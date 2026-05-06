@@ -18,7 +18,7 @@ html {
 
 html,
 body {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -37,7 +37,7 @@ body {
   }
 
   .font-display {
-    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
     letter-spacing: -0.01em;
   }
 }

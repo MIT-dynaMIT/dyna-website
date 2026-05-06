@@ -107,12 +107,12 @@ const Home = () => {
           href="https://crowdfund.mit.edu/story/dynaMIT-S26"
           target="_blank"
           rel="noopener noreferrer"
-          className="group block overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-secondary p-8 shadow-lg transition-transform duration-200 hover:scale-[1.01] hover:shadow-xl sm:p-12"
+          className="group block overflow-hidden rounded-2xl bg-gradient-to-br from-light to-secondary-light p-8 ring-1 ring-dark/5 shadow-card transition-transform duration-200 hover:scale-[1.01] hover:shadow-card-hover sm:p-12"
         >
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-white/20 md:h-20 md:w-20">
+            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-white/50 md:h-20 md:w-20">
               <svg
-                className="h-8 w-8 text-white md:h-10 md:w-10"
+                className="h-8 w-8 text-secondary md:h-10 md:w-10"
                 fill="currentColor"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
@@ -121,20 +121,20 @@ const Home = () => {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-secondary-light">
+              <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-secondary">
                 Support dynaMIT
               </p>
-              <h2 className="mb-2 text-2xl font-bold text-white sm:text-3xl">
+              <h2 className="mb-2 font-display text-2xl font-bold text-dark sm:text-3xl">
                 Help us power summer 2026
               </h2>
-              <p className="text-white/90">
+              <p className="text-dark/80 leading-relaxed">
                 Every contribution helps us keep dynaMIT free for middle
-                schoolers — funding lab materials, meals, and transportation
-                for students across Massachusetts.
+                schoolers — funding program materials, meals, and hands-on
+                activities for students across Massachusetts.
               </p>
             </div>
             <div className="flex-shrink-0">
-              <span className="inline-flex items-center rounded-full bg-white px-6 py-3 font-semibold text-primary shadow-md transition-colors duration-200 group-hover:bg-secondary-light">
+              <span className="inline-flex items-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 group-hover:bg-primary-dark">
                 Donate
                 <svg
                   className="ml-2 h-4 w-4"

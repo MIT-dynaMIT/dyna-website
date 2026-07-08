@@ -104,7 +104,7 @@ const Home = () => {
       {/* Crowdfunding Callout */}
       <div className="mt-16">
         <a
-          href="https://crowdfund.mit.edu/story/dynaMIT-S26"
+          href="https://giving.mit.edu/form/?fundld=2721374#/"
           target="_blank"
           rel="noopener noreferrer"
           className="group block overflow-hidden rounded-2xl bg-gradient-to-br from-light to-secondary-light p-8 ring-1 ring-dark/5 shadow-card transition-transform duration-200 hover:scale-[1.01] hover:shadow-card-hover sm:p-12"

@@ -38,7 +38,7 @@ const HomeToasts = () => {
     title: 'Help us power summer 2026',
     message: 'Every contribution keeps dynaMIT free for students.',
     ctaLabel: 'Donate',
-    ctaHref: 'https://crowdfund.mit.edu/story/dynaMIT-S26',
+    ctaHref: 'https://giving.mit.edu/form/?fundld=2721374#/',
     ctaExternal: true,
   });
 

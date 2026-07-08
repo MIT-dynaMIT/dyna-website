@@ -19,7 +19,7 @@ const Footer = () => {
           {/* Links */}
           <div className="flex items-center gap-5 text-sm">
             <a
-              href="https://crowdfund.mit.edu/story/dynaMIT-S26"
+              href="https://giving.mit.edu/form/?fundld=2721374#/"
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-primary transition-colors duration-200 hover:text-secondary"

@@ -164,3 +164,20 @@
 .coup-root .ed-line { color: var(--ink-mut); font-size: 12px; font-variant-numeric: tabular-nums; }
 .coup-root .ed-notes { list-style: none; padding: 0; margin: 10px 0 0; }
 .coup-root .ed-notes li { color: var(--ink-mut); font-size: 13px; padding: 3px 0; }
+
+/* ------------------------------------------------ fullscreen editor */
+.coup-root .ed-main:fullscreen {
+  background:
+    radial-gradient(ellipse at 50% -10%, #1e2833 0%, #12161b 55%),
+    #12161b;
+  padding: 18px 26px;
+  overflow-y: auto;
+}
+.coup-root .ed-main:fullscreen .ed-blockly {
+  height: calc(100vh - 300px);
+  min-height: 500px;
+}
+.coup-root .ed-main:fullscreen .ed-py-inner {
+  height: calc(100vh - 330px);
+  min-height: 480px;
+}

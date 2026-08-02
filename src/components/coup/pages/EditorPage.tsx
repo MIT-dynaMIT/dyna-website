@@ -367,6 +367,22 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const handleSave = async () => { setSaving(true); try { await doSave(idxRef.current); } finally { setSaving(false); } };
   const renameCurrent = (v: string) => { setName(v); setDirty(true); };
 
+  // ---------------------------------------------------------------- fullscreen
+  const edMainRef = useRef<HTMLElement>(null);
+  const [isFull, setIsFull] = useState(false);
+  useEffect(() => {
+    const onChange = () => {
+      setIsFull(!!document.fullscreenElement);
+      setTimeout(() => wsRef.current && Blockly.svgResize(wsRef.current), 50);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void edMainRef.current?.requestFullscreen().catch(() => {});
+  };
+
   const codeForView = mode === 'blocks' ? generated : pythonText;
   const lineCount = codeForView.split('\n').length;
 
@@ -400,7 +416,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
       </aside>
 
       {/* main editor */}
-      <section className="ed-main">
+      <section className="ed-main" ref={edMainRef}>
         <div className="coup-card ed-head">
           <div className="ed-head-top">
             <div className="ed-name-field">
@@ -428,6 +444,9 @@ export default function EditorPage({ user }: { user: CoupUser }) {
                 onClick={() => mode === 'blocks' && switchToPython()}>⌨ Advanced (Python)</button>
             </div>
             <div className="ed-actions">
+              <button className="small" onClick={toggleFullscreen} title="Fill the whole screen with the editor">
+                {isFull ? '✕ Exit full screen' : '⛶ Full screen'}
+              </button>
               <button className="small" onClick={undo}>↶ Undo</button>
               <button className="small" onClick={runCheck} disabled={checking}>
                 {checking ? 'Checking…' : 'Check my bot ✓'}

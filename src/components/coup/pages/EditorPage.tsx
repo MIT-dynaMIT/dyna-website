@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Blockly from 'blockly/core';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 import type { BotSlot, CheckResult, CoupUser } from '../api';
 import { timeAgo } from '../api';
 import { useToast } from '../CoupApp';
@@ -54,6 +54,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const nameRef = useRef(name); nameRef.current = name;
   const pyRef = useRef(pythonText); pyRef.current = pythonText;
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
+  const slotsRef = useRef(slots); slotsRef.current = slots;
 
   // ---------------------------------------------------------------- load a slot into the editor
   const loadSlot = useCallback((slot: BotSlot | null, i: number) => {
@@ -165,7 +166,11 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     const blocksJson = Blockly.serialization.workspaces.save(ws);
     const m = modeRef.current;
     const python = m === 'blocks' ? generatePython(ws) : pyRef.current;
-    const payload = { name: nameRef.current || defaultName(i), mode: m, blocksJson, python };
+    const payload = {
+      name: nameRef.current || defaultName(i), mode: m, blocksJson, python,
+      // reject-stale-writes guard: what this tab believes the slot's version is
+      baseUpdatedAt: slotsRef.current[i]?.updatedAt ?? null,
+    };
     try {
       const r = await api.put<{ slot: BotSlot }>(`/bots/${i}`, payload);
       const saved: BotSlot = r?.slot ?? { ...payload, updatedAt: Date.now() } as BotSlot;
@@ -174,10 +179,21 @@ export default function EditorPage({ user }: { user: CoupUser }) {
       if (!opts?.silent) toast(`Saved “${payload.name}” ✓`);
       return true;
     } catch (ex) {
+      if (ex instanceof ApiError && ex.status === 409) {
+        // someone else (another tab?) saved this slot after we loaded it —
+        // never clobber: refresh from the server instead
+        try {
+          const r = await api.get<{ slots: (BotSlot | null)[] }>('/bots');
+          setSlots(r.slots);
+          if (i === idxRef.current) loadSlot(r.slots[i] ?? null, i);
+        } catch { /* keep local state */ }
+        toast('This slot was changed in another tab — reloaded the newer version');
+        return false;
+      }
       if (!opts?.silent) toast(ex instanceof Error ? ex.message : 'Save failed');
       return false;
     }
-  }, [toast]);
+  }, [toast, loadSlot]);
 
   // ---------------------------------------------------------------- autosave (every 5 min when dirty)
   useEffect(() => {

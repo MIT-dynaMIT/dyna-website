@@ -107,6 +107,12 @@ class Store {
   saveSlot(user, idx, data) {
     const slots = this.getSlots(user);
     if (!(idx >= 0 && idx < slots.length)) return { error: 'bad slot' };
+    // optimistic concurrency: a stale tab (loaded before someone else saved
+    // this slot) must not silently clobber the newer version
+    if (data.baseUpdatedAt !== undefined && slots[idx]
+      && slots[idx].updatedAt !== data.baseUpdatedAt) {
+      return { conflict: true, slot: slots[idx] };
+    }
     slots[idx] = {
       name: String(data.name || `Bot ${idx + 1}`).slice(0, 24),
       mode: data.mode === 'python' ? 'python' : 'blocks',

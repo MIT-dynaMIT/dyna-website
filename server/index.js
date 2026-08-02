@@ -62,6 +62,7 @@ app.get('/api/coup/bots', auth, (req, res) => {
 
 app.put('/api/coup/bots/:idx', auth, (req, res) => {
   const r = store.saveSlot(req.user, Number(req.params.idx), req.body || {});
+  if (r.conflict) return res.status(409).json({ error: 'this slot was changed elsewhere — reloading it', slot: r.slot });
   if (r.error) return res.status(400).json(r);
   res.json(r);
 });

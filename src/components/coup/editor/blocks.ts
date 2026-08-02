@@ -812,16 +812,27 @@ export function generatePython(workspace: Blockly.Workspace): string {
 }
 
 // ---------------------------------------------------------------- starter
-export const STARTER_PYTHON = `def your_turn(state):
+export const STARTER_PYTHON = `# ================= MY COUP BOT =================
+# your_turn runs on your turn. Return exactly ONE action:
+#   income() foreign_aid() tax() steal() exchange()
+#   coup(role)            <- CALL the coup: name the card you think they have!
+#   assassinate(role, p)  <- name a card; p = chance you challenge a Contessa block
+# Useful math: prob_opponent_has(state, "duke")   best_coup_call(state)
+
+def your_turn(state):
+    # at 10+ coins you MUST coup. 7+ is usually worth it anyway.
     if state.my_coins >= 7:
         return coup(best_coup_call(state))
+    # play your real cards
     if "duke" in state.my_cards:
         return tax()
     if "captain" in state.my_cards and state.opponent.coins >= 2:
         return steal()
+    # otherwise: quiet money
     return income()
 
 def respond(state, action):
+    # your opponent did something. challenge() / block(role) / allow()
     if action.type == "steal" and "captain" in state.my_cards:
         return block("captain")
     if action.type == "foreign_aid" and "duke" in state.my_cards:
@@ -829,6 +840,8 @@ def respond(state, action):
     return allow()
 
 def when_assassinated(state, action):
+    # they named action.call — if that card is NOT in your hand, it will
+    # MISS all by itself. Don't waste a block on a miss!
     if not (action.call in state.my_cards):
         return allow()
     return block_contessa()

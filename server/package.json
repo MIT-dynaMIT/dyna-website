@@ -1,0 +1,12 @@
+{
+  "name": "dynacoup-server",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

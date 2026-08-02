@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   assetsInclude: ['**/*.csv'], // Add CSV files to the assets
+  server: {
+    proxy: {
+      // dynaCOUP camp server (server/index.js)
+      '/api': 'http://localhost:8787',
+    },
+  },
   build: {
     rollupOptions: {
       input: {

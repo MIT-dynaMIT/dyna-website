@@ -1,0 +1,189 @@
+/* dynaCOUP — court intrigue theme. Scoped under .coup-root so it never
+   fights the main site's Tailwind styles. Dark felt, aged gold, parchment. */
+
+.coup-root {
+  --bg: #12161b;
+  --bg-2: #191f26;
+  --panel: #1c242b;
+  --panel-2: #222c35;
+  --line: #2e3a44;
+  --accent: #c9a84c;
+  --accent-dim: #9a7f37;
+  --parch: #f0e6cc;
+  --ink: #e9ddbf;
+  --ink-mut: #9aa5ad;
+  --ink-dark: #1c242b;
+  --felt-1: #1c2d36;
+  --felt-2: #16232a;
+  --good: #3f9d6b;
+  --bad: #b8503f;
+  --duke: #7d3c98;
+  --assassin: #4a5560;
+  --captain: #2471a3;
+  --ambassador: #1e8449;
+  --contessa: #a93226;
+
+  min-height: 100vh;
+  display: flow-root; /* contain child margins — no white gap above the app */
+  background:
+    radial-gradient(ellipse at 50% -10%, #1e2833 0%, var(--bg) 55%),
+    var(--bg);
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.coup-root *, .coup-root *::before, .coup-root *::after { box-sizing: border-box; }
+
+.coup-root .mono, .coup-root code, .coup-root textarea {
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+.coup-root .sans { font-family: Inter, system-ui, sans-serif; }
+
+/* ------------------------------------------------ shell */
+.coup-shell { max-width: none; margin: 0 auto; padding: 0 26px 60px; }
+
+.coup-top {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 0 12px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.coup-logo {
+  font-size: 22px; letter-spacing: 0.04em; color: var(--parch);
+  text-decoration: none; white-space: nowrap;
+}
+.coup-logo .gold { color: var(--accent); }
+.coup-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.coup-nav a {
+  color: var(--ink-mut); text-decoration: none; font-size: 14.5px;
+  padding: 7px 13px; border-radius: 6px; letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.coup-nav a:hover { color: var(--parch); }
+.coup-nav a.active {
+  color: var(--accent); border-color: var(--accent-dim);
+  background: rgba(201, 168, 76, 0.07);
+}
+.coup-top .spacer { flex: 1; }
+.coup-whoami { color: var(--ink-mut); font-size: 13.5px; font-style: italic; }
+.coup-sitelink { color: var(--ink-mut); font-size: 13px; text-decoration: none; }
+.coup-sitelink:hover { color: var(--accent); }
+
+/* ------------------------------------------------ generic */
+.coup-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 18px 20px;
+}
+.coup-h { color: var(--parch); font-size: 17px; margin: 0 0 12px; letter-spacing: 0.05em; }
+.coup-h small { color: var(--ink-mut); font-size: 12.5px; letter-spacing: 0.02em; margin-left: 10px; font-style: italic; }
+.coup-sub { color: var(--ink-mut); font-size: 13.5px; margin: 2px 0 14px; }
+
+.coup-root button {
+  font-family: inherit; cursor: pointer; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--panel-2);
+  color: var(--ink); padding: 8px 16px; font-size: 14px;
+  transition: border-color 0.15s, background 0.15s, transform 0.06s;
+}
+.coup-root button:hover:not(:disabled) { border-color: var(--accent-dim); }
+.coup-root button:active:not(:disabled) { transform: translateY(1px); }
+.coup-root button:disabled { opacity: 0.45; cursor: default; }
+.coup-root button.primary {
+  background: linear-gradient(180deg, #d8b95e, var(--accent));
+  border-color: var(--accent-dim); color: #221a06; font-weight: 700;
+}
+.coup-root button.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.coup-root button.danger { border-color: #6e352b; color: #e0a196; }
+.coup-root button.ghost { background: transparent; }
+.coup-root button.small { padding: 4px 10px; font-size: 12.5px; }
+
+.coup-root input[type="text"], .coup-root input[type="password"], .coup-root select {
+  font-family: inherit; font-size: 14.5px; color: var(--parch);
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 12px; width: 100%; outline: none;
+}
+.coup-root input:focus, .coup-root select:focus { border-color: var(--accent-dim); }
+.coup-root label { display: block; font-size: 12.5px; color: var(--ink-mut); margin: 12px 0 5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.coup-error { color: #e0a196; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
+.coup-note { color: var(--ink-mut); font-size: 13px; font-style: italic; }
+
+/* ------------------------------------------------ login */
+.coup-login {
+  max-width: 400px; margin: 9vh auto 0; text-align: center;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 36px 34px 30px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+.coup-login h1 { color: var(--parch); font-size: 30px; margin: 0 0 4px; }
+.coup-login h1 .gold { color: var(--accent); }
+.coup-login .tag { color: var(--ink-mut); font-style: italic; font-size: 14px; margin-bottom: 20px; }
+.coup-login form { text-align: left; }
+.coup-login button.primary { width: 100%; margin-top: 18px; padding: 11px; font-size: 15px; }
+
+/* ------------------------------------------------ leaderboard + tables */
+.coup-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.coup-table th {
+  text-align: left; color: var(--ink-mut); font-weight: 400; font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  padding: 6px 10px; border-bottom: 1px solid var(--line);
+}
+.coup-table td { padding: 8px 10px; border-bottom: 1px solid rgba(46, 58, 68, 0.5); }
+.coup-table tr:last-child td { border-bottom: none; }
+.coup-table td.num, .coup-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.coup-table .goldrow td { color: var(--accent); }
+.coup-table .rank { color: var(--ink-mut); width: 44px; white-space: nowrap; }
+.coup-table tr.top1 .rank::before { content: '♛ '; color: var(--accent); }
+.coup-table button { white-space: nowrap; }
+.coup-table .house-tag {
+  font-size: 10.5px; color: var(--ink-mut); border: 1px solid var(--line);
+  border-radius: 4px; padding: 1px 5px; margin-left: 7px; letter-spacing: 0.05em;
+}
+
+.coup-elo-big { font-size: 34px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.coup-stat-row { display: flex; gap: 26px; flex-wrap: wrap; align-items: baseline; }
+.coup-stat-row .stat .lab { font-size: 11px; color: var(--ink-mut); text-transform: uppercase; letter-spacing: 0.09em; }
+.coup-stat-row .stat .val { font-size: 22px; color: var(--parch); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------ match history rows */
+.match-row {
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--line); border-left: 5px solid var(--line);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+  background: var(--panel); cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.match-row:hover { background: var(--panel-2); border-color: var(--accent-dim); }
+.match-row.win { border-left-color: var(--good); }
+.match-row.loss { border-left-color: var(--bad); }
+.match-row .verdict { width: 74px; font-weight: 700; letter-spacing: 0.06em; }
+.match-row.win .verdict { color: var(--good); }
+.match-row.loss .verdict { color: var(--bad); }
+.match-row .verdict small { display: block; font-weight: 400; color: var(--ink-mut); font-size: 11px; }
+.match-row .lineup { flex: 1; font-size: 13.5px; color: var(--ink-mut); }
+.match-row .lineup .p { margin-right: 8px; white-space: nowrap; }
+.match-row .lineup .p.winner { color: var(--parch); }
+.match-row .lineup .p.me { color: var(--accent); }
+.match-row .delta { font-variant-numeric: tabular-nums; font-size: 15px; width: 52px; text-align: right; }
+.match-row .delta.pos { color: var(--good); }
+.match-row .delta.neg { color: var(--bad); }
+.match-row .meta { color: var(--ink-mut); font-size: 12px; width: 90px; text-align: right; }
+
+/* ------------------------------------------------ misc */
+.coup-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 860px) { .coup-grid2 { grid-template-columns: 1fr; } }
+.coup-spin {
+  display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  animation: coupspin 0.8s linear infinite; vertical-align: -3px;
+}
+@keyframes coupspin { to { transform: rotate(360deg); } }
+
+.coup-toast {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+  background: var(--parch); color: var(--ink-dark); border-radius: 8px;
+  padding: 10px 20px; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 90;
+}
+.coup-toast.show { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .coup-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -1,0 +1,139 @@
+/* dynaCOUP bot editor — layout for the Blockly workspace, code view, sidebar.
+   Scoped under .coup-root; reuses the court-intrigue palette from coup.css. */
+
+.coup-root .ed-wrap {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .coup-root .ed-wrap { grid-template-columns: 1fr; }
+}
+
+/* ---------------------------------------------------- sidebar */
+.coup-root .ed-side { position: sticky; top: 14px; }
+.coup-root .ed-slots {
+  display: flex; flex-direction: column; gap: 7px;
+  max-height: 62vh; overflow-y: auto; margin-right: -6px; padding-right: 6px;
+}
+.coup-root .ed-slot {
+  display: flex; align-items: center; gap: 11px; text-align: left;
+  padding: 9px 11px; width: 100%; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg-2);
+}
+.coup-root .ed-slot:hover { border-color: var(--accent-dim); }
+.coup-root .ed-slot.active {
+  border-color: var(--accent); background: rgba(201, 168, 76, 0.09);
+}
+.coup-root .ed-slot.empty .ed-slot-name { color: var(--ink-mut); }
+.coup-root .ed-slot-n {
+  flex: 0 0 24px; height: 24px; border-radius: 6px;
+  display: grid; place-items: center; font-size: 12.5px;
+  color: var(--ink-mut); background: var(--panel-2); border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.coup-root .ed-slot.active .ed-slot-n { color: var(--accent); border-color: var(--accent-dim); }
+.coup-root .ed-slot-body { display: flex; flex-direction: column; min-width: 0; }
+.coup-root .ed-slot-name {
+  color: var(--parch); font-size: 14px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+}
+.coup-root .ed-slot.active .ed-slot-name { color: var(--accent); }
+.coup-root .ed-slot-meta { color: var(--ink-mut); font-size: 11px; letter-spacing: 0.02em; }
+
+/* ---------------------------------------------------- main column */
+.coup-root .ed-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.coup-root .ed-head { padding: 14px 18px; }
+.coup-root .ed-head-top { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.coup-root .ed-name-field { flex: 1; min-width: 200px; }
+.coup-root .ed-name-field label { margin-top: 0; }
+.coup-root .ed-name-field input { font-size: 16px; }
+.coup-root .ed-status { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
+.coup-root .ed-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--good); box-shadow: 0 0 0 3px rgba(63, 157, 107, 0.18);
+}
+.coup-root .ed-dot.on { background: var(--accent); box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.22); }
+.coup-root .ed-hint {
+  color: var(--ink-mut); font-size: 12.5px; font-style: italic;
+  margin: 10px 0 0; padding-top: 10px; border-top: 1px solid rgba(46, 58, 68, 0.5);
+}
+
+.coup-root .ed-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-top: 12px;
+}
+.coup-root .ed-modes { display: flex; gap: 6px; }
+.coup-root .ed-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------- blockly */
+.coup-root .ed-blockly-shell { padding: 0; overflow: hidden; }
+.coup-root .ed-blockly-shell.hidden { display: none; }
+.coup-root .ed-blockly {
+  height: 65vh; min-height: 460px; width: 100%; border-radius: 10px;
+}
+/* let Blockly's own widgets sit above our panels */
+.coup-root .blocklyToolboxDiv { border-right: 1px solid var(--line); }
+.blocklyWidgetDiv, .blocklyDropDownDiv, .blocklyTooltipDiv { z-index: 99999; }
+
+/* ---------------------------------------------------- python editor */
+.coup-root .ed-py { padding: 0; overflow: hidden; }
+.coup-root .ed-py-inner {
+  display: flex; height: 62vh; min-height: 440px; background: #10151a;
+  border-radius: 10px 10px 0 0; overflow: hidden;
+}
+.coup-root .ed-gutter {
+  margin: 0; padding: 12px 8px 12px 12px; text-align: right;
+  color: #55636e; background: #0c1014; font-size: 13px; line-height: 1.5;
+  user-select: none; min-width: 42px; overflow: hidden;
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+.coup-root .ed-py-area {
+  flex: 1; resize: none; border: none; outline: none;
+  background: transparent; color: var(--parch);
+  padding: 12px 14px; font-size: 13px; line-height: 1.5;
+  width: 100%; white-space: pre; overflow: auto;
+}
+.coup-root .ed-py-note { padding: 10px 16px; margin: 0; }
+.coup-root .ed-py-note code {
+  color: var(--accent); background: rgba(201, 168, 76, 0.08);
+  padding: 1px 4px; border-radius: 4px; font-size: 12px;
+}
+
+/* ---------------------------------------------------- generated-code panel */
+.coup-root .ed-codepanel { padding: 0; overflow: hidden; }
+.coup-root .ed-code-toggle {
+  width: 100%; text-align: left; border: none; border-radius: 0;
+  background: var(--panel-2); color: var(--ink); padding: 11px 16px; font-size: 14px;
+}
+.coup-root .ed-code-toggle:hover { border: none; background: var(--panel-2); filter: brightness(1.08); }
+.coup-root .ed-code-toggle small { color: var(--ink-mut); font-style: italic; margin-left: 8px; }
+.coup-root .ed-code {
+  margin: 0; padding: 14px 16px; max-height: 320px; overflow: auto;
+  background: #10151a; color: var(--ink); font-size: 12.5px; line-height: 1.55;
+  border-top: 1px solid var(--line); white-space: pre;
+}
+
+/* ---------------------------------------------------- check results */
+.coup-root .ed-check { border-left: 5px solid var(--line); }
+.coup-root .ed-check.ok { border-left-color: var(--good); }
+.coup-root .ed-check.bad { border-left-color: var(--bad); }
+.coup-root .ed-check-h { color: var(--parch); font-size: 17px; margin: 0 0 6px; }
+.coup-root .ed-check.ok .ed-check-h { color: var(--good); }
+.coup-root .ed-problems { list-style: none; padding: 0; margin: 10px 0; }
+.coup-root .ed-problems li {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  padding: 8px 10px; margin-bottom: 6px; font-size: 13.5px;
+  background: rgba(184, 80, 63, 0.08); border: 1px solid rgba(184, 80, 63, 0.3);
+  border-radius: 7px; color: var(--ink);
+}
+.coup-root .ed-fn {
+  font-family: 'SF Mono', ui-monospace, monospace; font-size: 12px;
+  color: var(--accent); background: rgba(201, 168, 76, 0.1);
+  padding: 1px 6px; border-radius: 4px;
+}
+.coup-root .ed-line { color: var(--ink-mut); font-size: 12px; font-variant-numeric: tabular-nums; }
+.coup-root .ed-notes { list-style: none; padding: 0; margin: 10px 0 0; }
+.coup-root .ed-notes li { color: var(--ink-mut); font-size: 13px; padding: 3px 0; }

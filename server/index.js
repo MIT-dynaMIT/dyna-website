@@ -1,0 +1,231 @@
+/**
+ * dynaCOUP camp server — API behind the dynaMIT website's /coup pages.
+ *
+ *   node index.js            → http://localhost:8787  (Vite proxies /api here)
+ *   node seed.js             → create logins + sample bots + warm up the ladder
+ *
+ * Everything lives under /api/coup/*. Auth is a Bearer token from /login;
+ * accounts are pre-created (no signup) — students get their logins on paper.
+ */
+'use strict';
+
+const path = require('node:path');
+const express = require('express');
+
+const { Store } = require('./store');
+const { ScrimServer } = require('./scrim');
+const { PlayManager } = require('./play');
+const { ScriptBot, checkProgram } = require('./botapi');
+const { replayMatch } = require('./runner');
+const { HOUSE, HONEST_HANK } = require('./samplebots/bots');
+
+const PORT = Number(process.env.PORT || 8787);
+const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
+const scrim = new ScrimServer(store);
+const plays = new PlayManager();
+
+const app = express();
+app.use(express.json({ limit: '1mb' }));
+
+// serve the built website too, if it exists (production single-process mode)
+const dist = path.join(__dirname, '..', 'dist');
+app.use(express.static(dist));
+
+// ------------------------------------------------------------ auth plumbing
+function auth(req, res, next) {
+  const h = req.headers.authorization || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  const user = store.getSessionUser(token);
+  if (!user) return res.status(401).json({ error: 'Not logged in' });
+  req.user = user;
+  next();
+}
+function adminOnly(req, res, next) {
+  if (!req.user.isAdmin) return res.status(403).json({ error: 'Organizers only' });
+  next();
+}
+const pub = (u) => ({ username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin });
+
+app.post('/api/coup/login', (req, res) => {
+  const { username, password } = req.body || {};
+  const user = store.checkLogin(username, password);
+  if (!user) return res.status(401).json({ error: 'Wrong username or password' });
+  res.json({ token: store.createSession(user.username), user: pub(user) });
+});
+
+app.get('/api/coup/me', auth, (req, res) => res.json({ user: pub(req.user) }));
+
+// ------------------------------------------------------------ bot slots
+app.get('/api/coup/bots', auth, (req, res) => {
+  res.json({ slots: store.getSlots(req.user), slotCount: store.slotCount(req.user) });
+});
+
+app.put('/api/coup/bots/:idx', auth, (req, res) => {
+  const r = store.saveSlot(req.user, Number(req.params.idx), req.body || {});
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+app.post('/api/coup/check', auth, (req, res) => {
+  res.json(checkProgram(String(req.body.python || '')));
+});
+
+// ------------------------------------------------------------ scrimmage
+app.get('/api/coup/scrim', auth, (req, res) => {
+  const board = store.leaderboard();
+  const mine = store.mySubmissions(req.user).map((s) => ({
+    id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), games: s.games,
+    winRate: s.last.length ? s.last.reduce((a, x) => a + x, 0) / s.last.length : 0,
+    lastN: s.last.length, errors: s.errors,
+    rank: board.findIndex((b) => b.id === s.id) + 1,
+  }));
+  res.json({
+    top: board.slice(0, 10),
+    totalBots: board.length,
+    totalGames: store.scrim.totalGames,
+    running: !!store.scrim.running,
+    mine,
+  });
+});
+
+app.post('/api/coup/scrim/submit', auth, (req, res) => {
+  const idx = Number(req.body.slot);
+  const slots = store.getSlots(req.user);
+  const s = slots[idx];
+  if (!s || !s.python) return res.status(400).json({ error: 'that slot is empty' });
+  const check = checkProgram(s.python);
+  if (!check.ok) return res.status(400).json({ error: 'the bot has problems — run "Check my bot" in the editor first', problems: check.problems });
+  const r = store.submit(req.user, idx);
+  if (r.error) return res.status(400).json(r);
+  res.json({ ok: true, unchanged: !!r.unchanged, submission: { id: r.submission.id, name: r.submission.name } });
+});
+
+app.post('/api/coup/scrim/withdraw', auth, (req, res) => {
+  res.json({ ok: store.withdraw(req.user, String(req.body.id || '')) });
+});
+
+// ------------------------------------------------------------ match history
+app.get('/api/coup/matches', auth, (req, res) => {
+  const subId = req.query.sub || null;
+  const mine = store.mySubmissions(req.user);
+  const sub = subId ? mine.find((s) => s.id === subId) : mine[0];
+  if (!sub) return res.json({ bot: null, matches: [] });
+  const matches = sub.matchIds.map((id) => store.getMatch(id)).filter(Boolean).reverse().map((m) => ({
+    id: m.id, ts: m.ts,
+    myBot: sub.name,
+    win: m.winnerName === sub.name,
+    winnerName: m.winnerName,
+    players: m.seatNames,
+    owners: m.owners,
+    eloDelta: m.eloDelta[sub.name] ?? 0,
+    turns: m.turns,
+    adjudicated: !!m.adjudicated,
+  }));
+  res.json({
+    bot: { id: sub.id, name: sub.name, elo: Math.round(sub.elo), games: sub.games },
+    matches,
+  });
+});
+
+app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
+  const m = store.getMatch(req.params.id);
+  if (!m) return res.status(404).json({ error: 'match not found (older games are pruned)' });
+  const r = replayMatch(m);
+  res.json({
+    frames: r.frames, seatNames: m.seatNames, owners: m.owners,
+    winnerName: m.winnerName, eloDelta: m.eloDelta, ts: m.ts,
+  });
+});
+
+// ------------------------------------------------------------ heads-up play
+app.post('/api/coup/play/start', auth, (req, res) => {
+  const picks = Array.isArray(req.body.opponents) ? req.body.opponents.slice(0, 4) : [];
+  const slots = store.getSlots(req.user);
+  const opponents = [];
+  const usedNames = new Set([req.user.displayName]);
+  for (let i = 0; i < 4; i++) {
+    const pick = picks[i];
+    let source = HONEST_HANK;
+    let name = HOUSE[i % HOUSE.length].name;
+    if (pick != null && slots[pick] && slots[pick].python) {
+      source = slots[pick].python;
+      name = slots[pick].name;
+    } else if (pick === 'house' || pick == null) {
+      const h = HOUSE[i % HOUSE.length];
+      source = h.source; name = h.name;
+    }
+    while (usedNames.has(name)) name = name + ' Ⅱ';
+    usedNames.add(name);
+    try {
+      opponents.push({ bot: new ScriptBot(source, name), name });
+    } catch (err) {
+      return res.status(400).json({ error: `bot in slot ${Number(pick) + 1} does not compile: ${err.message}` });
+    }
+  }
+  const sess = plays.create(req.user.displayName, opponents);
+  res.json(sess.snapshot(0));
+});
+
+app.get('/api/coup/play/:id', auth, (req, res) => {
+  const sess = plays.get(req.params.id);
+  if (!sess) return res.status(404).json({ error: 'no such game' });
+  res.json(sess.snapshot(Number(req.query.cursor) || 0));
+});
+
+app.post('/api/coup/play/:id/move', auth, (req, res) => {
+  const sess = plays.get(req.params.id);
+  if (!sess) return res.status(404).json({ error: 'no such game' });
+  const cursor = Number(req.body.cursor) || 0;
+  try { sess.humanMove(req.body || {}); }
+  catch (err) { return res.status(400).json({ error: err.message }); }
+  res.json(sess.snapshot(cursor));
+});
+
+// ------------------------------------------------------------ admin
+app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
+  res.json({
+    leaderboard: store.leaderboard(),
+    totalGames: store.scrim.totalGames,
+    running: !!store.scrim.running,
+    students: Object.values(store.users).filter((u) => u.username !== '__house').map((u) => ({
+      username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin,
+      slotsUsed: (store.bots[u.username] || []).filter(Boolean).length,
+      submitted: store.scrim.submissions.filter((s) => s.owner === u.username).map((s) => s.name),
+    })),
+  });
+});
+
+app.post('/api/coup/admin/running', auth, adminOnly, (req, res) => {
+  store.scrim.running = !!req.body.running;
+  store._save('scrim.json', store.scrim);
+  res.json({ ok: true, running: store.scrim.running });
+});
+
+app.post('/api/coup/admin/reset-password', auth, adminOnly, (req, res) => {
+  const ok = store.resetPassword(req.body.username, req.body.newPassword || 'coup123');
+  res.json(ok ? { ok: true } : { ok: false, error: 'no such user' });
+});
+
+app.post('/api/coup/admin/create-user', auth, adminOnly, (req, res) => {
+  const r = store.createUser(req.body.username, req.body.password || 'coup123', req.body.displayName, false);
+  if (r.error) return res.status(400).json(r);
+  res.json({ ok: true, user: pub(r.user) });
+});
+
+// SPA fallback for /coup/* deep links in production mode
+app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  res.sendFile(path.join(dist, 'index.html'), (err) => { if (err) next(); });
+});
+
+// ------------------------------------------------------------ boot
+if (require.main === module) {
+  scrim.start(4000, 3);
+  app.listen(PORT, () => {
+    console.log(`\n  🎭 dynaCOUP camp server → http://localhost:${PORT}`);
+    console.log(`     scrims: ${store.scrim.submissions.length} bots in the pool, ${store.scrim.totalGames} games played\n`);
+  });
+  process.on('SIGINT', () => { store.flush(); process.exit(0); });
+  process.on('SIGTERM', () => { store.flush(); process.exit(0); });
+}
+
+module.exports = { app, store, scrim };

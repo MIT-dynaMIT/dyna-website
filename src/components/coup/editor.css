@@ -116,13 +116,40 @@
   border-top: 1px solid var(--line); white-space: pre;
 }
 
-/* ---------------------------------------------------- check results */
-.coup-root .ed-check { border-left: 5px solid var(--line); }
-.coup-root .ed-check.ok { border-left-color: var(--good); }
-.coup-root .ed-check.bad { border-left-color: var(--bad); }
-.coup-root .ed-check-h { color: var(--parch); font-size: 17px; margin: 0 0 6px; }
-.coup-root .ed-check.ok .ed-check-h { color: var(--good); }
-.coup-root .ed-problems { list-style: none; padding: 0; margin: 10px 0; }
+/* ---------------------------------------------------- check results (floating alert) */
+.coup-root .ed-alert {
+  position: sticky; top: 8px; z-index: 40;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 5px solid var(--line); border-radius: 10px;
+  padding: 14px 40px 14px 18px; margin-bottom: 4px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.coup-root .ed-alert.ok { border-left-color: var(--good); }
+.coup-root .ed-alert.bad { border-left-color: var(--bad); }
+.coup-root .ed-alert-h { color: var(--parch); font-size: 17px; margin: 0; }
+.coup-root .ed-alert.ok .ed-alert-h { color: var(--good); }
+.coup-root .ed-alert-x {
+  position: absolute; top: 8px; right: 8px; padding: 2px 8px;
+  background: transparent; border: 1px solid var(--line); color: var(--ink-mut);
+  border-radius: 6px; font-size: 13px; line-height: 1;
+}
+.coup-root .ed-alert-x:hover { color: var(--parch); }
+
+.coup-root .ed-fnchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.coup-root .ed-fnchip {
+  font-size: 12px; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--ink-mut); background: var(--bg-2);
+}
+.coup-root .ed-fnchip code { font-size: 11.5px; color: inherit; }
+.coup-root .ed-fnchip.ok { color: var(--good); border-color: rgba(63, 157, 107, 0.5); background: rgba(63, 157, 107, 0.1); }
+.coup-root .ed-fnchip.error { color: #e0a196; border-color: rgba(184, 80, 63, 0.6); background: rgba(184, 80, 63, 0.12); }
+.coup-root .ed-fnchip.default { color: var(--ink-mut); }
+
+.coup-root .ed-probgroups { margin: 8px 0 0; }
+.coup-root .ed-probgroup { margin-bottom: 10px; }
+.coup-root .ed-probgroup > .ed-fn { display: inline-block; margin-bottom: 5px; }
+.coup-root .ed-linehint { color: var(--ink-mut); font-size: 12px; font-style: italic; margin: 8px 0 0; }
+.coup-root .ed-problems { list-style: none; padding: 0; margin: 4px 0 0; }
 .coup-root .ed-problems li {
   display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
   padding: 8px 10px; margin-bottom: 6px; font-size: 13.5px;

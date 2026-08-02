@@ -456,6 +456,28 @@ class ScriptBot {
 }
 
 // ------------------------------------------------------------ checker
+/**
+ * "Check my bot": compile, then call each function directly against a battery
+ * of real game states and explain EXACTLY what is wrong in kid terms —
+ * which function, which line, missing returns, wrong kinds of return values.
+ * Returns {ok, problems: [{fn, line, message}], notes, functions: [{fn, status}]}.
+ */
+function describeReturn(v) {
+  if (v === null || v === undefined) return 'nothing (None)';
+  if (typeof v === 'object') {
+    if (v.__act) return `the action ${v.__act}(...)`;
+    if (v.__resp === 'pass') return 'allow()';
+    if (v.__resp === 'challenge') return 'challenge()';
+    if (v.__resp === 'block') return `block("${v.role}")`;
+    if (v.__reveal) return `reveal("${v.__reveal}")`;
+    if (Array.isArray(v)) return 'a list';
+  }
+  if (typeof v === 'string') return `the text "${v}"`;
+  if (typeof v === 'number') return `the number ${v}`;
+  if (v === true || v === false) return `${v}`;
+  return 'something the game does not understand';
+}
+
 function checkProgram(source) {
   const problems = [];
   const notes = [];
@@ -463,56 +485,186 @@ function checkProgram(source) {
   try {
     program = compile(source);
   } catch (err) {
-    return { ok: false, problems: [{ line: err.line, message: err.message }], notes };
+    return {
+      ok: false, notes,
+      problems: [{ line: err.line, message: `This is not valid code: ${err.message}` }],
+      functions: [],
+    };
   }
-  const { CoupGame } = require('./coup');
-  const mkRng = (seedArr) => { let i = 0; return () => seedArr[(i++) % seedArr.length]; };
+
   const CORE = ['your_turn', 'respond', 'when_assassinated', 'choose_card_to_lose'];
+  const status = {};
+  for (const fn of CORE) status[fn] = program.has(fn) ? 'ok' : 'default';
+  if (program.has('choose_exchange')) status.choose_exchange = 'ok';
   for (const fn of CORE) {
     if (!program.has(fn)) notes.push(`"${fn}" is not defined — the bot will use the built-in default for it.`);
   }
-  if (!program.has('your_turn')) problems.push({ message: 'your_turn(state) is missing — this one is the heart of your bot.' });
+  if (!program.has('your_turn')) {
+    problems.push({ fn: 'your_turn', message: 'your_turn(state) is missing — this one is the heart of your bot.' });
+    status.your_turn = 'error';
+  }
+
+  const { CoupGame } = require('./coup');
+  const mkRng = (seedArr) => { let i = 0; return () => seedArr[(i++) % seedArr.length]; };
+  const defLine = (fn) => (program.ast.fns[fn] ? program.ast.fns[fn].line : undefined);
+  const addProblem = (fn, message, line) => {
+    problems.push({ fn, line: line ?? defLine(fn), message });
+    status[fn] = 'error';
+  };
+
+  const callRaw = (fn, state, extraArgs, rng) => {
+    try {
+      const env = Object.assign({ state }, gameBuiltins(state));
+      return { value: program.call(fn, [state, ...extraArgs], { env, rng }) };
+    } catch (err) {
+      return { threw: err };
+    }
+  };
 
   const seeds = [[0.1, 0.5, 0.9, 0.3, 0.7], [0.8, 0.2, 0.6, 0.4, 0.05], [0.33, 0.77, 0.51, 0.12, 0.95]];
+  const seen = new Set();
+  const once = (fn, message, line) => {
+    const k = fn + '|' + message;
+    if (seen.has(k)) return;
+    seen.add(k);
+    addProblem(fn, message, line);
+  };
+
   for (const seedArr of seeds) {
     const rng = mkRng(seedArr);
-    const game = new CoupGame(['a', 'b'], rng);
     const names = { a: 'you', b: 'Rival' };
-    const bot = Object.create(ScriptBot.prototype);
-    bot.name = 'check'; bot.errors = []; bot.program = program;
 
-    game.player('b').coins = 8;
-    game.log.push({ n: game.log.length, t: 'action', action: 'tax', player: 'b', target: null });
-    game.log.push({ n: game.log.length, t: 'action', action: 'steal', player: 'b', target: 'a' });
-
-    const act = bot.yourTurn(game, 'a', names, {}, rng);
-    const legalTypes = game.legalActions('a').map((l) => l.type);
-    if (!legalTypes.includes(act.type)) problems.push({ fn: 'your_turn', message: `returned an illegal action "${act.type}"` });
-    if ((act.type === 'coup' || act.type === 'assassinate') && !ROLES.includes(act.call)) {
-      problems.push({ fn: 'your_turn', message: `${act.type} must call a character name` });
-    }
-
-    game.submitAction('a', { type: 'income' });
-    if (game.pending && game.pending.type === 'action' && game.pending.player === 'b') {
-      game.submitAction('b', { type: 'tax' });
-      if (game.pending && game.pending.type === 'challenge') {
-        bot.respond(game, 'a', names, {}, rng, 'challenge');
+    // ---- state 1: your turn, mid-game flavor
+    const g1 = new CoupGame(['a', 'b'], rng);
+    g1.player('a').coins = 3;
+    g1.player('b').coins = 8;
+    g1.log.push({ n: g1.log.length, t: 'action', action: 'tax', player: 'b', target: null });
+    g1.log.push({ n: g1.log.length, t: 'action', action: 'steal', player: 'b', target: 'a' });
+    if (program.has('your_turn')) {
+      const st = buildState(g1, 'a', names, {});
+      const r = callRaw('your_turn', st, [], rng);
+      if (r.threw) {
+        once('your_turn', `crashed: ${r.threw.message}`, r.threw.line);
+      } else {
+        const v = r.value;
+        const legal = g1.legalActions('a').map((l) => l.type);
+        if (!v || typeof v !== 'object' || !v.__act) {
+          once('your_turn', v === null || v === undefined
+            ? 'returned nothing — EVERY path through your_turn must end with "return <an action>" like "return income()". Check each if/else branch!'
+            : `returned ${describeReturn(v)} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), steal(), exchange(), coup(role) or assassinate(role, p).`);
+        } else if (!legal.includes(v.__act)) {
+          once('your_turn', `tried to ${v.__act}() with only ${g1.player('a').coins} coins — the game would reject it. Check costs (coup 7, assassinate 3) before returning.`);
+        }
+      }
+      // rich state: must be able to coup at 10+
+      const g1b = new CoupGame(['a', 'b'], mkRng(seedArr));
+      g1b.player('a').coins = 11;
+      const st2 = buildState(g1b, 'a', names, {});
+      const r2 = callRaw('your_turn', st2, [], rng);
+      if (!r2.threw && r2.value && r2.value.__act && r2.value.__act !== 'coup') {
+        once('your_turn', `with 10+ coins the rules FORCE you to coup, but your bot returned ${describeReturn(r2.value)}. Add "if state.my_coins >= 10: return coup(...)" near the top.`);
       }
     }
-    bot.whenAssassinated(game, 'a', names, {}, rng);
-    bot.chooseCardToLose(game, 'a', names, {}, rng);
-    for (const err of bot.errors) {
-      problems.push({ fn: err.fn, line: err.line, message: err.message });
+
+    // ---- state 2: opponent claims Duke (respond as challenge window)
+    const g2 = new CoupGame(['a', 'b'], mkRng(seedArr));
+    g2.submitAction('a', { type: 'income' });
+    if (g2.pending && g2.pending.type === 'action' && g2.pending.player === 'b') {
+      g2.submitAction('b', { type: 'tax' });
     }
-    if (bot.errors.length) break;
+    if (program.has('respond') && g2.pending && g2.pending.type === 'challenge') {
+      const st = buildState(g2, 'a', names, {});
+      const info = buildActionInfo(g2, st, 'challenge');
+      const r = callRaw('respond', st, [info], rng);
+      if (r.threw) {
+        once('respond', `crashed: ${r.threw.message}`, r.threw.line);
+      } else {
+        const v = r.value;
+        if (!v || typeof v !== 'object' || (!v.__resp && !v.__act)) {
+          once('respond', v === null || v === undefined
+            ? 'returned nothing — every path through respond must end with "return allow()", "return challenge()" or "return block(role)". The safe last line is "return allow()".'
+            : `returned ${describeReturn(v)} — but respond must return allow(), challenge() or block(role).`);
+        } else if (v.__act) {
+          once('respond', `returned ${describeReturn(v)} — that is a TURN action, but respond answers the opponent's move: return allow(), challenge() or block(role) instead.`);
+        }
+      }
+    }
+
+    // ---- state 3: a real assassination naming a card (when_assassinated)
+    const g3 = new CoupGame(['a', 'b'], mkRng(seedArr));
+    g3.player('b').coins = 3;
+    g3.submitAction('a', { type: 'income' });
+    if (g3.pending && g3.pending.type === 'action' && g3.pending.player === 'b') {
+      g3.submitAction('b', { type: 'assassinate', call: 'duke' });
+      if (g3.pending && g3.pending.type === 'challenge') g3.resolveChallenge(null);
+    }
+    if (program.has('when_assassinated') && g3.pending && g3.pending.type === 'block') {
+      const st = buildState(g3, 'a', names, {});
+      const info = buildActionInfo(g3, st, 'block');
+      info.call = g3.pending.call || 'duke';
+      const r = callRaw('when_assassinated', st, [info], rng);
+      if (r.threw) {
+        once('when_assassinated', `crashed: ${r.threw.message}`, r.threw.line);
+      } else {
+        const v = r.value;
+        const okShape = v && typeof v === 'object'
+          && ((v.__resp === 'block' && v.role === 'contessa') || v.__resp === 'pass' || v.__reveal);
+        if (v === null || v === undefined) {
+          once('when_assassinated', 'returned nothing — every path must end with "return block_contessa()" or "return allow()" (allow = let it happen; smart when their call would miss!).');
+        } else if (v && v.__resp === 'block' && v.role !== 'contessa') {
+          once('when_assassinated', `tried to block an assassination with ${v.role} — only the CONTESSA blocks assassinations. Use block_contessa().`);
+        } else if (v && v.__act) {
+          once('when_assassinated', `returned ${describeReturn(v)} — that is a turn action. When assassinated you can only block_contessa(), allow(), or reveal(card).`);
+        } else if (!okShape) {
+          once('when_assassinated', `returned ${describeReturn(v)} — expected block_contessa(), allow(), or reveal(card).`);
+        }
+      }
+    }
+
+    // ---- state 4: choosing a card to lose
+    if (program.has('choose_card_to_lose')) {
+      const g4 = new CoupGame(['a', 'b'], mkRng(seedArr));
+      const st = buildState(g4, 'a', names, {});
+      const r = callRaw('choose_card_to_lose', st, [], rng);
+      if (r.threw) {
+        once('choose_card_to_lose', `crashed: ${r.threw.message}`, r.threw.line);
+      } else {
+        const v = r.value;
+        if (v === null || v === undefined) {
+          once('choose_card_to_lose', 'returned nothing — end every path with "return reveal(<one of your cards>)", e.g. "return reveal(state.my_cards[0])".');
+        } else if (!v || typeof v !== 'object' || !v.__reveal) {
+          once('choose_card_to_lose', `returned ${describeReturn(v)} — but this function must return reveal(card), e.g. "return reveal(state.my_cards[0])".`);
+        } else if (!st.my_cards.includes(v.__reveal)) {
+          notes.push(`choose_card_to_lose picked "${v.__reveal}" in a test game where your hand was [${st.my_cards.join(', ')}] — the game will fall back to a card you actually hold. Prefer picking from state.my_cards.`);
+        }
+      }
+    }
+
+    // ---- state 5: exchange keeps (optional function)
+    if (program.has('choose_exchange')) {
+      const g5 = new CoupGame(['a', 'b'], mkRng(seedArr));
+      const st = buildState(g5, 'a', names, {});
+      const pool = [...st.my_cards, 'duke', 'contessa'];
+      const r = callRaw('choose_exchange', st, [pool, 'ambassador'], rng);
+      if (r.threw) {
+        once('choose_exchange', `crashed: ${r.threw.message}`, r.threw.line);
+      } else {
+        const v = r.value;
+        if (!Array.isArray(v)) {
+          once('choose_exchange', `returned ${describeReturn(v)} — choose_exchange must return a LIST of role names to keep, e.g. ["duke", "contessa"].`);
+        } else if (v.length !== st.my_num_cards) {
+          once('choose_exchange', `kept ${v.length} card(s) but you must keep exactly ${st.my_num_cards} (as many as you hold). The game will ignore a wrong-sized keep.`);
+        }
+      }
+    }
+
+    if (problems.length >= 6) break; // enough to work on
   }
-  const seen = new Set();
-  const unique = problems.filter((p) => {
-    const k = `${p.fn}|${p.line}|${p.message}`;
-    if (seen.has(k)) return false;
-    seen.add(k); return true;
-  });
-  return { ok: unique.length === 0, problems: unique, notes };
+
+  const functions = ['your_turn', 'respond', 'when_assassinated', 'choose_card_to_lose', 'choose_exchange']
+    .filter((fn) => status[fn])
+    .map((fn) => ({ fn, status: status[fn] }));
+  return { ok: problems.length === 0, problems, notes, functions };
 }
 
 module.exports = {

@@ -6,12 +6,15 @@ import { timeAgo } from '../api';
 import { useToast } from '../CoupApp';
 import {
   coupTheme, ensureBlocklySetup, generatePython, makeToolbox,
-  STARTER_PYTHON, starterWorkspaceJson,
+  STARTER_PYTHON, starterWorkspaceJson, tidyWorkspace,
 } from '../editor/blocks';
 import { astToWorkspaceJson, DecompileError } from '../editor/decompile';
 import '../editor.css';
 
 type Mode = 'blocks' | 'python';
+type FnStatus = 'ok' | 'default' | 'error';
+interface RichCheck extends CheckResult { functions?: { fn: string; status: FnStatus }[] }
+interface ParseResult { ok: boolean; ast?: unknown; error?: string; line?: number }
 
 const FUN_NAMES = [
   'Sir Bluff-a-Lot', 'Lady Deception', 'The Quiet Duke', 'Baron Backstab',
@@ -38,7 +41,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [generated, setGenerated] = useState('');
   const [codeOpen, setCodeOpen] = useState(true);
-  const [check, setCheck] = useState<CheckResult | null>(null);
+  const [check, setCheck] = useState<RichCheck | null>(null);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
@@ -48,6 +51,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const loadingRef = useRef(false);
   const pyHistory = useRef<string[]>([]);
+  // bumped on every slot load so a slow /parse from a previous slot can't apply
+  const loadToken = useRef(0);
 
   // live refs so callbacks always see current values
   const idxRef = useRef(idx); idxRef.current = idx;
@@ -59,12 +64,46 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   // stash of hand-written python while "peeking" at blocks (see mode toggle)
   const pyStash = useRef<{ python: string; blocksSnapshot: string } | null>(null);
 
+  // turn a python-mode slot into blocks on load; on failure fall back to
+  // Advanced. Guards against a stale slot switch landing on the wrong slot.
+  const autoDecompile = useCallback((python: string, token: number) => {
+    const ws = wsRef.current;
+    if (!ws) return;
+    api.post<ParseResult>('/parse', { python })
+      .then((r) => {
+        if (loadToken.current !== token || !wsRef.current) return;
+        if (!r.ok || !r.ast) throw new DecompileError(r.error || 'this code has a syntax error', r.line);
+        const wsJson = astToWorkspaceJson(r.ast as { fns: Record<string, unknown> });
+        loadingRef.current = true;
+        Blockly.serialization.workspaces.load(wsJson as object, ws);
+        loadingRef.current = false;
+        setGenerated(generatePython(ws));
+        setMode('blocks');
+        setDirty(false);
+        setTimeout(() => {
+          if (loadToken.current !== token || !wsRef.current) return;
+          Blockly.svgResize(ws);
+          tidyWorkspace(ws, true);
+          // stash AFTER tidy so an untouched peek→Advanced restores the
+          // original code (and an untouched save keeps mode 'python').
+          pyStash.current = { python, blocksSnapshot: JSON.stringify(Blockly.serialization.workspaces.save(ws)) };
+          setGenerated(generatePython(ws));
+        }, 0);
+      })
+      .catch(() => {
+        loadingRef.current = false;
+        if (loadToken.current !== token) return;
+        pyStash.current = null;
+        setMode('python');
+        toast('Opened in Advanced — this code uses something blocks can’t show yet');
+      });
+  }, [toast]);
+
   // ---------------------------------------------------------------- load a slot into the editor
   const loadSlot = useCallback((slot: BotSlot | null, i: number) => {
     const ws = wsRef.current;
     if (!ws) return;
-    const m: Mode = slot?.mode === 'python' ? 'python' : 'blocks';
-    setMode(m);
+    const token = ++loadToken.current;
     setName(slot?.name || defaultName(i));
     setCheck(null);
     pyStash.current = null;
@@ -80,12 +119,22 @@ export default function EditorPage({ user }: { user: CoupUser }) {
 
     const gen = generatePython(ws);
     setGenerated(gen);
-    setPythonText(slot?.python || (m === 'python' ? STARTER_PYTHON : gen));
+    setPythonText(slot?.python || (slot?.mode === 'python' ? STARTER_PYTHON : gen));
     pyHistory.current = [];
     setDirty(false);
     setLastSavedAt(slot?.updatedAt ?? null);
-    setTimeout(() => Blockly.svgResize(ws), 0);
-  }, []);
+
+    // Blocks are the default view. A python-mode slot with real code
+    // auto-decompiles into blocks; everything else just shows its blocks.
+    const isPython = slot?.mode === 'python' && !!slot.python && slot.python.trim().length > 0;
+    setMode('blocks');
+    setTimeout(() => {
+      if (loadToken.current !== token || !wsRef.current) return;
+      Blockly.svgResize(ws);
+      tidyWorkspace(ws, false);
+    }, 0);
+    if (isPython) autoDecompile(slot!.python, token);
+  }, [autoDecompile]);
 
   // ---------------------------------------------------------------- init: fetch + inject once
   useEffect(() => {
@@ -264,7 +313,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
       setMode('blocks');
       setDirty(true);
       toast('Turned your code into blocks — comments were dropped');
-      setTimeout(() => Blockly.svgResize(ws), 0);
+      setTimeout(() => { Blockly.svgResize(ws); tidyWorkspace(ws, true); setGenerated(generatePython(ws)); }, 0);
     } catch (e) {
       loadingRef.current = false;
       const de = e as DecompileError;
@@ -306,7 +355,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     const python = modeRef.current === 'blocks' && ws ? generatePython(ws) : pyRef.current;
     setChecking(true); setCheck(null);
     try {
-      const r = await api.post<CheckResult>('/check', { python });
+      const r = await api.post<RichCheck>('/check', { python });
       setCheck(r);
     } catch (ex) {
       setCheck({ ok: false, problems: [{ message: ex instanceof Error ? ex.message : 'check failed' }], notes: [] });
@@ -390,6 +439,53 @@ export default function EditorPage({ user }: { user: CoupUser }) {
           </div>
         </div>
 
+        {/* check results — floating alert under the toolbar */}
+        {check && (
+          <div className={`ed-alert ${check.ok ? 'ok' : 'bad'}`}>
+            <button className="ed-alert-x" onClick={() => setCheck(null)} aria-label="Dismiss">✕</button>
+            <h3 className="ed-alert-h">{check.ok ? '⚔️ Ready for battle!' : '🛠 A few things to fix first'}</h3>
+            {check.ok && <p className="coup-note" style={{ margin: '2px 0 0' }}>Your bot compiled and made legal moves in every test game — send it to the ladder!</p>}
+            {check.functions && check.functions.length > 0 && (
+              <div className="ed-fnchips">
+                {check.functions.map((f) => (
+                  <span key={f.fn} className={`ed-fnchip ${f.status}`}>
+                    <code>{f.fn}</code>{f.status === 'ok' ? ' ✓' : f.status === 'default' ? ' · default' : ' ✗'}
+                  </span>
+                ))}
+              </div>
+            )}
+            {!check.ok && (() => {
+              const groups = new Map<string, { fn?: string; line?: number; message: string }[]>();
+              for (const p of check.problems) { const k = p.fn || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
+              return (
+                <div className="ed-probgroups">
+                  {[...groups.entries()].map(([fn, ps]) => (
+                    <div key={fn || 'general'} className="ed-probgroup">
+                      <span className="ed-fn">{fn || 'overall'}</span>
+                      <ul className="ed-problems">
+                        {ps.map((p, i) => (
+                          <li key={i}>
+                            {p.line != null && <span className="ed-line">line {p.line}</span>}
+                            <span>{p.message}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            {check.notes.length > 0 && (
+              <ul className="ed-notes">
+                {check.notes.map((n, i) => <li key={i}>💡 {n}</li>)}
+              </ul>
+            )}
+            {!check.ok && mode === 'blocks' && (
+              <p className="ed-linehint">Line numbers refer to the <strong>Generated code</strong> panel below.</p>
+            )}
+          </div>
+        )}
+
         {/* blocks workspace (kept mounted; hidden in python mode) */}
         <div className={`ed-blockly-shell coup-card ${mode === 'python' ? 'hidden' : ''}`}>
           <div ref={blocklyDiv} className="ed-blockly" />
@@ -427,36 +523,6 @@ export default function EditorPage({ user }: { user: CoupUser }) {
           </div>
         )}
 
-        {/* check results */}
-        {check && (
-          <div className={`coup-card ed-check ${check.ok ? 'ok' : 'bad'}`}>
-            {check.ok ? (
-              <>
-                <h3 className="ed-check-h">⚔️ Ready for battle!</h3>
-                <p className="coup-note">Your bot compiled and made legal moves in every test game. Send it to the ladder!</p>
-              </>
-            ) : (
-              <>
-                <h3 className="ed-check-h">🛠 A few things to fix first</h3>
-                <ul className="ed-problems">
-                  {check.problems.map((p, i) => (
-                    <li key={i}>
-                      {p.fn && <span className="ed-fn">{p.fn}</span>}
-                      {p.line != null && <span className="ed-line">line {p.line}</span>}
-                      <span>{p.message}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="coup-note">Don’t worry — every great strategist debugs. Fix these and check again!</p>
-              </>
-            )}
-            {check.notes.length > 0 && (
-              <ul className="ed-notes">
-                {check.notes.map((n, i) => <li key={i}>💡 {n}</li>)}
-              </ul>
-            )}
-          </div>
-        )}
       </section>
     </div>
   );

@@ -77,6 +77,7 @@ export interface CheckResult {
   ok: boolean;
   problems: { fn?: string; line?: number; message: string }[];
   notes: string[];
+  functions?: { fn: string; status: 'ok' | 'default' | 'error' }[];
 }
 
 // ------------------------------------------------------------------

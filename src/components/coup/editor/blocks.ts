@@ -828,6 +828,59 @@ export function coupTheme(): Blockly.Theme {
   return getTheme();
 }
 
+// canonical top-block order: the five hats first, then procedures / others
+const HAT_ORDER = [
+  'coup_when_turn', 'coup_when_respond', 'coup_when_assassinated',
+  'coup_choose_lose', 'coup_choose_exchange',
+];
+
+/** True if any two top-level blocks' bounding boxes overlap. */
+function topBlocksOverlap(blocks: Blockly.BlockSvg[]): boolean {
+  const rects = blocks.map((b) => b.getBoundingRectangle());
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i], c = rects[j];
+      if (a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Lay top-level blocks out in tidy columns so they never overlap. `force`
+ * always re-lays out (use after a decompile); otherwise it only acts when an
+ * overlap is detected (so a kid's own tidy arrangement is left alone). Moves
+ * are event-suppressed so this never marks the workspace dirty. Call after
+ * svgResize so getHeightWidth measurements are real.
+ */
+export function tidyWorkspace(ws: Blockly.WorkspaceSvg, force = false): void {
+  const tops = ws.getTopBlocks(false) as Blockly.BlockSvg[];
+  if (tops.length < 1) return;
+  if (!force && !topBlocksOverlap(tops)) return;
+
+  const rank = (b: Blockly.BlockSvg) => {
+    const i = HAT_ORDER.indexOf(b.type);
+    return i < 0 ? HAT_ORDER.length : i;
+  };
+  const sorted = [...tops].sort((a, b) => rank(a) - rank(b));
+
+  Blockly.Events.disable();
+  try {
+    const GAP_Y = 28, GAP_X = 56, COL_MAX = 720, X0 = 20, Y0 = 20;
+    let colX = X0, y = Y0, colWidth = 0;
+    for (const b of sorted) {
+      const hw = b.getHeightWidth();
+      if (y > Y0 && y + hw.height > COL_MAX) { colX += colWidth + GAP_X; y = Y0; colWidth = 0; }
+      const xy = b.getRelativeToSurfaceXY();
+      b.moveBy(colX - xy.x, y - xy.y);
+      y += hw.height + GAP_Y;
+      colWidth = Math.max(colWidth, hw.width);
+    }
+  } finally {
+    Blockly.Events.enable();
+  }
+}
+
 /** Generate bot-language Python for the whole workspace. */
 export function generatePython(workspace: Blockly.Workspace): string {
   ensureBlocklySetup();

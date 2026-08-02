@@ -17,7 +17,7 @@ const { ScrimServer } = require('./scrim');
 const { PlayManager } = require('./play');
 const { ScriptBot, checkProgram } = require('./botapi');
 const { replayMatch } = require('./runner');
-const { HOUSE, HONEST_HANK } = require('./samplebots/bots');
+const { HOUSE } = require('./samplebots/bots');
 
 const PORT = Number(process.env.PORT || 8787);
 const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
@@ -139,31 +139,33 @@ app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
 
 // ------------------------------------------------------------ heads-up play
 app.post('/api/coup/play/start', auth, (req, res) => {
-  const picks = Array.isArray(req.body.opponents) ? req.body.opponents.slice(0, 4) : [];
+  const picks = Array.isArray(req.body.opponents) ? req.body.opponents : [req.body.opponent];
+  const pick = picks[0];
   const slots = store.getSlots(req.user);
-  const opponents = [];
-  const usedNames = new Set([req.user.displayName]);
-  for (let i = 0; i < 4; i++) {
-    const pick = picks[i];
-    let source = HONEST_HANK;
-    let name = HOUSE[i % HOUSE.length].name;
-    if (pick != null && slots[pick] && slots[pick].python) {
-      source = slots[pick].python;
-      name = slots[pick].name;
-    } else if (pick === 'house' || pick == null) {
-      const h = HOUSE[i % HOUSE.length];
-      source = h.source; name = h.name;
-    }
-    while (usedNames.has(name)) name = name + ' Ⅱ';
-    usedNames.add(name);
-    try {
-      opponents.push({ bot: new ScriptBot(source, name), name });
-    } catch (err) {
-      return res.status(400).json({ error: `bot in slot ${Number(pick) + 1} does not compile: ${err.message}` });
-    }
+  let source, name;
+  if (pick != null && pick !== 'house' && slots[pick] && slots[pick].python) {
+    source = slots[pick].python;
+    name = slots[pick].name;
+  } else {
+    const h = typeof pick === 'string' && pick.startsWith('house:')
+      ? HOUSE.find((x) => x.name === pick.slice(6)) || HOUSE[0]
+      : HOUSE[0];
+    source = h.source; name = h.name;
   }
-  const sess = plays.create(req.user.displayName, opponents);
+  if (name === req.user.displayName) name += ' Ⅱ';
+  let opponent;
+  try {
+    opponent = { bot: new ScriptBot(source, name), name };
+  } catch (err) {
+    return res.status(400).json({ error: `that bot does not compile: ${err.message}` });
+  }
+  const sess = plays.create(req.user.displayName, [opponent]);
   res.json(sess.snapshot(0));
+});
+
+// list of house opponents for the play setup screen
+app.get('/api/coup/play/house-bots', auth, (_req, res) => {
+  res.json({ bots: HOUSE.map((h) => h.name) });
 });
 
 app.get('/api/coup/play/:id', auth, (req, res) => {

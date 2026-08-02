@@ -1,16 +1,21 @@
 /**
- * Blockly wiring for the dynaCOUP bot editor.
+ * Blockly wiring for the dynaCOUP bot editor — HEADS-UP "Ultimate" variant.
  *
- * Everything the visual editor needs lives here: the custom Coup blocks, the
- * Python generators that turn them into the bot language (see server/botlang.js
- * for the exact subset), a dark court-intrigue theme, the toolbox, and the
- * starter workspace new students begin from.
+ * Two players, five lives each, dead cards to a public graveyard, and
+ * "Call the Coup": coup() and assassinate() NAME a character — name wrong and
+ * the attack misses. There is exactly one opponent (state.opponent), so the
+ * old multi-player pickers are gone.
+ *
+ * Everything the editor needs lives here: the custom Coup blocks, the Python
+ * generators that turn them into the bot language (see server/botlang.js for
+ * the exact subset), a dark court-intrigue theme, the toolbox, and the starter
+ * workspace new students begin from.
  *
  * CRITICAL invariant: every generator here must emit code the botlang parser
  * accepts — no imports, lambdas, f-strings, tuples, slicing, comprehensions or
- * keyword args. We override the few standard-block generators that would
- * otherwise reach for the `random`/`math` modules, and the toolbox only offers
- * standard blocks whose default output already conforms.
+ * keyword args, and NEVER a player object where a role string is expected
+ * (coup/assassinate take role strings; steal takes nothing). We override the
+ * few standard-block generators that would otherwise reach for random/math.
  */
 import * as Blockly from 'blockly/core';
 import { pythonGenerator, Order } from 'blockly/python';
@@ -29,21 +34,6 @@ const ROLE_OPTIONS: [string, string][] = [
 
 // fallback power ranking when a strongest-cards ORDER socket is left empty
 const DEFAULT_ORDER = '["duke", "contessa", "captain", "assassin", "ambassador"]';
-
-// numeric opponent stats for opponent_with_most / _least (label → prop)
-const OPP_STAT_OPTIONS: [string, string][] = [
-  ['coins', 'coins'],
-  ['cards', 'num_cards'],
-  ['roles claimed', 'claims'],
-  ['cards lost', 'cards_lost'],
-  ['challenges made', 'challenges_made'],
-  ['successful challenges', 'successful_challenges'],
-  ['times caught bluffing', 'times_caught_bluffing'],
-  ['attacks on me', 'attacked_me'],
-  ['ladder challenge success', 'scrim_challenge_success'],
-  ['ladder bluff rate', 'scrim_bluff_rate'],
-  ['ladder win rate', 'scrim_win_rate'],
-];
 
 // ---------------------------------------------------------------- colours
 const C_EVENT = '#b0812f';
@@ -67,21 +57,21 @@ const BLOCKS: Record<string, unknown>[] = [
   },
   {
     type: 'coup_when_respond',
-    message0: 'when I can react to %1',
-    args0: [{ type: 'field_label', name: 'L', text: 'someone’s move' }],
+    message0: 'when my opponent makes a move %1',
+    args0: [{ type: 'field_label', name: 'L', text: 'I can challenge/block' }],
     message1: 'do %1',
     args1: [{ type: 'input_statement', name: 'DO' }],
     colour: C_EVENT,
-    tooltip: 'Someone did something you may challenge or block. Use "action" to inspect it.',
+    tooltip: 'Your opponent did something you may challenge or block. Use "This Move" blocks to inspect it.',
     hat: 'cap',
   },
   {
     type: 'coup_when_assassinated',
-    message0: 'when I am assassinated 🗡',
+    message0: 'when my opponent assassinates me 🗡',
     message1: 'do %1',
     args1: [{ type: 'input_statement', name: 'DO' }],
     colour: C_EVENT,
-    tooltip: 'Block with a Contessa, or reveal a card to give up.',
+    tooltip: 'They named a card. If they did NOT name one you hold it misses anyway — so allow() (dodge) is often right. Otherwise block with Contessa or reveal a card.',
     hat: 'cap',
   },
   {
@@ -90,7 +80,7 @@ const BLOCKS: Record<string, unknown>[] = [
     message1: 'do %1',
     args1: [{ type: 'input_statement', name: 'DO' }],
     colour: C_EVENT,
-    tooltip: 'Pick which of your cards to flip face-up.',
+    tooltip: 'Pick which of your cards to flip face-up into your graveyard.',
     hat: 'cap',
   },
   {
@@ -100,45 +90,40 @@ const BLOCKS: Record<string, unknown>[] = [
     message1: 'do %1',
     args1: [{ type: 'input_statement', name: 'DO' }],
     colour: C_EVENT,
-    tooltip: 'Ambassador exchange: return a list of role names to keep.',
+    tooltip: 'Ambassador exchange: return the list of role names to keep (exactly your card count).',
     hat: 'cap',
   },
 
   // ---- actions (terminate a turn) -----------------------------------
   { type: 'coup_income', message0: 'take Income (+1) 💰', previousStatement: null, colour: C_ACTION, tooltip: 'Safe +1 coin. Nobody can stop it.' },
-  { type: 'coup_foreign_aid', message0: 'take Foreign Aid (+2) 💰💰', previousStatement: null, colour: C_ACTION, tooltip: '+2 coins, unless someone claims a Duke to block it.' },
+  { type: 'coup_foreign_aid', message0: 'take Foreign Aid (+2) 💰💰', previousStatement: null, colour: C_ACTION, tooltip: '+2 coins, unless your opponent claims a Duke to block it.' },
   { type: 'coup_tax', message0: 'claim Duke → Tax (+3) 👑', previousStatement: null, colour: C_ACTION, tooltip: 'Duke gets +3. A bluff can be challenged.' },
-  { type: 'coup_exchange', message0: 'claim Ambassador → Exchange ⚜', previousStatement: null, colour: C_ACTION, tooltip: 'Swap cards with the deck.' },
+  { type: 'coup_exchange', message0: 'claim Ambassador → Exchange ⚜', previousStatement: null, colour: C_ACTION, tooltip: 'Swap cards with the deck to fix your hand.' },
+  { type: 'coup_steal', message0: 'claim Captain → Steal from opponent 🪙', previousStatement: null, colour: C_ACTION, tooltip: 'Take up to 2 coins from your opponent. They can block with Captain or Ambassador.' },
   {
-    type: 'coup_steal', message0: 'claim Captain → Steal from %1',
-    args0: [{ type: 'input_value', name: 'TARGET' }],
+    type: 'coup_coup', message0: 'Coup! (pay 7) 💥 call their %1',
+    args0: [{ type: 'input_value', name: 'ROLE' }],
     previousStatement: null, inputsInline: true, colour: C_ACTION,
-    tooltip: 'Take up to 2 coins from a player. Blockable by Captain/Ambassador.',
-  },
-  {
-    type: 'coup_coup', message0: 'Coup (pay 7) 💥 %1',
-    args0: [{ type: 'input_value', name: 'TARGET' }],
-    previousStatement: null, inputsInline: true, colour: C_ACTION,
-    tooltip: 'Costs 7 coins. Unstoppable — knocks out a card.',
+    tooltip: 'Costs 7 coins. Name the card they hold — if you are wrong the coup MISSES and they redraw. Empty socket = the engine calls your best guess.',
   },
   {
     type: 'coup_assassinate',
-    message0: 'claim Assassin → Assassinate 🗡 %1',
-    args0: [{ type: 'input_value', name: 'TARGET' }],
+    message0: 'Assassinate! (pay 3) 🗡 call their %1',
+    args0: [{ type: 'input_value', name: 'ROLE' }],
     message1: 'if they block with Contessa, challenge with chance %1',
-    args1: [{ type: 'field_number', name: 'P', value: 0.3, min: 0, max: 1, precision: 0.05 }],
+    args1: [{ type: 'field_number', name: 'P', value: 0.35, min: 0, max: 1, precision: 0.05 }],
     previousStatement: null, inputsInline: true, colour: C_ACTION,
-    tooltip: 'Costs 3 coins. Blockable by Contessa — set how often you call their bluff.',
+    tooltip: 'Costs 3 coins. Name the card they hold — wrong name MISSES. Set how often you challenge a Contessa block. Empty socket = your best guess.',
   },
 
   // ---- responses ----------------------------------------------------
-  { type: 'coup_allow', message0: 'allow it ✔', previousStatement: null, colour: C_RESPONSE, tooltip: 'Let the move happen.' },
-  { type: 'coup_challenge', message0: 'challenge! ✋', previousStatement: null, colour: C_RESPONSE, tooltip: 'Call their bluff — someone loses a card.' },
+  { type: 'coup_allow', message0: 'allow it ✔', previousStatement: null, colour: C_RESPONSE, tooltip: 'Let the move happen (in when-assassinated this is a dodge — legal and often best).' },
+  { type: 'coup_challenge', message0: 'challenge! ✋', previousStatement: null, colour: C_RESPONSE, tooltip: 'Call their bluff — the loser flips a card.' },
   {
     type: 'coup_block', message0: 'block by claiming %1',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
     previousStatement: null, colour: C_RESPONSE,
-    tooltip: 'Claim a role to stop the action (e.g. Duke blocks Foreign Aid).',
+    tooltip: 'Claim a role to stop your opponent (Duke blocks Foreign Aid, Captain/Ambassador block Steal).',
   },
   { type: 'coup_block_contessa', message0: 'block with Contessa ❦', previousStatement: null, colour: C_RESPONSE, tooltip: 'Survive an assassination by claiming Contessa.' },
   {
@@ -151,7 +136,13 @@ const BLOCKS: Record<string, unknown>[] = [
     type: 'coup_keep_strongest', message0: 'keep the strongest cards from %1 using %2',
     args0: [{ type: 'input_value', name: 'FROM' }, { type: 'input_value', name: 'ORDER' }],
     previousStatement: null, inputsInline: true, colour: C_RESPONSE,
-    tooltip: 'Ambassador exchange: keeps exactly as many cards as you have lives (2 if you have 2), strongest by your ranking. Leave "from" empty to use the whole exchange pool. If the source list has fewer cards than you need, it keeps what it can and the game fills the rest.',
+    tooltip: 'Exchange: keeps exactly as many cards as you have, strongest by your ranking. Leave "from" empty to use the whole pool. If the source has fewer than you need, it keeps what it can and the game fills the rest.',
+  },
+  {
+    type: 'coup_reveal', message0: 'give up card %1',
+    args0: [{ type: 'input_value', name: 'ROLE' }],
+    previousStatement: null, inputsInline: true, colour: C_RESPONSE,
+    tooltip: 'Flip one of your cards face-up into your graveyard (lose it).',
   },
 
   // ---- power ordering (value blocks) -------------------------------
@@ -189,8 +180,8 @@ const BLOCKS: Record<string, unknown>[] = [
   },
 
   // ---- claim-aware card choices ------------------------------------
-  { type: 'coup_claimed_card', message0: 'a card I have claimed', output: 'String', colour: C_INFO, tooltip: 'A card whose role you already told everyone about. Giving THIS one up keeps your secret card secret.' },
-  { type: 'coup_unclaimed_card', message0: 'a card I have NOT claimed', output: 'String', colour: C_INFO, tooltip: 'A card nobody knows about. Give this up to keep your public claims backed by a real card.' },
+  { type: 'coup_claimed_card', message0: 'a card I have claimed', output: 'String', colour: C_INFO, tooltip: 'A card whose role you already told your opponent about. Giving THIS one up keeps your secret card secret.' },
+  { type: 'coup_unclaimed_card', message0: 'a card I have NOT claimed', output: 'String', colour: C_INFO, tooltip: 'A card your opponent knows nothing about. Give this up to keep your public claims backed by a real card.' },
   { type: 'coup_pool', message0: 'the exchange pool', output: 'Array', colour: C_INFO, tooltip: 'The cards offered to you in an Ambassador exchange (only inside the exchange hat).' },
   {
     type: 'coup_cards_in', message0: 'cards in %1 also in %2',
@@ -200,18 +191,13 @@ const BLOCKS: Record<string, unknown>[] = [
   {
     type: 'coup_cards_not_in', message0: 'cards in %1 NOT in %2',
     args0: [{ type: 'input_value', name: 'A' }, { type: 'input_value', name: 'B' }],
-    output: 'Array', inputsInline: true, colour: C_INFO, tooltip: 'The role names from the first list that are missing from the second — e.g. exchange for cards nobody suspects.',
-  },
-  {
-    type: 'coup_reveal', message0: 'give up card %1',
-    args0: [{ type: 'input_value', name: 'ROLE' }],
-    previousStatement: null, inputsInline: true, colour: C_RESPONSE,
-    tooltip: 'Flip one of your cards face-up (lose it).',
+    output: 'Array', inputsInline: true, colour: C_INFO, tooltip: 'The role names from the first list that are missing from the second — e.g. exchange for cards your opponent does not expect.',
   },
 
-  // ---- this move (inspect the action being reacted to) -------------
-  { type: 'coup_action_actor', message0: 'who made this move', output: 'Player', colour: C_MOVE, tooltip: 'The player who made the move you are reacting to. Only meaningful inside "when I can react" / "when I am assassinated".' },
-  { type: 'coup_action_target', message0: 'the target of this move', output: 'Player', colour: C_MOVE, tooltip: 'Who the move is aimed at (may be nobody). Reaction hats only.' },
+  // ---- this move (inspect the opponent's move) ---------------------
+  { type: 'coup_action_call', message0: 'the role they called', output: 'String', colour: C_MOVE, tooltip: 'The character your opponent named when they couped or assassinated you. If it is not a card you hold, the attack misses!' },
+  { type: 'coup_action_actor', message0: 'who made this move', output: 'Player', colour: C_MOVE, tooltip: 'Your opponent — they just moved. Reaction hats only.' },
+  { type: 'coup_action_target', message0: 'the target of this move', output: 'Player', colour: C_MOVE, tooltip: 'Who the move is aimed at (you or nobody). Reaction hats only.' },
   {
     type: 'coup_action_is', message0: 'this move is %1',
     args0: [{
@@ -222,12 +208,11 @@ const BLOCKS: Record<string, unknown>[] = [
     }],
     output: 'Boolean', colour: C_MOVE, tooltip: 'True if the move you are reacting to is that kind. Reaction hats only.',
   },
-  { type: 'coup_action_claimed_role', message0: 'the role they claim', output: 'String', colour: C_MOVE, tooltip: 'The role the mover is claiming, e.g. "duke". Reaction hats only.' },
-  { type: 'coup_action_is_block', message0: 'this is a block', output: 'Boolean', colour: C_MOVE, tooltip: 'True if the move you are reacting to is someone blocking. Reaction hats only.' },
-  { type: 'coup_action_blocker', message0: 'who is blocking', output: 'Player', colour: C_MOVE, tooltip: 'The player doing the blocking (when this is a block). Reaction hats only.' },
+  { type: 'coup_action_claimed_role', message0: 'the role they claim', output: 'String', colour: C_MOVE, tooltip: 'The role your opponent is claiming, e.g. "duke". Reaction hats only.' },
+  { type: 'coup_action_is_block', message0: 'this is a block', output: 'Boolean', colour: C_MOVE, tooltip: 'True if the move you are reacting to is your opponent blocking. Reaction hats only.' },
   { type: 'coup_action_targets_me', message0: 'the move targets me', output: 'Boolean', colour: C_MOVE, tooltip: 'True if this move is aimed at you. Reaction hats only.' },
-  { type: 'coup_action_already_claimed', message0: 'they already claimed this role before ✓', output: 'Boolean', colour: C_MOVE, tooltip: 'True if this player claimed this same role earlier in the game. A consistent story is more believable; a brand-new claim is more likely a bluff.' },
-  { type: 'coup_claimed_role_impossible', message0: 'the role they claim is impossible now', output: 'Boolean', colour: C_MOVE, tooltip: 'True when all 3 copies of the claimed role are already face-up — a guaranteed bluff. Free challenge!' },
+  { type: 'coup_action_already_claimed', message0: 'they already claimed this role before ✓', output: 'Boolean', colour: C_MOVE, tooltip: 'True if your opponent claimed this same role earlier in the game. A consistent story is more believable; a brand-new claim is more likely a bluff.' },
+  { type: 'coup_claimed_role_impossible', message0: 'the role they claim is impossible now', output: 'Boolean', colour: C_MOVE, tooltip: 'True when all 3 copies of the claimed role are already face-up (deck + graveyards) — a guaranteed bluff. Free challenge!' },
 
   // ---- game info (values) ------------------------------------------
   {
@@ -235,48 +220,42 @@ const BLOCKS: Record<string, unknown>[] = [
     args0: [{
       type: 'field_dropdown', name: 'FIELD', options: [
         ['my coins', 'my_coins'],
+        ['my lives', 'my_lives'],
         ['my name', 'my_name'],
         ['my number of cards', 'my_num_cards'],
-        ['players still alive', 'num_alive'],
         ['cards left in deck', 'deck_count'],
         ['turn number', 'turn_number'],
       ],
     }],
     output: null, colour: C_INFO, tooltip: 'A fact about the current game.',
   },
+  { type: 'coup_opponent', message0: 'my opponent', output: 'Player', colour: C_INFO, tooltip: 'Your one rival across the table. Plug into "[property] of [player]".' },
+  { type: 'coup_my_lives', message0: 'my lives', output: 'Number', colour: C_INFO, tooltip: 'How many lives you have left (you start with 5).' },
+  { type: 'coup_my_graveyard', message0: 'my dead cards (list)', output: 'Array', colour: C_INFO, tooltip: 'The roles you have already lost, face-up for all to see.' },
+  { type: 'coup_opp_graveyard', message0: "opponent's dead cards (list)", output: 'Array', colour: C_INFO, tooltip: "The roles your opponent has lost so far — great for card-counting." },
+  { type: 'coup_opp_last_revealed', message0: 'cards they showed at their last miss (list)', output: 'Array', colour: C_INFO, tooltip: 'When an attack on your opponent misses, they reveal a hand. These are the roles they showed.' },
+  { type: 'coup_opp_last_revealed_age', message0: 'moves since they showed their hand', output: 'Number', colour: C_INFO, tooltip: 'How many moves ago your opponent last revealed cards (huge number if never). Fresher = more trustworthy.' },
   {
-    type: 'coup_player_pick', message0: '%1',
-    args0: [{
-      type: 'field_dropdown', name: 'FIELD', options: [
-        ['the richest player', 'richest_player'],
-        ['the strongest player', 'strongest_player'],
-        ['the weakest player', 'weakest_player'],
-      ],
-    }],
-    output: 'Player', colour: C_INFO, tooltip: 'A player picked out by the game.',
+    type: 'coup_prob_opp_has', message0: 'chance opponent has %1',
+    args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
+    output: 'Number', colour: C_INFO, tooltip: 'The probability (0–1) that your opponent is holding this role, from card-counting + their claims. The card-counting workhorse.',
   },
-  { type: 'coup_random_opponent', message0: 'a random opponent 🎲', output: 'Player', colour: C_INFO, tooltip: 'One of the players who are still in (not you).' },
+  { type: 'coup_best_guess', message0: 'my best guess at their card', output: 'String', colour: C_INFO, tooltip: 'The single role your opponent most likely holds — perfect to feed into Coup or Assassinate.' },
+  {
+    type: 'coup_unseen', message0: 'copies of %1 I have not seen',
+    args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
+    output: 'Number', colour: C_INFO, tooltip: 'How many copies of that role could still be in the deck or your opponent’s hand (3 minus what is face-up and in your hand).',
+  },
   {
     type: 'coup_revealed_count', message0: 'how many %1 are face-up',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
-    output: 'Number', colour: C_INFO, tooltip: 'How many copies of that role have been revealed (0–3). Three exist of each.',
+    output: 'Number', colour: C_INFO, tooltip: 'How many copies of that role are face-up in the graveyards (0–3). Three exist of each.',
   },
   {
     type: 'coup_role_impossible', message0: '%1 is impossible now',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
     output: 'Boolean', colour: C_INFO, tooltip: 'True when all 3 copies of that role are face-up — nobody can truthfully claim it anymore.',
   },
-  {
-    type: 'coup_opp_most', message0: 'the opponent with the most %1',
-    args0: [{ type: 'field_dropdown', name: 'STAT', options: OPP_STAT_OPTIONS }],
-    output: 'Player', colour: C_INFO, tooltip: 'The opponent who leads that stat (or nobody). Safe to use as a target; if in doubt, compare != None.',
-  },
-  {
-    type: 'coup_opp_least', message0: 'the opponent with the least %1',
-    args0: [{ type: 'field_dropdown', name: 'STAT', options: OPP_STAT_OPTIONS }],
-    output: 'Player', colour: C_INFO, tooltip: 'The opponent lowest in that stat (or nobody). Safe to use as a target; if in doubt, compare != None.',
-  },
-  { type: 'coup_opponents', message0: 'list of my opponents', output: 'Array', colour: C_INFO, tooltip: 'Everyone still alive except you.' },
   { type: 'coup_my_cards', message0: 'my cards (list)', output: 'Array', colour: C_INFO, tooltip: 'Your own face-down role cards, as a list.' },
   { type: 'coup_my_claims', message0: 'roles I have claimed (list)', output: 'Array', colour: C_INFO, tooltip: 'Every role you have claimed so far this game.' },
   {
@@ -286,15 +265,15 @@ const BLOCKS: Record<string, unknown>[] = [
         type: 'field_dropdown', name: 'PROP', options: [
           ['name', 'name'],
           ['coins', 'coins'],
+          ['lives', 'lives'],
           ['number of cards', 'num_cards'],
+          ['dead cards', 'graveyard'],
           ['cards lost', 'cards_lost'],
-          ['is alive', 'alive'],
           ['is me', 'is_me'],
           ['claimed roles', 'claims'],
           ['challenges made', 'challenges_made'],
           ['successful challenges', 'successful_challenges'],
           ['times caught bluffing', 'times_caught_bluffing'],
-          ['has attacked me', 'attacked_me'],
           ['ladder challenge success', 'scrim_challenge_success'],
           ['ladder bluff rate', 'scrim_bluff_rate'],
           ['ladder win rate', 'scrim_win_rate'],
@@ -302,12 +281,17 @@ const BLOCKS: Record<string, unknown>[] = [
       },
       { type: 'input_value', name: 'PLAYER' },
     ],
-    output: null, inputsInline: true, colour: C_INFO, tooltip: 'Read a detail about a player.',
+    output: null, inputsInline: true, colour: C_INFO, tooltip: 'Read a detail about a player (usually your opponent).',
   },
   {
     type: 'coup_has_role', message0: 'I have a %1',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
     output: 'Boolean', colour: C_INFO, tooltip: 'True if that role is one of your face-down cards.',
+  },
+  {
+    type: 'coup_i_have', message0: 'I hold the card %1',
+    args0: [{ type: 'input_value', name: 'ROLE' }],
+    output: 'Boolean', inputsInline: true, colour: C_INFO, tooltip: 'True if that role (from a socket — e.g. the role they called) is in your hand.',
   },
   {
     type: 'coup_player_claimed', message0: '%1 has claimed %2',
@@ -327,6 +311,7 @@ const BLOCKS: Record<string, unknown>[] = [
     args0: [{ type: 'field_number', name: 'IDX', value: 0, min: 0, precision: 1 }],
     output: 'String', colour: C_INFO, tooltip: 'One of your own cards by position (0 = first).',
   },
+  { type: 'coup_exchange_reason', message0: 'why am I exchanging', output: 'String', colour: C_INFO, tooltip: '"ambassador" if you chose to exchange, or "miss" if you were forced to redraw after an attack on you missed. Only inside the exchange hat.' },
 
   // ---- chance -------------------------------------------------------
   {
@@ -390,21 +375,20 @@ function registerGenerators() {
   forBlock['coup_when_respond'] = hatGen('def respond(state, action):');
   forBlock['coup_when_assassinated'] = hatGen('def when_assassinated(state, action):');
   forBlock['coup_choose_lose'] = hatGen('def choose_card_to_lose(state):');
-  forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool):');
+  forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool, reason):');
 
-  // actions
+  // actions (Call-the-Coup: role strings, not players; steal takes nothing)
   forBlock['coup_income'] = () => 'return income()\n';
   forBlock['coup_foreign_aid'] = () => 'return foreign_aid()\n';
   forBlock['coup_tax'] = () => 'return tax()\n';
   forBlock['coup_exchange'] = () => 'return exchange()\n';
-  forBlock['coup_steal'] = (block, gen) =>
-    `return steal(${gen.valueToCode(block, 'TARGET', Order.NONE) || 'state.richest_player'})\n`;
+  forBlock['coup_steal'] = () => 'return steal()\n';
   forBlock['coup_coup'] = (block, gen) =>
-    `return coup(${gen.valueToCode(block, 'TARGET', Order.NONE) || 'state.strongest_player'})\n`;
+    `return coup(${gen.valueToCode(block, 'ROLE', Order.NONE) || 'best_coup_call(state)'})\n`;
   forBlock['coup_assassinate'] = (block, gen) => {
-    const target = gen.valueToCode(block, 'TARGET', Order.NONE) || 'state.weakest_player';
+    const call = gen.valueToCode(block, 'ROLE', Order.NONE) || 'best_coup_call(state)';
     const p = Number(block.getFieldValue('P'));
-    return `return assassinate(${target}, ${p})\n`;
+    return `return assassinate(${call}, ${p})\n`;
   };
 
   // responses
@@ -454,19 +438,26 @@ function registerGenerators() {
 
   // game info
   forBlock['coup_state_field'] = (block) => [`state.${block.getFieldValue('FIELD')}`, Order.MEMBER];
-  forBlock['coup_player_pick'] = (block) => [`state.${block.getFieldValue('FIELD')}`, Order.MEMBER];
-  forBlock['coup_random_opponent'] = () => ['choice(state.opponents)', Order.FUNCTION_CALL];
-  forBlock['coup_opponents'] = () => ['state.opponents', Order.MEMBER];
+  forBlock['coup_opponent'] = () => ['state.opponent', Order.MEMBER];
+  forBlock['coup_my_lives'] = () => ['state.my_lives', Order.MEMBER];
+  forBlock['coup_my_graveyard'] = () => ['state.my_graveyard', Order.MEMBER];
+  forBlock['coup_opp_graveyard'] = () => ['state.opponent.graveyard', Order.MEMBER];
+  forBlock['coup_opp_last_revealed'] = () => ['state.opponent.last_revealed', Order.MEMBER];
+  forBlock['coup_opp_last_revealed_age'] = () => ['state.opponent.last_revealed_age', Order.MEMBER];
+  forBlock['coup_prob_opp_has'] = (block) => [`prob_opponent_has(state, "${block.getFieldValue('ROLE')}")`, Order.FUNCTION_CALL];
+  forBlock['coup_best_guess'] = () => ['best_coup_call(state)', Order.FUNCTION_CALL];
+  forBlock['coup_unseen'] = (block) => [`unseen_copies(state, "${block.getFieldValue('ROLE')}")`, Order.FUNCTION_CALL];
   forBlock['coup_my_cards'] = () => ['state.my_cards', Order.MEMBER];
   forBlock['coup_my_claims'] = () => ['state.my_claims', Order.MEMBER];
+  forBlock['coup_exchange_reason'] = () => ['reason', Order.ATOMIC];
 
   // this move (the action passed to respond / when_assassinated)
+  forBlock['coup_action_call'] = () => ['action.call', Order.MEMBER];
   forBlock['coup_action_actor'] = () => ['action.actor', Order.MEMBER];
   forBlock['coup_action_target'] = () => ['action.target', Order.MEMBER];
   forBlock['coup_action_is'] = (block) => [`(action.type == "${block.getFieldValue('TYPE')}")`, Order.ATOMIC];
   forBlock['coup_action_claimed_role'] = () => ['action.claimed_role', Order.MEMBER];
   forBlock['coup_action_is_block'] = () => ['action.is_block', Order.MEMBER];
-  forBlock['coup_action_blocker'] = () => ['action.blocker', Order.MEMBER];
   forBlock['coup_action_targets_me'] = () => ['(action.target != None and action.target.is_me)', Order.ATOMIC];
   forBlock['coup_action_already_claimed'] = () => ['action.already_claimed', Order.MEMBER];
   forBlock['coup_claimed_role_impossible'] = () =>
@@ -475,15 +466,15 @@ function registerGenerators() {
   // smart reads
   forBlock['coup_revealed_count'] = (block) => [`state.revealed_roles["${block.getFieldValue('ROLE')}"]`, Order.MEMBER];
   forBlock['coup_role_impossible'] = (block) => [`(state.revealed_roles["${block.getFieldValue('ROLE')}"] >= 3)`, Order.ATOMIC];
-  forBlock['coup_opp_most'] = (block) => [`opponent_with_most(state, "${block.getFieldValue('STAT')}")`, Order.FUNCTION_CALL];
-  forBlock['coup_opp_least'] = (block) => [`opponent_with_least(state, "${block.getFieldValue('STAT')}")`, Order.FUNCTION_CALL];
   forBlock['coup_player_prop'] = (block, gen) => {
-    const player = gen.valueToCode(block, 'PLAYER', Order.MEMBER) || 'state.richest_player';
+    const player = gen.valueToCode(block, 'PLAYER', Order.MEMBER) || 'state.opponent';
     return [`${player}.${block.getFieldValue('PROP')}`, Order.MEMBER];
   };
   forBlock['coup_has_role'] = (block) => [`("${block.getFieldValue('ROLE')}" in state.my_cards)`, Order.ATOMIC];
+  forBlock['coup_i_have'] = (block, gen) =>
+    [`(${gen.valueToCode(block, 'ROLE', Order.NONE) || '"duke"'} in state.my_cards)`, Order.ATOMIC];
   forBlock['coup_player_claimed'] = (block, gen) => {
-    const player = gen.valueToCode(block, 'PLAYER', Order.MEMBER) || 'state.richest_player';
+    const player = gen.valueToCode(block, 'PLAYER', Order.MEMBER) || 'state.opponent';
     return [`("${block.getFieldValue('ROLE')}" in ${player}.claims)`, Order.ATOMIC];
   };
   forBlock['coup_role'] = (block) => [`"${block.getFieldValue('ROLE')}"`, Order.ATOMIC];
@@ -506,7 +497,7 @@ function registerGenerators() {
   forBlock['coup_random_int'] = (block) =>
     [`random_int(${Number(block.getFieldValue('A'))}, ${Number(block.getFieldValue('B'))})`, Order.FUNCTION_CALL];
   forBlock['coup_random_choice'] = (block, gen) =>
-    [`choice(${gen.valueToCode(block, 'LIST', Order.NONE) || 'state.opponents'})`, Order.FUNCTION_CALL];
+    [`choice(${gen.valueToCode(block, 'LIST', Order.NONE) || 'state.my_cards'})`, Order.FUNCTION_CALL];
   forBlock['coup_first_of'] = (block, gen) =>
     [`${gen.valueToCode(block, 'LIST', Order.MEMBER) || 'state.my_cards'}[0]`, Order.MEMBER];
   forBlock['coup_last_of'] = (block, gen) =>
@@ -573,9 +564,9 @@ function getTheme(): Blockly.Theme {
 
 // ---------------------------------------------------------------- toolbox
 export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
-  const playerShadow = (field: string) => ({
-    shadow: { type: 'coup_player_pick', fields: { FIELD: field } },
-  });
+  const oppShadow = () => ({ shadow: { type: 'coup_opponent' } });
+  const roleShadow = (role: string) => ({ shadow: { type: 'coup_role', fields: { ROLE: role } } });
+  const bestGuess = () => ({ block: { type: 'coup_best_guess' } });
   // a fresh power-order block with a sensible default ranking
   const powerOrder = () => ({
     block: { type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
@@ -600,9 +591,13 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_foreign_aid' },
           { kind: 'block', type: 'coup_tax' },
           { kind: 'block', type: 'coup_exchange' },
-          { kind: 'block', type: 'coup_steal', inputs: { TARGET: playerShadow('richest_player') } },
-          { kind: 'block', type: 'coup_coup', inputs: { TARGET: playerShadow('strongest_player') } },
-          { kind: 'block', type: 'coup_assassinate', inputs: { TARGET: playerShadow('weakest_player') } },
+          { kind: 'block', type: 'coup_steal' },
+          { kind: 'block', type: 'coup_coup', inputs: { ROLE: roleShadow('duke') } },
+          // Coup calling my best guess at their card
+          { kind: 'block', type: 'coup_coup', inputs: { ROLE: bestGuess() } },
+          { kind: 'block', type: 'coup_assassinate', inputs: { ROLE: roleShadow('assassin') } },
+          // Assassinate calling my best guess
+          { kind: 'block', type: 'coup_assassinate', inputs: { ROLE: bestGuess() } },
         ],
       },
       {
@@ -612,6 +607,14 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_challenge' },
           { kind: 'block', type: 'coup_block' },
           { kind: 'block', type: 'coup_block_contessa' },
+          // dodge: if they named a card I don't hold, just allow it (it misses)
+          {
+            kind: 'block', type: 'controls_if',
+            inputs: {
+              IF0: { block: { type: 'logic_negate', inputs: { BOOL: { block: { type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } } } } } },
+              DO0: { block: { type: 'coup_allow' } },
+            },
+          },
           { kind: 'block', type: 'coup_reveal', inputs: { ROLE: { shadow: { type: 'coup_my_card', fields: { IDX: 0 } } } } },
           // reveal my weakest card: last of (my cards sorted strongest-first)
           {
@@ -625,17 +628,16 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
               },
             },
           },
-          // exchange keeps are usually 2 cards — start the list at 2 sockets
-          { kind: 'block', type: 'coup_keep', inputs: { LIST: { block: { type: 'lists_create_with', extraState: { itemCount: 2 } } } } },
-          { kind: 'block', type: 'coup_keep_strongest', inputs: { ORDER: powerOrder() } },
-          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
           // give up a card whose role I already claimed — keeps my hidden card hidden
           { kind: 'block', type: 'coup_reveal', inputs: { ROLE: { block: { type: 'coup_claimed_card' } } } },
           { kind: 'block', type: 'coup_claimed_card' },
           { kind: 'block', type: 'coup_unclaimed_card' },
-          // exchange for cards nobody suspects: keep the strongest of the pool
-          // cards not among my claims — always returns exactly my_num_cards
+          // exchange keeps are usually your card count — start the list at 2 sockets
+          { kind: 'block', type: 'coup_keep', inputs: { LIST: { block: { type: 'lists_create_with', extraState: { itemCount: 2 } } } } },
+          { kind: 'block', type: 'coup_keep_strongest', inputs: { ORDER: powerOrder() } },
+          // exchange for cards nobody suspects: keep strongest of pool cards not among my claims
           { kind: 'block', type: 'coup_keep_strongest', inputs: { FROM: { block: { type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } } }, ORDER: powerOrder() } },
+          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
           { kind: 'block', type: 'coup_pool' },
           { kind: 'block', type: 'coup_cards_in', inputs: { A: { block: { type: 'coup_my_cards' } }, B: { block: { type: 'coup_my_claims' } } } },
           { kind: 'block', type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } },
@@ -644,14 +646,14 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
       {
         kind: 'category', name: 'This Move', categorystyle: 'move_cat',
         contents: [
-          { kind: 'label', text: 'Use these inside "when I can react" / "when I am assassinated"' },
+          { kind: 'label', text: 'Use these inside "when my opponent makes a move" / "when I am assassinated"' },
+          { kind: 'block', type: 'coup_action_call' },
           { kind: 'block', type: 'coup_action_is' },
           { kind: 'block', type: 'coup_action_targets_me' },
           { kind: 'block', type: 'coup_action_actor' },
           { kind: 'block', type: 'coup_action_target' },
           { kind: 'block', type: 'coup_action_claimed_role' },
           { kind: 'block', type: 'coup_action_is_block' },
-          { kind: 'block', type: 'coup_action_blocker' },
           { kind: 'block', type: 'coup_action_already_claimed' },
           { kind: 'block', type: 'coup_claimed_role_impossible' },
           // ready-made: call an impossible claim's bluff instantly
@@ -662,34 +664,44 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
               DO0: { block: { type: 'coup_challenge' } },
             },
           },
-          // shows kids that "This Move" players chain into "[property] of [player]"
+          // do I hold the card they just called?
+          { kind: 'block', type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } },
+          // chain "This Move" players into "[property] of [player]"
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'scrim_bluff_rate' }, inputs: { PLAYER: { block: { type: 'coup_action_actor' } } } },
-          { kind: 'block', type: 'coup_player_claimed', fields: { ROLE: 'contessa' }, inputs: { PLAYER: { block: { type: 'coup_action_actor' } } } },
         ],
       },
       {
         kind: 'category', name: 'Game Info', categorystyle: 'info_cat',
         contents: [
           { kind: 'block', type: 'coup_state_field' },
+          { kind: 'block', type: 'coup_my_lives' },
           { kind: 'block', type: 'coup_has_role' },
-          { kind: 'block', type: 'coup_player_pick' },
-          { kind: 'block', type: 'coup_opp_most' },
-          { kind: 'block', type: 'coup_opp_least' },
-          { kind: 'block', type: 'coup_random_opponent' },
+          { kind: 'block', type: 'coup_i_have', inputs: { ROLE: roleShadow('duke') } },
+          { kind: 'block', type: 'coup_opponent' },
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: oppShadow() } },
+          { kind: 'block', type: 'coup_player_claimed', inputs: { PLAYER: oppShadow() } },
+          // the card-counting workhorses
+          { kind: 'block', type: 'coup_prob_opp_has' },
+          { kind: 'block', type: 'coup_best_guess' },
+          { kind: 'block', type: 'coup_unseen' },
           { kind: 'block', type: 'coup_revealed_count' },
           { kind: 'block', type: 'coup_role_impossible' },
-          { kind: 'block', type: 'coup_opponents' },
+          // graveyards + miss memory
+          { kind: 'block', type: 'coup_my_graveyard' },
+          { kind: 'block', type: 'coup_opp_graveyard' },
+          { kind: 'block', type: 'coup_opp_last_revealed' },
+          { kind: 'block', type: 'coup_opp_last_revealed_age' },
+          // my hand / claims
           { kind: 'block', type: 'coup_my_cards' },
           { kind: 'block', type: 'coup_my_claims' },
           { kind: 'block', type: 'coup_sorted_strongest', inputs: { LIST: { block: { type: 'coup_my_cards' } }, ORDER: powerOrder() } },
           { kind: 'block', type: 'coup_strongest_n', inputs: { LIST: { block: { type: 'coup_my_cards' } }, ORDER: powerOrder() } },
           { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
-          { kind: 'block', type: 'coup_player_prop', inputs: { PLAYER: playerShadow('richest_player') } },
-          { kind: 'block', type: 'coup_player_claimed', inputs: { PLAYER: playerShadow('richest_player') } },
           { kind: 'block', type: 'coup_role' },
           { kind: 'block', type: 'coup_my_card' },
           { kind: 'block', type: 'coup_first_of' },
           { kind: 'block', type: 'coup_last_of' },
+          { kind: 'block', type: 'coup_exchange_reason' },
         ],
       },
       {
@@ -699,7 +711,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_chance' },
           { kind: 'block', type: 'coup_random' },
           { kind: 'block', type: 'coup_random_int' },
-          { kind: 'block', type: 'coup_random_choice', inputs: { LIST: { block: { type: 'coup_opponents' } } } },
+          { kind: 'block', type: 'coup_random_choice', inputs: { LIST: { block: { type: 'coup_my_cards' } } } },
         ],
       },
       { kind: 'sep' },
@@ -802,24 +814,37 @@ export function generatePython(workspace: Blockly.Workspace): string {
 // ---------------------------------------------------------------- starter
 export const STARTER_PYTHON = `def your_turn(state):
     if state.my_coins >= 7:
-        return coup(state.strongest_player)
+        return coup(best_coup_call(state))
     if "duke" in state.my_cards:
         return tax()
+    if "captain" in state.my_cards and state.opponent.coins >= 2:
+        return steal()
     return income()
 
 def respond(state, action):
+    if action.type == "steal" and "captain" in state.my_cards:
+        return block("captain")
+    if action.type == "foreign_aid" and "duke" in state.my_cards:
+        return block("duke")
     return allow()
 
 def when_assassinated(state, action):
+    if not (action.call in state.my_cards):
+        return allow()
     return block_contessa()
 
 def choose_card_to_lose(state):
     return reveal(state.my_cards[0])
 `;
 
+// small serialization helpers for the starter layout
+const iHave = (role: string) => ({ block: { type: 'coup_has_role', fields: { ROLE: role } } });
+const actionIs = (t: string) => ({ block: { type: 'coup_action_is', fields: { TYPE: t } } });
+const andOf = (a: object, b: object) => ({ block: { type: 'logic_operation', fields: { OP: 'AND' }, inputs: { A: a, B: b } } });
+
 /**
- * The block layout every new/empty slot starts from — the same honest strategy
- * as STARTER_PYTHON, expressed as a Blockly serialization document.
+ * The block layout every new/empty slot starts from — the heads-up scaffold,
+ * identical in logic to STARTER_PYTHON.
  */
 export function starterWorkspaceJson(): object {
   return {
@@ -842,21 +867,36 @@ export function starterWorkspaceJson(): object {
                       },
                     },
                   },
-                  DO0: {
-                    block: {
-                      type: 'coup_coup',
-                      inputs: { TARGET: { block: { type: 'coup_player_pick', fields: { FIELD: 'strongest_player' } } } },
-                    },
-                  },
+                  DO0: { block: { type: 'coup_coup', inputs: { ROLE: { block: { type: 'coup_best_guess' } } } } },
                 },
                 next: {
                   block: {
                     type: 'controls_if',
                     inputs: {
-                      IF0: { block: { type: 'coup_has_role', fields: { ROLE: 'duke' } } },
+                      IF0: iHave('duke'),
                       DO0: { block: { type: 'coup_tax' } },
                     },
-                    next: { block: { type: 'coup_income' } },
+                    next: {
+                      block: {
+                        type: 'controls_if',
+                        inputs: {
+                          IF0: andOf(
+                            iHave('captain'),
+                            {
+                              block: {
+                                type: 'logic_compare', fields: { OP: 'GTE' },
+                                inputs: {
+                                  A: { block: { type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } } },
+                                  B: { shadow: { type: 'math_number', fields: { NUM: 2 } } },
+                                },
+                              },
+                            },
+                          ),
+                          DO0: { block: { type: 'coup_steal' } },
+                        },
+                        next: { block: { type: 'coup_income' } },
+                      },
+                    },
                   },
                 },
               },
@@ -864,15 +904,46 @@ export function starterWorkspaceJson(): object {
           },
         },
         {
-          type: 'coup_when_respond', x: 420, y: 40,
-          inputs: { DO: { block: { type: 'coup_allow' } } },
+          type: 'coup_when_respond', x: 560, y: 40,
+          inputs: {
+            DO: {
+              block: {
+                type: 'controls_if',
+                inputs: {
+                  IF0: andOf(actionIs('steal'), iHave('captain')),
+                  DO0: { block: { type: 'coup_block', fields: { ROLE: 'captain' } } },
+                },
+                next: {
+                  block: {
+                    type: 'controls_if',
+                    inputs: {
+                      IF0: andOf(actionIs('foreign_aid'), iHave('duke')),
+                      DO0: { block: { type: 'coup_block', fields: { ROLE: 'duke' } } },
+                    },
+                    next: { block: { type: 'coup_allow' } },
+                  },
+                },
+              },
+            },
+          },
         },
         {
-          type: 'coup_when_assassinated', x: 420, y: 200,
-          inputs: { DO: { block: { type: 'coup_block_contessa' } } },
+          type: 'coup_when_assassinated', x: 560, y: 330,
+          inputs: {
+            DO: {
+              block: {
+                type: 'controls_if',
+                inputs: {
+                  IF0: { block: { type: 'logic_negate', inputs: { BOOL: { block: { type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } } } } } },
+                  DO0: { block: { type: 'coup_allow' } },
+                },
+                next: { block: { type: 'coup_block_contessa' } },
+              },
+            },
+          },
         },
         {
-          type: 'coup_choose_lose', x: 420, y: 340,
+          type: 'coup_choose_lose', x: 40, y: 500,
           inputs: {
             DO: {
               block: {

@@ -9,15 +9,15 @@ const crypto = require('node:crypto');
 const { CoupGame } = require('./coup');
 
 class PlaySession {
-  /** @param opponents [{bot: ScriptBot, name}] — exactly 4 */
+  /** @param opponents [{bot: ScriptBot, name}] — exactly 1 (heads-up) */
   constructor(humanName, opponents) {
     this.id = crypto.randomBytes(8).toString('hex');
     this.createdAt = Date.now();
     this.humanId = 'p0';
-    this.ids = ['p0', 'p1', 'p2', 'p3', 'p4'];
+    this.ids = ['p0', 'p1'];
     this.names = { p0: humanName };
     this.bots = {};
-    opponents.forEach((o, i) => {
+    opponents.slice(0, 1).forEach((o, i) => {
       const id = 'p' + (i + 1);
       this.names[id] = o.name;
       this.bots[id] = o.bot;
@@ -54,6 +54,7 @@ class PlaySession {
       type: g.ctx.type,
       actor: nameOf(g.ctx.actor),
       target: g.ctx.target ? nameOf(g.ctx.target) : null,
+      call: g.ctx.call || null,
       is_block: false, claimed_role: null,
     } : null;
     if (info && g.pending && g.pending.type === 'challenge' && g.pending.claim) {
@@ -77,6 +78,7 @@ class PlaySession {
         if (pend.player === this.humanId) {
           this.prompt = { kind: 'action', actions: g.legalActions(this.humanId).map((a) => ({
             type: a.type, targets: (a.targets || []).map((t) => this.names[t]),
+            call: !!a.call,
           })), mustCoup: !!pend.mustCoup };
           return;
         }
@@ -136,8 +138,7 @@ class PlaySession {
             let r;
             if (g.ctx.type === 'assassinate' && id === g.ctx.target) {
               const w = this.bots[id].whenAssassinated(g, id, this.names, {}, rng);
-              if (w.block) r = { block: 'contessa' };
-              else { this._preferReveal = { id, role: w.reveal }; r = 'pass'; }
+              r = w.block ? { block: 'contessa' } : 'pass';
             } else {
               r = this.bots[id].respond(g, id, this.names, {}, rng, 'block');
             }
@@ -157,14 +158,11 @@ class PlaySession {
           const p = g.player(id);
           this.prompt = {
             kind: 'lose', why: pend.why,
-            cards: p.cards.map((c, i) => ({ idx: i, role: c.role, revealed: c.revealed }))
-              .filter((c) => !c.revealed),
+            cards: p.cards.map((role, i) => ({ idx: i, role })),
           };
           return;
         }
-        const prefer = (this._preferReveal && this._preferReveal.id === id) ? this._preferReveal.role : null;
-        if (this._preferReveal && this._preferReveal.id === id) this._preferReveal = null;
-        g.resolveLose(id, this.bots[id].chooseCardToLose(g, id, this.names, {}, rng, prefer));
+        g.resolveLose(id, this.bots[id].chooseCardToLose(g, id, this.names, {}, rng));
         this._snap();
         continue;
       }
@@ -172,7 +170,7 @@ class PlaySession {
       if (pend.type === 'exchange') {
         const id = pend.player;
         if (id === this.humanId) {
-          this.prompt = { kind: 'exchange', pool: pend.pool, keep: pend.keep };
+          this.prompt = { kind: 'exchange', pool: pend.pool, keep: pend.keep, reason: pend.reason };
           return;
         }
         g.resolveExchange(id, this.bots[id].chooseExchange(g, id, this.names, {}, rng));
@@ -191,9 +189,8 @@ class PlaySession {
     if (!pend) throw new Error('game is over');
     if (msg.kind === 'action') {
       if (pend.type !== 'action' || pend.player !== this.humanId) throw new Error('not your turn');
-      const targetId = msg.target ? this.ids.find((id) => this.names[id] === msg.target) : null;
       g._assassinP = 0; // humans challenge manually
-      g.submitAction(this.humanId, { type: msg.type, target: targetId });
+      g.submitAction(this.humanId, { type: msg.type, call: msg.call });
     } else if (msg.kind === 'respond') {
       const poll = this._pollState();
       if (pend.type === 'challenge') {

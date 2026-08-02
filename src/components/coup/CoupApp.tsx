@@ -39,7 +39,7 @@ function LoginPage({ onLogin }: { onLogin: (u: CoupUser) => void }) {
   return (
     <div className="coup-login">
       <h1>🎭 dyna<span className="gold">COUP</span></h1>
-      <div className="tag">Two cards. One reputation. Code your champion.</div>
+      <div className="tag">Five lives. One rival. Call the coup.</div>
       <form onSubmit={submit}>
         <label htmlFor="cu">Username</label>
         <input id="cu" type="text" autoComplete="username" value={username}

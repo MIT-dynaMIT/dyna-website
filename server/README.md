@@ -1,8 +1,24 @@
-# dynaCOUP camp server
+# dynaCOUP camp server — heads-up Ultimate variant
 
 The backend for the `/coup` pages of the dynaMIT website: student logins, saved
-bot versions, the always-running scrimmage ladder (ELO), match replays, and
-heads-up play against your own bots.
+bot versions, the always-running 1v1 scrimmage ladder (ELO), match replays, and
+heads-up play against bots.
+
+**The game** is two-player "Ultimate" Coup
+(https://shelfgamer.com/coup-two-player-ultimate-variant/): five lives each
+(dead cards go face-up to your graveyard and are replaced from the deck until
+the 4th death), full 15-card court deck, and **Call the Coup** — coups *and*
+assassinations must name a character; name wrong and the attack **misses**
+(the defender reveals, redraws 2, and keeps a hand's worth). Everything else
+is standard Coup. The math this creates (hypergeometric card-counting,
+claim-reading, bluff-rate exploitation) is exposed to student bots via
+`prob_opponent_has`, `unseen_copies`, `best_coup_call`, graveyards, and
+miss-reveal memory.
+
+**The Equilibrist** (house champion) was tuned by coordinate ascent against a
+self-play mirror + the 12 sample personalities (~50k headless games; the
+search converged and beats four hand-built exploiters). See
+`samplebots/bots.js` for its parameters and the kid-facing scaffold.
 
 ## Camp-day quickstart
 

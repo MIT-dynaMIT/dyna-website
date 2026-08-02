@@ -7,9 +7,9 @@ import type { TalkLine } from '../CoupTable';
 
 const STEP_MS = 900;         // cadence while animating bot moves
 const ACTION_COST: Record<string, number> = { coup: 7, assassinate: 3 };
-const ACTION_ROLE: Record<string, string> = { tax: 'duke', steal: 'captain', exchange: 'ambassador', assassinate: 'assassin' };
-
-type Pick = number | 'house';
+const ACTION_ROLE: Record<string, string> = { tax: 'duke', steal: 'captain', exchange: 'ambassador' };
+const CALL_ROLES = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
+const DEFAULT_HOUSE = 'The Equilibrist';
 
 export default function PlayPage({ user }: { user: CoupUser }) {
   const toast = useToast();
@@ -17,11 +17,13 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 
   // ------------------------------------------------ setup
   const [slots, setSlots] = useState<(BotSlot | null)[]>([]);
-  const [picks, setPicks] = useState<Pick[]>(['house', 'house', 'house', 'house']);
+  const [houseBots, setHouseBots] = useState<string[]>([]);
+  const [pick, setPick] = useState<string>(`house:${DEFAULT_HOUSE}`);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     api.get<{ slots: (BotSlot | null)[] }>('/bots').then((b) => setSlots(b.slots)).catch(() => {});
+    api.get<{ bots: string[] }>('/play/house-bots').then((d) => setHouseBots(d.bots)).catch(() => {});
   }, []);
 
   const filled = slots.map((s, i) => ({ s, i })).filter((x) => x.s && x.s.python);
@@ -36,7 +38,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
   const [queue, setQueue] = useState<Frame[]>([]);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [busy, setBusy] = useState(false);
-  const [target, setTarget] = useState<{ type: string; targets: string[] } | null>(null);
+  const [callFor, setCallFor] = useState<string | null>(null);
   const [exchangeSel, setExchangeSel] = useState<number[]>([]);
 
   const snapRef = useRef<PlaySnapshot | null>(null);
@@ -49,7 +51,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
     setSnap(s);
     pendingPrompt.current = s.prompt;
     setPrompt(null);
-    setTarget(null);
+    setCallFor(null);
     setExchangeSel([]);
     if (isStart) {
       setLogs([]);
@@ -62,10 +64,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 
   // drain the frame queue one step at a time, then reveal the prompt
   useEffect(() => {
-    if (queue.length === 0) {
-      setPrompt(pendingPrompt.current);
-      return;
-    }
+    if (queue.length === 0) { setPrompt(pendingPrompt.current); return; }
     const first = !viewRef.current;
     const t = setTimeout(() => {
       setQueue((q) => {
@@ -86,7 +85,8 @@ export default function PlayPage({ user }: { user: CoupUser }) {
   const startGame = async () => {
     setStarting(true);
     try {
-      const s = await api.post<PlaySnapshot>('/play/start', { opponents: picks });
+      const opp: number | string = pick.startsWith('house:') ? pick : Number(pick);
+      const s = await api.post<PlaySnapshot>('/play/start', { opponents: [opp] });
       setPhase('game');
       applySnapshot(s, true);
     } catch (ex) {
@@ -105,8 +105,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
       const next = await api.post<PlaySnapshot>(`/play/${s.id}/move`, { cursor: s.cursor, ...msg });
       applySnapshot(next, false);
     } catch (ex) {
-      const m = ex instanceof ApiError ? ex.message : 'the court rejected that move';
-      toast(m);
+      toast(ex instanceof ApiError ? ex.message : 'the court rejected that move');
       setPrompt(pendingPrompt.current); // let them try again
     } finally {
       setBusy(false);
@@ -123,37 +122,32 @@ export default function PlayPage({ user }: { user: CoupUser }) {
   // ------------------------------------------------ setup screen
   if (phase === 'setup' || !displayView || !snap) {
     return (
-      <div className="coup-card" style={{ maxWidth: 560 }}>
-        <h2 className="coup-h">🎭 Choose your opposition</h2>
-        <p className="coup-sub">
-          Take a seat against four rivals. Field your own saved bots or let the House
-          send its regulars — then deal yourself in.
-        </p>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} style={{ marginBottom: 4 }}>
-            <label htmlFor={`opp${i}`}>Seat {i + 2}</label>
-            <select id={`opp${i}`} value={String(picks[i])}
-              onChange={(e) => {
-                const v = e.target.value;
-                setPicks((p) => p.map((x, j) => (j === i ? (v === 'house' ? 'house' : Number(v)) : x)));
-              }}>
-              <option value="house">House bot</option>
-              {filled.map(({ s, i: si }) => (
-                <option key={si} value={si}>My bot — {s!.name}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+      <div className="coup-card" style={{ maxWidth: 520 }}>
+        <h2 className="coup-h">🎭 Choose your rival</h2>
+        <p className="coup-sub">Duel one bot heads-up — five lives each. Last one standing rules the court.</p>
+        <label htmlFor="opp">Opponent</label>
+        <select id="opp" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <optgroup label="House bots">
+            {houseBots.map((n) => (
+              <option key={n} value={`house:${n}`}>
+                {n}{n === DEFAULT_HOUSE ? ' — house champion' : ''}
+              </option>
+            ))}
+          </optgroup>
+          {filled.length > 0 && (
+            <optgroup label="Your saved bots">
+              {filled.map(({ s, i }) => <option key={i} value={String(i)}>My bot — {s!.name}</option>)}
+            </optgroup>
+          )}
+        </select>
         <div style={{ marginTop: 20 }}>
           <button className="primary" onClick={startGame} disabled={starting}>
-            {starting ? 'Dealing…' : '♠ Deal me in'}
+            {starting ? 'Dealing…' : '⚔ Take your seat'}
           </button>
         </div>
-        {filled.length === 0 && (
-          <p className="coup-note" style={{ marginTop: 12 }}>
-            You have no saved bots yet — you can still play a full table against the House.
-          </p>
-        )}
+        <p className="coup-note" style={{ marginTop: 12 }}>
+          New here? <b>{DEFAULT_HOUSE}</b> is the tuned house champion — a stern first test.
+        </p>
       </div>
     );
   }
@@ -173,16 +167,14 @@ export default function PlayPage({ user }: { user: CoupUser }) {
           ? <><b>You</b> rule the court!</>
           : <><b>{snap.winnerName}</b> rules the court.</>}
       </div>
-      <div className="ovbtns">
-        <button className="primary" onClick={leaveTable}>Play again</button>
-      </div>
+      <div className="ovbtns"><button className="primary" onClick={leaveTable}>New duel</button></div>
     </>
   ) : null;
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <h2 className="coup-h" style={{ margin: 0 }}>🎭 Your table
+        <h2 className="coup-h" style={{ margin: 0 }}>🎭 Your duel
           <small>heads-up · you are {snap.you}</small>
         </h2>
         <div style={{ flex: 1 }} />
@@ -204,12 +196,12 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 
       {!done && (
         <div className="ct-actionbar">
-          {animating && <p className="barsub">The court is deliberating…</p>}
+          {animating && <p className="barsub">Your rival is deliberating…</p>}
           {showPrompt && prompt && (
             <ActionBar
               prompt={prompt}
-              target={target}
-              setTarget={setTarget}
+              callFor={callFor}
+              setCallFor={setCallFor}
               exchangeSel={exchangeSel}
               setExchangeSel={setExchangeSel}
               onMove={sendMove}
@@ -225,28 +217,34 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 // ---------------------------------------------------------------- action bar
 function actionGlyph(type: string) {
   const role = ACTION_ROLE[type];
-  return role ? ROLE_GLYPHS[role] : (type === 'coup' ? '⚔' : type === 'income' ? '＋' : '⛃');
+  return role ? ROLE_GLYPHS[role] : (type === 'coup' ? '⚔' : type === 'assassinate' ? '†' : type === 'income' ? '＋' : '⛃');
 }
 
-function ActionBar({ prompt, target, setTarget, exchangeSel, setExchangeSel, onMove }: {
+function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchangeSel, onMove }: {
   prompt: Prompt;
-  target: { type: string; targets: string[] } | null;
-  setTarget: (t: { type: string; targets: string[] } | null) => void;
+  callFor: string | null;
+  setCallFor: (t: string | null) => void;
   exchangeSel: number[];
   setExchangeSel: (s: number[]) => void;
   onMove: (msg: Record<string, unknown>) => void;
 }) {
   // ----- pick an action
   if (prompt.kind === 'action') {
-    if (target) {
+    // "Call the Coup" role picker
+    if (callFor) {
       return (
         <div>
-          <p className="barhead">{ACTION_LABEL[target.type] || target.type} — who is the target?</p>
-          <div className="ct-btns">
-            {target.targets.map((t) => (
-              <button key={t} onClick={() => onMove({ kind: 'action', type: target.type, target: t })}>{t}</button>
+          <p className="barhead">{ACTION_LABEL[callFor] || callFor} — name the card you think they hold.</p>
+          <p className="barsub">Name it right and that exact card dies. Name it wrong and your attack misses — they reveal and redraw.</p>
+          <div className="ct-callrow">
+            {CALL_ROLES.map((role) => (
+              <button key={role} className={`ct-callbtn role-${role}`}
+                onClick={() => onMove({ kind: 'action', type: callFor, call: role })}>
+                <span className="g">{ROLE_GLYPHS[role]}</span>
+                {ROLE_LABEL[role]}
+              </button>
             ))}
-            <button className="ghost" onClick={() => setTarget(null)}>← back</button>
+            <button className="ghost" onClick={() => setCallFor(null)}>← back</button>
           </div>
         </div>
       );
@@ -261,8 +259,8 @@ function ActionBar({ prompt, target, setTarget, exchangeSel, setExchangeSel, onM
             const cost = ACTION_COST[a.type];
             const label = ACTION_LABEL[a.type] || a.type;
             const onClick = () => {
-              if (a.targets && a.targets.length) setTarget(a);
-              else onMove({ kind: 'action', type: a.type, target: null });
+              if (a.call) setCallFor(a.type);
+              else onMove({ kind: 'action', type: a.type });
             };
             return (
               <button key={a.type} className="ct-actbtn" onClick={onClick}>
@@ -281,18 +279,22 @@ function ActionBar({ prompt, target, setTarget, exchangeSel, setExchangeSel, onM
   if (prompt.kind === 'respond') {
     const a = prompt.action;
     const opts = prompt.options || [];
+    const assassination = !!prompt.assassination;
     let head = 'A claim is on the table.';
     if (a) {
       const act = ACTION_LABEL[a.type] || a.type;
+      const claim = (a.claimed_role || '').toUpperCase();
+      const callUp = a.call ? (ROLE_LABEL[a.call] || a.call).toUpperCase() : '';
       if (a.is_block) {
-        head = `${a.blocker} claims the ${(a.claimed_role || '').toUpperCase()} to block ${a.actor}'s ${act}.`;
+        head = `${a.blocker} claims the ${claim} to block your ${act}.`;
+      } else if (assassination) {
+        head = `${a.actor} pays 3 and calls your ${callUp}.`;
       } else if (prompt.mode === 'challenge') {
-        head = `${a.actor} claims the ${(a.claimed_role || '').toUpperCase()} to take ${act}${a.target ? ` on ${a.target}` : ''}.`;
+        head = `${a.actor} claims the ${claim}${a.call ? `, naming your ${callUp},` : ''} to ${act}.`;
       } else {
-        head = `${a.actor} moves to ${act}${a.target ? ` you` : ''}.`;
+        head = `${a.actor} moves to ${act}.`;
       }
     }
-    const assassination = !!prompt.assassination;
     return (
       <div>
         <p className="barhead">{head}</p>
@@ -341,31 +343,37 @@ function ActionBar({ prompt, target, setTarget, exchangeSel, setExchangeSel, onM
         <p className="barhead">Choose an influence to give up{prompt.why ? ` (${prompt.why})` : ''}.</p>
         <div className="ct-pickcards">
           {cards.map((c) => (
-            <button key={c.idx} className={`ct-card face role-${c.role}`}
-              style={{ padding: 0, border: 'none', background: 'none' }}
+            <div key={c.idx} className={`ct-card face role-${c.role}`} role="button"
               onClick={() => onMove({ kind: 'lose', idx: c.idx })}
               title={`Give up your ${ROLE_LABEL[c.role] || c.role}`}>
-              <span className="band" style={{ display: 'flex' }}>{ROLE_GLYPHS[c.role]}</span>
-              <span className="rname">{ROLE_LABEL[c.role] || c.role}</span>
-            </button>
+              <div className="band">{ROLE_GLYPHS[c.role]}</div>
+              <div className="rname">{ROLE_LABEL[c.role] || c.role}</div>
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
-  // ----- exchange (Ambassador)
+  // ----- exchange (Ambassador, or a post-miss redraw)
   if (prompt.kind === 'exchange') {
     const pool = prompt.pool || [];
     const keep = prompt.keep || 0;
+    const isMiss = prompt.reason === 'miss';
     const toggle = (i: number) => {
       if (exchangeSel.includes(i)) setExchangeSel(exchangeSel.filter((x) => x !== i));
       else if (exchangeSel.length < keep) setExchangeSel([...exchangeSel, i]);
     };
     return (
       <div>
-        <p className="barhead">Exchange — keep exactly {keep} card{keep === 1 ? '' : 's'}.</p>
-        <p className="barsub">Chosen {exchangeSel.length} / {keep}. The rest return to the deck.</p>
+        <p className="barhead">
+          {isMiss ? 'The attack MISSED!' : 'Exchange with the court'} — keep exactly {keep} card{keep === 1 ? '' : 's'}.
+        </p>
+        <p className="barsub">
+          {isMiss
+            ? 'Your hand was revealed, so draw 2 and pick your new hand. The rest go to the top of the deck.'
+            : `Chosen ${exchangeSel.length} / ${keep}. The rest return to the deck.`}
+        </p>
         <div className="ct-pickcards">
           {pool.map((role, i) => (
             <div key={i} className={`ct-card face role-${role} ${exchangeSel.includes(i) ? 'sel' : ''}`}
@@ -377,7 +385,7 @@ function ActionBar({ prompt, target, setTarget, exchangeSel, setExchangeSel, onM
         </div>
         <button className="primary" disabled={exchangeSel.length !== keep}
           onClick={() => onMove({ kind: 'exchange', keep: exchangeSel })}>
-          Confirm
+          Confirm ({exchangeSel.length}/{keep})
         </button>
       </div>
     );

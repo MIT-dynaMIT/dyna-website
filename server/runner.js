@@ -52,7 +52,7 @@ function playBotGame({ bots, seed, scrimStats = {} }) {
   const game = new CoupGame(ids, rng);
   const decisions = [];
   let guard = 0;
-  const MAX = 700;
+  const MAX = 2000;
 
   while (!game.winner) {
     if (++guard > MAX) { game.adjudicate(); break; }
@@ -61,7 +61,7 @@ function playBotGame({ bots, seed, scrimStats = {} }) {
     if (pend.type === 'action') {
       const id = pend.player;
       const act = botOf[id].yourTurn(game, id, names, statsById[id], botRng);
-      decisions.push(['action', id, { type: act.type, target: act.target }]);
+      decisions.push(['action', id, { type: act.type, call: act.call }]);
       // remember the assassin's auto-challenge probability for the contessa block
       game._assassinP = act.type === 'assassinate' ? (act.p || 0) : 0;
       game.submitAction(id, act);
@@ -89,8 +89,7 @@ function playBotGame({ bots, seed, scrimStats = {} }) {
         let r;
         if (game.ctx.type === 'assassinate' && id === game.ctx.target) {
           const w = botOf[id].whenAssassinated(game, id, names, statsById[id], botRng);
-          if (w.block) r = { block: 'contessa' };
-          else { game._preferReveal = { id, role: w.reveal }; r = 'pass'; }
+          r = w.block ? { block: 'contessa' } : 'pass';
         } else {
           r = botOf[id].respond(game, id, names, statsById[id], botRng, 'block');
         }
@@ -100,9 +99,7 @@ function playBotGame({ bots, seed, scrimStats = {} }) {
       game.resolveBlock(blocker, role);
     } else if (pend.type === 'lose') {
       const id = pend.player;
-      const prefer = (game._preferReveal && game._preferReveal.id === id) ? game._preferReveal.role : null;
-      if (game._preferReveal && game._preferReveal.id === id) game._preferReveal = null;
-      const idx = botOf[id].chooseCardToLose(game, id, names, statsById[id], botRng, prefer);
+      const idx = botOf[id].chooseCardToLose(game, id, names, statsById[id], botRng);
       decisions.push(['lose', id, idx]);
       game.resolveLose(id, idx);
     } else if (pend.type === 'exchange') {

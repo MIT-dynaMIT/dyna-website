@@ -337,8 +337,9 @@ export default function EditorPage({ user }: { user: CoupUser }) {
             </div>
             <p className="coup-note ed-py-note">
               Write functions only: <code>your_turn</code>, <code>respond</code>, <code>when_assassinated</code>,
-              <code> choose_card_to_lose</code>. No imports, f-strings, or keyword args — call actions positionally,
-              e.g. <code>assassinate(target, 0.5)</code>.
+              <code> choose_card_to_lose</code>. Heads-up: <code>coup</code> and <code>assassinate</code> name a
+              character (<code>coup("duke")</code>, <code>assassinate("duke", 0.35)</code>) and <code>steal()</code>
+              takes no argument. No imports, f-strings, or keyword args — pass values positionally.
             </p>
           </div>
         )}

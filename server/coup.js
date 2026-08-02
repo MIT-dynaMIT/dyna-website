@@ -1,32 +1,37 @@
 /**
- * Coup engine — pure rules, no timers, no network.
+ * Heads-up Coup engine — the two-player "Ultimate" variant
+ * (https://shelfgamer.com/coup-two-player-ultimate-variant/).
  *
- * The table driver (tables.js) owns pacing: the engine stops at a `pending`
- * decision and exposes who must answer; the driver collects answers from
- * humans (with countdowns) or bots (instantly) and calls the matching
- * resolve method. Deterministic when given a seeded rng, which is how the
- * tests hammer it.
+ * Differences from standard Coup:
+ *  - Exactly 2 players, full 15-card court deck.
+ *  - FIVE LIVES each: a dead character goes face-up to the player's graveyard
+ *    and is replaced from the deck — but the 4th and 5th deaths are NOT
+ *    replaced. The game ends when someone's 5th character dies.
+ *  - CALL THE COUP (and assassinations): the attacker names a character.
+ *    If the defender holds it, that exact card dies. If not, the attack
+ *    MISSES: the defender reveals their hand, draws two, keeps a hand's
+ *    worth of the four, and returns the rest to the TOP of the deck.
+ *  - Everything else is standard: income +1, foreign aid +2 (Duke blocks),
+ *    tax +3 (Duke), steal 2 (Captain; blocked by Captain/Ambassador),
+ *    assassinate 3 (Assassin; blocked by Contessa), exchange (Ambassador),
+ *    coup 7 unstoppable-but-callable, 10+ coins must coup, challenges on
+ *    every role claim with card replacement for truthful claimants.
  *
- * Rules implemented: standard Coup (FFG/Indie Boards & Cards).
- *  - Income +1 · Foreign Aid +2 (blockable: Duke) · Coup 7 (unstoppable)
- *  - Tax +3 (Duke) · Assassinate 3 (Assassin, blockable: Contessa)
- *  - Steal 2 (Captain, blockable: Captain/Ambassador) · Exchange (Ambassador)
- *  - Any role claim can be challenged, including block claims.
- *  - Truthful claimant shuffles the shown card back and draws a replacement.
- *  - Assassination cost is refunded only if the assassin is caught lying
- *    (successful challenge voids the action); a blocked assassination stays paid.
- *  - 10+ coins → must Coup.
+ * Driver contract is unchanged: the engine stops at `pending` and the driver
+ * calls the matching resolve method. Deterministic under a seeded rng.
  */
 'use strict';
 
 const ROLES = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
+const LIVES = 5;
+const REPLACE_UNTIL = 3; // deaths 1..3 are replaced from the deck
 
 const ACTIONS = {
   income: { label: 'Income', cost: 0 },
   foreign_aid: { label: 'Foreign Aid', cost: 0, blockedBy: ['duke'] },
-  coup: { label: 'Coup', cost: 7, targeted: true },
+  coup: { label: 'Coup', cost: 7, targeted: true, call: true },
   tax: { label: 'Tax', cost: 0, role: 'duke' },
-  assassinate: { label: 'Assassinate', cost: 3, role: 'assassin', targeted: true, blockedBy: ['contessa'] },
+  assassinate: { label: 'Assassinate', cost: 3, role: 'assassin', targeted: true, call: true, blockedBy: ['contessa'] },
   steal: { label: 'Steal', cost: 0, role: 'captain', targeted: true, blockedBy: ['captain', 'ambassador'] },
   exchange: { label: 'Exchange', cost: 0, role: 'ambassador' },
 };
@@ -35,7 +40,7 @@ function defaultRng() { return Math.random(); }
 
 class CoupGame {
   constructor(playerIds, rng = defaultRng) {
-    if (playerIds.length < 2 || playerIds.length > 6) throw new Error('2-6 players');
+    if (playerIds.length !== 2) throw new Error('heads-up: exactly 2 players');
     this.rng = rng;
     this.deck = [];
     for (const r of ROLES) this.deck.push(r, r, r);
@@ -43,17 +48,15 @@ class CoupGame {
     this.players = playerIds.map((id) => ({
       id,
       coins: 2,
-      cards: [
-        { role: this.deck.pop(), revealed: false },
-        { role: this.deck.pop(), revealed: false },
-      ],
+      cards: [this.deck.pop(), this.deck.pop()], // active hand: role strings
+      graveyard: [],                             // face-up dead characters
     }));
     this.turnIdx = 0;
     this.winner = null;
     this.log = [];
-    this.ctx = null;        // the action being resolved this turn
-    this.loseQueue = [];    // [{playerId, why}] influence losses awaiting a card choice
-    this.pending = null;    // {type, ...} what the driver must collect next
+    this.ctx = null;
+    this.loseQueue = [];   // [{playerId, why, forcedRole?}]
+    this.pending = null;
     this._beginTurn(true);
   }
 
@@ -66,51 +69,36 @@ class CoupGame {
   }
 
   player(id) { return this.players.find((p) => p.id === id); }
-  isAlive(p) { return p.cards.some((c) => !c.revealed); }
+  other(id) { return this.players.find((p) => p.id !== id); }
+  isAlive(p) { return p.graveyard.length < LIVES && p.cards.length > 0; }
   alivePlayers() { return this.players.filter((p) => this.isAlive(p)); }
   current() { return this.players[this.turnIdx]; }
-  hasRole(p, role) { return p.cards.some((c) => !c.revealed && c.role === role); }
+  hasRole(p, role) { return p.cards.includes(role); }
+  livesLeft(p) { return LIVES - p.graveyard.length; }
 
   _log(entry) { this.log.push(Object.assign({ n: this.log.length }, entry)); }
 
-  /** others, clockwise from `fromId`, alive only */
-  clockwiseFrom(fromId) {
-    const i = this.players.findIndex((p) => p.id === fromId);
-    const out = [];
-    for (let k = 1; k < this.players.length; k++) {
-      const p = this.players[(i + k) % this.players.length];
-      if (this.isAlive(p)) out.push(p.id);
-    }
-    return out;
-  }
-
-  /** the shown truthful card goes back in the deck; draw a fresh one */
+  /** truthful claimant returns the shown card to the deck and redraws */
   _replaceCard(p, role) {
-    const card = p.cards.find((c) => !c.revealed && c.role === role);
-    card.role = null;
-    this.deck.push(role);
+    const i = p.cards.indexOf(role);
+    this.deck.push(p.cards.splice(i, 1)[0]);
     this._shuffle(this.deck);
-    card.role = this.deck.pop();
+    p.cards.push(this.deck.pop());
   }
 
   // ------------------------------------------------------------ turn flow
   _beginTurn(first = false) {
     if (this._maybeFinish()) return;
-    if (!first) {
-      do { this.turnIdx = (this.turnIdx + 1) % this.players.length; }
-      while (!this.isAlive(this.players[this.turnIdx]));
-    } else if (!this.isAlive(this.players[this.turnIdx])) {
-      return this._beginTurn(false);
-    }
+    if (!first) this.turnIdx = (this.turnIdx + 1) % 2;
     const p = this.current();
     this.ctx = null;
     this.pending = { type: 'action', player: p.id, mustCoup: p.coins >= 10 };
   }
 
   _maybeFinish() {
-    const alive = this.alivePlayers();
-    if (alive.length === 1) {
-      this.winner = alive[0].id;
+    const dead = this.players.find((p) => !this.isAlive(p));
+    if (dead) {
+      this.winner = this.other(dead.id).id;
       this.pending = null;
       this._log({ t: 'win', player: this.winner });
       return true;
@@ -121,51 +109,49 @@ class CoupGame {
   legalActions(playerId) {
     const p = this.player(playerId);
     if (!p || !this.pending || this.pending.type !== 'action' || this.pending.player !== playerId) return [];
-    const targets = this.alivePlayers().filter((q) => q.id !== playerId).map((q) => q.id);
-    if (p.coins >= 10) return [{ type: 'coup', targets }];
+    const opp = this.other(playerId);
+    const targets = this.isAlive(opp) ? [opp.id] : [];
+    if (p.coins >= 10) return [{ type: 'coup', targets, call: true }];
     const out = [];
     for (const [type, a] of Object.entries(ACTIONS)) {
       if (a.cost > p.coins) continue;
-      out.push(a.targeted ? { type, targets } : { type });
+      out.push({ type, ...(a.targeted ? { targets } : {}), ...(a.call ? { call: true } : {}) });
     }
     return out;
   }
 
   // ------------------------------------------------------------ submissions
-  /** pending 'action' → the current player picks an action */
-  submitAction(playerId, { type, target }) {
+  /** pending 'action' → {type, call?} — call = named role for coup/assassinate */
+  submitAction(playerId, { type, call }) {
     this._expect('action', playerId);
     const a = ACTIONS[type];
     const p = this.player(playerId);
     if (!a) throw new Error('unknown action');
     if (p.coins >= 10 && type !== 'coup') throw new Error('must coup at 10+');
     if (a.cost > p.coins) throw new Error('cannot afford');
-    let tgt = null;
-    if (a.targeted) {
-      tgt = this.player(target);
-      if (!tgt || tgt.id === playerId || !this.isAlive(tgt)) throw new Error('bad target');
+    const tgt = a.targeted ? this.other(playerId) : null;
+    let named = null;
+    if (a.call) {
+      named = String(call || '').toLowerCase();
+      if (!ROLES.includes(named)) throw new Error(`${type} must name a character`);
     }
-    this.ctx = { type, actor: playerId, target: tgt ? tgt.id : null, blocked: false };
-    this._log({ t: 'action', action: type, player: playerId, target: this.ctx.target });
-    p.coins -= a.cost; // coup & assassinate pay up front
+    this.ctx = { type, actor: playerId, target: tgt ? tgt.id : null, call: named, blocked: false };
+    this._log({ t: 'action', action: type, player: playerId, target: this.ctx.target, call: named });
+    p.coins -= a.cost;
 
     if (type === 'income') { p.coins += 1; return this._endTurn(); }
-    if (type === 'coup') {
-      this._queueLose(tgt.id, 'coup');
-      return this._drainLoses();
-    }
+    if (type === 'coup') return this._resolveCall();
     if (a.role) {
       this.pending = {
         type: 'challenge', claim: { player: playerId, role: a.role },
-        who: this.clockwiseFrom(playerId), blocking: false,
+        who: [this.other(playerId).id], blocking: false,
       };
       return;
     }
-    // foreign aid: no role claim, straight to the block window
-    this._openBlockWindow();
+    this._openBlockWindow(); // foreign aid
   }
 
-  /** pending 'challenge' → driver reports the earliest challenger, or null */
+  /** pending 'challenge' → the challenger id, or null for "let it stand" */
   resolveChallenge(challengerId) {
     this._expect('challenge');
     const { claim } = this.pending;
@@ -185,17 +171,16 @@ class CoupGame {
     } else {
       this._queueLose(claim.player, 'caught bluffing');
       if (blocking) {
-        this.ctx.afterLoses = 'applyAction';         // failed block: action goes through
+        this.ctx.afterLoses = 'applyAction';
       } else {
         if (this.ctx.type === 'assassinate') this.player(this.ctx.actor).coins += 3; // refund
-        this.ctx.afterLoses = 'endTurn';             // action voided
+        this.ctx.afterLoses = 'endTurn';
       }
     }
     this._drainLoses();
   }
 
   _afterActionClaim() {
-    // actor's claim stood (unchallenged or vindicated) → block window or apply
     if (!this.isAlive(this.player(this.ctx.actor))) return this._endTurn();
     this._openBlockWindow();
   }
@@ -203,15 +188,12 @@ class CoupGame {
   _openBlockWindow() {
     const a = ACTIONS[this.ctx.type];
     if (!a.blockedBy) return this._applyAction();
-    // foreign aid: anyone may block; targeted actions: only the target
-    const eligible = this.ctx.type === 'foreign_aid'
-      ? this.clockwiseFrom(this.ctx.actor)
-      : (this.ctx.target && this.isAlive(this.player(this.ctx.target)) ? [this.ctx.target] : []);
-    if (!eligible.length) return this._applyAction();
-    this.pending = { type: 'block', who: eligible, roles: a.blockedBy, action: this.ctx.type };
+    const opp = this.other(this.ctx.actor);
+    if (!this.isAlive(opp)) return this._applyAction();
+    this.pending = { type: 'block', who: [opp.id], roles: a.blockedBy, action: this.ctx.type, call: this.ctx.call };
   }
 
-  /** pending 'block' → driver reports the earliest blocker + claimed role, or null */
+  /** pending 'block' → blocker + claimed role, or null to let it through */
   resolveBlock(blockerId, role) {
     this._expect('block');
     if (blockerId == null) return this._applyAction();
@@ -221,7 +203,7 @@ class CoupGame {
     this._log({ t: 'block', player: blockerId, role, action: this.ctx.type });
     this.pending = {
       type: 'challenge', claim: { player: blockerId, role },
-      who: this.clockwiseFrom(blockerId), blocking: true,
+      who: [this.other(blockerId).id], blocking: true,
     };
   }
 
@@ -236,77 +218,101 @@ class CoupGame {
     const { type, actor, target } = this.ctx;
     const p = this.player(actor);
     if (!this.isAlive(p)) return this._endTurn();
-    if (type === 'foreign_aid') p.coins += 2;
-    if (type === 'tax') p.coins += 3;
+    if (type === 'foreign_aid') { p.coins += 2; return this._endTurn(); }
+    if (type === 'tax') { p.coins += 3; return this._endTurn(); }
     if (type === 'steal') {
       const t = this.player(target);
       const take = Math.min(2, t.coins);
       t.coins -= take; p.coins += take;
       this._log({ t: 'stole', actor, target, amount: take });
+      return this._endTurn();
     }
     if (type === 'assassinate') {
-      const t = this.player(target);
-      if (this.isAlive(t)) { this._queueLose(target, 'assassinated'); return this._drainLoses(); }
+      if (this.isAlive(this.player(target))) return this._resolveCall();
+      return this._endTurn();
     }
     if (type === 'exchange') {
-      const drawn = [this.deck.pop(), this.deck.pop()];
-      this.ctx.exchange = drawn;
-      const keepCount = p.cards.filter((c) => !c.revealed).length;
+      const drawn = [this.deck.pop(), this.deck.pop()].filter(Boolean);
       this.pending = {
-        type: 'exchange', player: actor,
-        pool: p.cards.filter((c) => !c.revealed).map((c) => c.role).concat(drawn),
-        keep: keepCount,
+        type: 'exchange', player: actor, reason: 'ambassador',
+        pool: p.cards.concat(drawn), keep: p.cards.length,
       };
       return;
     }
     this._endTurn();
   }
 
+  /** Call-the-coup / assassinate: hit the named card, or miss → reveal+redraw */
+  _resolveCall() {
+    const { type, actor, target, call } = this.ctx;
+    const tgt = this.player(target);
+    if (!this.isAlive(tgt)) return this._endTurn();
+    if (this.hasRole(tgt, call)) {
+      this._log({ t: 'hit', action: type, actor, target, call });
+      this._queueLose(target, type === 'coup' ? 'couped' : 'assassinated', call);
+      return this._drainLoses();
+    }
+    // MISS: hand revealed, then redraw two and keep a hand's worth
+    this._log({ t: 'miss', action: type, actor, target, call, revealed: [...tgt.cards] });
+    const drawn = [this.deck.pop(), this.deck.pop()].filter(Boolean);
+    this.pending = {
+      type: 'exchange', player: target, reason: 'miss',
+      pool: tgt.cards.concat(drawn), keep: tgt.cards.length,
+    };
+  }
+
   /** pending 'exchange' → keep indices into pending.pool */
   resolveExchange(playerId, keepIdxs) {
     this._expect('exchange', playerId);
-    const { pool, keep } = this.pending;
+    const { pool, keep, reason } = this.pending;
     if (!Array.isArray(keepIdxs) || keepIdxs.length !== keep
       || new Set(keepIdxs).size !== keep
       || keepIdxs.some((i) => !(i >= 0 && i < pool.length))) throw new Error('bad exchange');
     const p = this.player(playerId);
-    const kept = keepIdxs.map((i) => pool[i]);
+    p.cards = keepIdxs.map((i) => pool[i]);
     const returned = pool.filter((_, i) => !keepIdxs.includes(i));
-    let k = 0;
-    for (const c of p.cards) if (!c.revealed) c.role = kept[k++];
-    this.deck.push(...returned);
-    this._shuffle(this.deck);
-    this._log({ t: 'exchanged', player: playerId });
+    if (reason === 'miss') {
+      this.deck.push(...returned);      // to the TOP of the deck, per the variant
+    } else {
+      this.deck.push(...returned);
+      this._shuffle(this.deck);
+    }
+    this._log({ t: 'exchanged', player: playerId, reason });
     this._endTurn();
   }
 
   // ------------------------------------------------------------ influence loss
-  _queueLose(playerId, why) {
-    if (this.isAlive(this.player(playerId))) this.loseQueue.push({ playerId, why });
+  _queueLose(playerId, why, forcedRole = null) {
+    if (this.isAlive(this.player(playerId))) this.loseQueue.push({ playerId, why, forcedRole });
   }
 
   _drainLoses() {
     const next = this.loseQueue.shift();
     if (!next) return this._continueAfterLoses();
     const p = this.player(next.playerId);
-    const unrevealed = p.cards.filter((c) => !c.revealed);
-    if (unrevealed.length === 1) {
-      // no choice to make — flip it
-      unrevealed[0].revealed = true;
-      this._log({ t: 'lost', player: p.id, role: unrevealed[0].role, why: next.why, out: !this.isAlive(p) });
-      return this._drainLoses();
+    if (next.forcedRole && p.cards.includes(next.forcedRole)) {
+      return this._loseCard(p, p.cards.indexOf(next.forcedRole), next.why);
     }
+    if (p.cards.length === 1) return this._loseCard(p, 0, next.why);
+    if (p.cards.length === 0) return this._drainLoses();
     this.pending = { type: 'lose', player: p.id, why: next.why };
   }
 
-  /** pending 'lose' → which card index (into .cards) to flip */
+  /** pending 'lose' → which card index (into .cards) to give up */
   resolveLose(playerId, cardIdx) {
     this._expect('lose', playerId);
     const p = this.player(playerId);
-    const card = p.cards[cardIdx];
-    if (!card || card.revealed) throw new Error('bad card');
-    card.revealed = true;
-    this._log({ t: 'lost', player: p.id, role: card.role, why: this.pending.why, out: !this.isAlive(p) });
+    if (!(cardIdx >= 0 && cardIdx < p.cards.length)) throw new Error('bad card');
+    this._loseCard(p, cardIdx, this.pending.why);
+  }
+
+  _loseCard(p, idx, why) {
+    const role = p.cards.splice(idx, 1)[0];
+    p.graveyard.push(role);
+    const deaths = p.graveyard.length;
+    // deaths 1..3 are replaced from the deck; 4 and 5 are not
+    if (deaths <= REPLACE_UNTIL && this.deck.length) p.cards.push(this.deck.pop());
+    this._log({ t: 'lost', player: p.id, role, why, lives: LIVES - deaths, out: deaths >= LIVES });
     this._drainLoses();
   }
 
@@ -330,28 +336,29 @@ class CoupGame {
     if (playerId != null && this.pending.player !== playerId) throw new Error('not your decision');
   }
 
-  /** end a marathon round by standing: most cards, then most coins */
+  /** end a marathon by standing: most lives, then most coins */
   adjudicate() {
     if (this.winner) return;
-    const best = [...this.alivePlayers()].sort((a, b) =>
-      (b.cards.filter((c) => !c.revealed).length - a.cards.filter((c) => !c.revealed).length)
-      || (b.coins - a.coins))[0];
-    this.winner = best.id;
+    const [a, b] = this.players;
+    const la = this.livesLeft(a), lb = this.livesLeft(b);
+    const w = la !== lb ? (la > lb ? a : b) : (a.coins >= b.coins ? a : b);
+    this.winner = w.id;
     this.pending = null;
-    this._log({ t: 'win', player: best.id, adjudicated: true });
+    this._log({ t: 'win', player: w.id, adjudicated: true });
   }
 
   // ------------------------------------------------------------ views
-  /** what `viewerId` may see; viewerId null = public, 'god' = everything */
   view(viewerId) {
     return {
       players: this.players.map((p) => ({
         id: p.id,
         coins: p.coins,
         alive: this.isAlive(p),
-        cards: p.cards.map((c) => ({
-          revealed: c.revealed,
-          role: (c.revealed || viewerId === 'god' || viewerId === p.id) ? c.role : null,
+        lives: this.livesLeft(p),
+        graveyard: [...p.graveyard],
+        cards: p.cards.map((role) => ({
+          revealed: false,
+          role: (viewerId === 'god' || viewerId === p.id) ? role : null,
         })),
       })),
       turn: this.current() ? this.current().id : null,
@@ -364,15 +371,17 @@ class CoupGame {
         claim: this.pending.claim,
         roles: this.pending.roles,
         action: this.pending.action,
+        call: this.pending.call,
+        reason: this.pending.reason,
         mustCoup: this.pending.mustCoup,
         why: this.pending.why,
         keep: this.pending.keep,
         pool: (this.pending.type === 'exchange' && (viewerId === this.pending.player || viewerId === 'god'))
           ? this.pending.pool : undefined,
       } : null,
-      ctx: this.ctx ? { type: this.ctx.type, actor: this.ctx.actor, target: this.ctx.target } : null,
+      ctx: this.ctx ? { type: this.ctx.type, actor: this.ctx.actor, target: this.ctx.target, call: this.ctx.call } : null,
     };
   }
 }
 
-module.exports = { CoupGame, ROLES, ACTIONS };
+module.exports = { CoupGame, ROLES, ACTIONS, LIVES };

@@ -1,18 +1,16 @@
 /**
- * scrim — the continuously-running ladder. Every tick it samples 5 submitted
- * bots (favoring the least-played), plays a full game headlessly, updates ELO,
- * and records the match for the replay pages.
+ * scrim — the continuously-running heads-up ladder. Every tick it samples 2
+ * submitted bots (favoring the least-played), plays a full 1v1 game of the
+ * two-player Ultimate variant, updates ELO, and records the match.
  *
- * ELO, 5-player, only-the-winner-matters: the winner scores a pairwise win
- * against each of the other four (K = 8 per pairwise → up to ±32 per game);
- * losers only move relative to the winner, not each other.
+ * ELO: classic 1v1, K = 24.
  */
 'use strict';
 
 const { ScriptBot } = require('./botapi');
 const { playBotGame } = require('./runner');
 
-const K = 8;
+const K = 24;
 
 class ScrimServer {
   constructor(store) {
@@ -52,8 +50,8 @@ class ScrimServer {
 
   playOne(seed = (Math.random() * 2 ** 31) | 0) {
     const subs = this.store.scrim.submissions;
-    if (subs.length < 5) return null;
-    const picked = this._sample(subs, 5);
+    if (subs.length < 2) return null;
+    const picked = this._sample(subs, 2);
     const bots = [];
     for (const sub of picked) {
       const bot = this._botFor(sub);
@@ -79,17 +77,12 @@ class ScrimServer {
       }
     }
 
-    // elo: winner takes a pairwise win off each loser
+    // elo: classic 1v1
     const winner = bots.find((b) => b.name === result.winnerName);
-    const eloDelta = {};
-    for (const b of bots) eloDelta[b.name] = 0;
-    for (const b of bots) {
-      if (b === winner) continue;
-      const expected = 1 / (1 + 10 ** ((b.sub.elo - winner.sub.elo) / 400));
-      const gain = K * (1 - expected);
-      eloDelta[winner.name] += gain;
-      eloDelta[b.name] -= gain;
-    }
+    const loser = bots.find((b) => b !== winner);
+    const expected = 1 / (1 + 10 ** ((loser.sub.elo - winner.sub.elo) / 400));
+    const gain = K * (1 - expected);
+    const eloDelta = { [winner.name]: gain, [loser.name]: -gain };
 
     const perBot = {};
     for (const b of bots) {

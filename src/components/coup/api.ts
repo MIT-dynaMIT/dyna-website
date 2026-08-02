@@ -26,7 +26,12 @@ export interface MatchRow {
 }
 
 export interface CardView { revealed: boolean; role: string | null }
-export interface PlayerView { id: string; coins: number; alive: boolean; cards: CardView[] }
+// Heads-up "Ultimate" variant: two players, five lives each. Dead cards move
+// to the graveyard (face-up) and are replaced from the deck until the 4th death.
+export interface PlayerView {
+  id: string; coins: number; alive: boolean;
+  lives: number; graveyard: string[]; cards: CardView[];
+}
 export interface GameView {
   players: PlayerView[];
   turn: string | null;
@@ -35,24 +40,31 @@ export interface GameView {
   pending: {
     type: string; player?: string; who?: string[]; roles?: string[];
     claim?: { player: string; role: string }; action?: string;
+    call?: string; reason?: 'ambassador' | 'miss';
     mustCoup?: boolean; why?: string; keep?: number; pool?: string[];
   } | null;
-  ctx: { type: string; actor: string; target: string | null } | null;
+  ctx: { type: string; actor: string; target: string | null; call?: string | null } | null;
 }
 export interface Frame { log: Record<string, unknown>; view: GameView }
 
 export interface Prompt {
   kind: 'action' | 'respond' | 'lose' | 'exchange';
-  actions?: { type: string; targets: string[] }[];
+  // call = true for coup/assassinate: the player must NAME a character
+  actions?: { type: string; targets: string[]; call?: boolean }[];
   mustCoup?: boolean;
   mode?: 'challenge' | 'block';
-  action?: { type: string; actor: string; target: string | null; is_block: boolean; claimed_role: string | null; blocker?: string };
+  action?: {
+    type: string; actor: string; target: string | null;
+    is_block: boolean; claimed_role: string | null; blocker?: string;
+    call?: string | null;
+  };
   options?: string[];
   assassination?: boolean;
   why?: string;
   cards?: { idx: number; role: string }[];
   pool?: string[];
   keep?: number;
+  reason?: 'ambassador' | 'miss';
 }
 
 export interface PlaySnapshot {

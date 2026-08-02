@@ -37,6 +37,12 @@ function ensureUser(username, pass, displayName, isAdmin) {
 }
 
 const admin = ensureUser('admin', ADMIN_PASS, 'Organizer', true);
+// the champion + the kid scaffold live in the organizer's first two slots
+{
+  const { THE_EQUILIBRIST, THE_SCAFFOLD } = require('./samplebots/bots');
+  store.saveSlot(admin, 0, { name: 'The Equilibrist', mode: 'python', python: THE_EQUILIBRIST });
+  store.saveSlot(admin, 1, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
+}
 const house = ensureUser('__house', require('node:crypto').randomBytes(12).toString('hex'), 'House', true);
 
 console.log('\nSeeding students + bots…');

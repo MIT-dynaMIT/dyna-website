@@ -8,6 +8,7 @@ import {
   coupTheme, ensureBlocklySetup, generatePython, makeToolbox,
   STARTER_PYTHON, starterWorkspaceJson,
 } from '../editor/blocks';
+import { astToWorkspaceJson, DecompileError } from '../editor/decompile';
 import '../editor.css';
 
 type Mode = 'blocks' | 'python';
@@ -238,23 +239,50 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     pyStash.current = null;
     setMode('python');
   };
-  const switchToBlocks = () => {
+  const switchToBlocks = async () => {
     const ws = wsRef.current;
     if (!ws) return;
     const generated = generatePython(ws);
-    const handwritten = pyRef.current.trim() !== generated.trim();
-    if (handwritten && !window.confirm(
-      'Peek at Blocks?\n\nThis code was written by hand, so the blocks can’t show it. '
-      + 'Your code is kept safe: switch back to Advanced without touching the blocks and it will still be there. '
-      + 'But if you EDIT the blocks, they become the bot and the typed code is discarded.'
-    )) return;
-    pyStash.current = {
-      python: pyRef.current,
-      blocksSnapshot: JSON.stringify(Blockly.serialization.workspaces.save(ws)),
-    };
-    setMode('blocks');
-    setGenerated(generated);
-    setTimeout(() => Blockly.svgResize(ws), 0);
+    if (pyRef.current.trim() === generated.trim()) {
+      // blocks already produce this exact code — just show them
+      pyStash.current = null;
+      setMode('blocks');
+      setGenerated(generated);
+      setTimeout(() => Blockly.svgResize(ws), 0);
+      return;
+    }
+    // hand-written (or block-edited) code: try to turn it INTO blocks
+    try {
+      const r = await api.post<{ ok: boolean; ast?: unknown; error?: string; line?: number }>('/parse', { python: pyRef.current });
+      if (!r.ok || !r.ast) throw new DecompileError(r.error || 'this code has a syntax error', r.line);
+      const wsJson = astToWorkspaceJson(r.ast as { fns: Record<string, unknown> });
+      loadingRef.current = true;
+      Blockly.serialization.workspaces.load(wsJson as object, ws);
+      loadingRef.current = false;
+      pyStash.current = null;
+      setGenerated(generatePython(ws));
+      setMode('blocks');
+      setDirty(true);
+      toast('Turned your code into blocks — comments were dropped');
+      setTimeout(() => Blockly.svgResize(ws), 0);
+    } catch (e) {
+      loadingRef.current = false;
+      const de = e as DecompileError;
+      const reason = (de && de.message) || 'could not convert this code';
+      const at = de && typeof de.line === 'number' ? ` (around line ${de.line})` : '';
+      if (!window.confirm(
+        `I couldn't turn this code into blocks: ${reason}${at}.\n\n`
+        + 'Peek at Blocks anyway? Your typed code is kept safe — switch back to Advanced without touching the blocks and it will still be there. '
+        + 'But if you EDIT the blocks, they become the bot and the typed code is discarded.'
+      )) return;
+      pyStash.current = {
+        python: pyRef.current,
+        blocksSnapshot: JSON.stringify(Blockly.serialization.workspaces.save(ws)),
+      };
+      setMode('blocks');
+      setGenerated(generated);
+      setTimeout(() => Blockly.svgResize(ws), 0);
+    }
   };
 
   // ---------------------------------------------------------------- python textarea edit + undo

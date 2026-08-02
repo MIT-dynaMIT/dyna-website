@@ -71,6 +71,17 @@ app.post('/api/coup/check', auth, (req, res) => {
   res.json(checkProgram(String(req.body.python || '')));
 });
 
+// parse botlang into its AST — powers the editor's python→blocks decompiler
+app.post('/api/coup/parse', auth, (req, res) => {
+  try {
+    const { compile } = require('./botlang');
+    const program = compile(String(req.body.python || ''));
+    res.json({ ok: true, ast: program.ast });
+  } catch (err) {
+    res.json({ ok: false, error: err.message, line: err.line });
+  }
+});
+
 // ------------------------------------------------------------ scrimmage
 app.get('/api/coup/scrim', auth, (req, res) => {
   const board = store.leaderboard();

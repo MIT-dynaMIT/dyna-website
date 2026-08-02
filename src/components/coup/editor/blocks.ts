@@ -148,10 +148,10 @@ const BLOCKS: Record<string, unknown>[] = [
     tooltip: 'For an exchange: return the list of role names you want to keep.',
   },
   {
-    type: 'coup_keep_strongest', message0: 'keep the strongest cards using %1',
-    args0: [{ type: 'input_value', name: 'ORDER' }],
+    type: 'coup_keep_strongest', message0: 'keep the strongest cards from %1 using %2',
+    args0: [{ type: 'input_value', name: 'FROM' }, { type: 'input_value', name: 'ORDER' }],
     previousStatement: null, inputsInline: true, colour: C_RESPONSE,
-    tooltip: 'Ambassador exchange sorted by your ranking — keeps as many cards as you have lives (so 2 if you have 2).',
+    tooltip: 'Ambassador exchange: keeps exactly as many cards as you have lives (2 if you have 2), strongest by your ranking. Leave "from" empty to use the whole exchange pool. If the source list has fewer cards than you need, it keeps what it can and the game fills the rest.',
   },
 
   // ---- power ordering (value blocks) -------------------------------
@@ -186,6 +186,21 @@ const BLOCKS: Record<string, unknown>[] = [
     ],
     output: 'Array', inputsInline: true, colour: C_INFO,
     tooltip: 'Strongest first — so the last item is your weakest card. Great for choose_card_to_lose: reveal the last one.',
+  },
+
+  // ---- claim-aware card choices ------------------------------------
+  { type: 'coup_claimed_card', message0: 'a card I have claimed', output: 'String', colour: C_INFO, tooltip: 'A card whose role you already told everyone about. Giving THIS one up keeps your secret card secret.' },
+  { type: 'coup_unclaimed_card', message0: 'a card I have NOT claimed', output: 'String', colour: C_INFO, tooltip: 'A card nobody knows about. Give this up to keep your public claims backed by a real card.' },
+  { type: 'coup_pool', message0: 'the exchange pool', output: 'Array', colour: C_INFO, tooltip: 'The cards offered to you in an Ambassador exchange (only inside the exchange hat).' },
+  {
+    type: 'coup_cards_in', message0: 'cards in %1 also in %2',
+    args0: [{ type: 'input_value', name: 'A' }, { type: 'input_value', name: 'B' }],
+    output: 'Array', inputsInline: true, colour: C_INFO, tooltip: 'The role names from the first list that also appear in the second.',
+  },
+  {
+    type: 'coup_cards_not_in', message0: 'cards in %1 NOT in %2',
+    args0: [{ type: 'input_value', name: 'A' }, { type: 'input_value', name: 'B' }],
+    output: 'Array', inputsInline: true, colour: C_INFO, tooltip: 'The role names from the first list that are missing from the second — e.g. exchange for cards nobody suspects.',
   },
   {
     type: 'coup_reveal', message0: 'give up card %1',
@@ -401,8 +416,11 @@ function registerGenerators() {
     `return reveal(${gen.valueToCode(block, 'ROLE', Order.NONE) || 'state.my_cards[0]'})\n`;
   forBlock['coup_keep'] = (block, gen) =>
     `return ${gen.valueToCode(block, 'LIST', Order.NONE) || 'pool'}\n`;
-  forBlock['coup_keep_strongest'] = (block, gen) =>
-    `return strongest_cards(pool, ${gen.valueToCode(block, 'ORDER', Order.NONE) || DEFAULT_ORDER}, state.my_num_cards)\n`;
+  forBlock['coup_keep_strongest'] = (block, gen) => {
+    const from = gen.valueToCode(block, 'FROM', Order.NONE) || 'pool';
+    const order = gen.valueToCode(block, 'ORDER', Order.NONE) || DEFAULT_ORDER;
+    return `return strongest_cards(${from}, ${order}, state.my_num_cards)\n`;
+  };
   forBlock['coup_power_order'] = (block) => {
     const roles = ['R1', 'R2', 'R3', 'R4', 'R5'].map((f) => `"${block.getFieldValue(f)}"`);
     return [`[${roles.join(', ')}]`, Order.ATOMIC];
@@ -417,6 +435,21 @@ function registerGenerators() {
     const list = gen.valueToCode(block, 'LIST', Order.NONE) || 'state.my_cards';
     const order = gen.valueToCode(block, 'ORDER', Order.NONE) || DEFAULT_ORDER;
     return [`strongest_cards(${list}, ${order})`, Order.FUNCTION_CALL];
+  };
+
+  // claim-aware card choices
+  forBlock['coup_claimed_card'] = () => ['claimed_card(state)', Order.FUNCTION_CALL];
+  forBlock['coup_unclaimed_card'] = () => ['unclaimed_card(state)', Order.FUNCTION_CALL];
+  forBlock['coup_pool'] = () => ['pool', Order.ATOMIC];
+  forBlock['coup_cards_in'] = (block, gen) => {
+    const a = gen.valueToCode(block, 'A', Order.NONE) || 'state.my_cards';
+    const b = gen.valueToCode(block, 'B', Order.NONE) || 'state.my_claims';
+    return [`cards_in(${a}, ${b})`, Order.FUNCTION_CALL];
+  };
+  forBlock['coup_cards_not_in'] = (block, gen) => {
+    const a = gen.valueToCode(block, 'A', Order.NONE) || 'state.my_cards';
+    const b = gen.valueToCode(block, 'B', Order.NONE) || 'state.my_claims';
+    return [`cards_not_in(${a}, ${b})`, Order.FUNCTION_CALL];
   };
 
   // game info
@@ -596,6 +629,16 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_keep', inputs: { LIST: { block: { type: 'lists_create_with', extraState: { itemCount: 2 } } } } },
           { kind: 'block', type: 'coup_keep_strongest', inputs: { ORDER: powerOrder() } },
           { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
+          // give up a card whose role I already claimed — keeps my hidden card hidden
+          { kind: 'block', type: 'coup_reveal', inputs: { ROLE: { block: { type: 'coup_claimed_card' } } } },
+          { kind: 'block', type: 'coup_claimed_card' },
+          { kind: 'block', type: 'coup_unclaimed_card' },
+          // exchange for cards nobody suspects: keep the strongest of the pool
+          // cards not among my claims — always returns exactly my_num_cards
+          { kind: 'block', type: 'coup_keep_strongest', inputs: { FROM: { block: { type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } } }, ORDER: powerOrder() } },
+          { kind: 'block', type: 'coup_pool' },
+          { kind: 'block', type: 'coup_cards_in', inputs: { A: { block: { type: 'coup_my_cards' } }, B: { block: { type: 'coup_my_claims' } } } },
+          { kind: 'block', type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } },
         ],
       },
       {

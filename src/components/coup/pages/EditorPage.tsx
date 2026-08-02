@@ -55,6 +55,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const pyRef = useRef(pythonText); pyRef.current = pythonText;
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const slotsRef = useRef(slots); slotsRef.current = slots;
+  // stash of hand-written python while "peeking" at blocks (see mode toggle)
+  const pyStash = useRef<{ python: string; blocksSnapshot: string } | null>(null);
 
   // ---------------------------------------------------------------- load a slot into the editor
   const loadSlot = useCallback((slot: BotSlot | null, i: number) => {
@@ -64,6 +66,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     setMode(m);
     setName(slot?.name || defaultName(i));
     setCheck(null);
+    pyStash.current = null;
 
     loadingRef.current = true;
     const json = slot && !blocksJsonIsEmpty(slot.blocksJson) ? slot.blocksJson : starterWorkspaceJson();
@@ -164,8 +167,15 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     const ws = wsRef.current;
     if (!ws) return false;
     const blocksJson = Blockly.serialization.workspaces.save(ws);
-    const m = modeRef.current;
-    const python = m === 'blocks' ? generatePython(ws) : pyRef.current;
+    let m = modeRef.current;
+    let python = m === 'blocks' ? generatePython(ws) : pyRef.current;
+    // saving while merely PEEKING at blocks (hand-written python stashed,
+    // blocks untouched) must save the real code, not the generated shell
+    if (m === 'blocks' && pyStash.current
+      && pyStash.current.blocksSnapshot === JSON.stringify(blocksJson)) {
+      m = 'python';
+      python = pyStash.current.python;
+    }
     const payload = {
       name: nameRef.current || defaultName(i), mode: m, blocksJson, python,
       // reject-stale-writes guard: what this tab believes the slot's version is
@@ -212,20 +222,39 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   }, [doSave, loadSlot, slots]);
 
   // ---------------------------------------------------------------- mode toggle
+  // Blocks can't represent hand-written Python, so peeking at Blocks stashes
+  // the code; switching back restores it verbatim UNLESS the blocks were
+  // actually edited in between (then they become the source of truth).
   const switchToPython = () => {
     const ws = wsRef.current;
     if (!ws) return;
-    setPythonText(generatePython(ws));
-    pyHistory.current = [];
+    const snapshot = JSON.stringify(Blockly.serialization.workspaces.save(ws));
+    if (pyStash.current && pyStash.current.blocksSnapshot === snapshot) {
+      setPythonText(pyStash.current.python);   // untouched round-trip: no loss
+    } else {
+      setPythonText(generatePython(ws));
+      pyHistory.current = [];
+    }
+    pyStash.current = null;
     setMode('python');
   };
   const switchToBlocks = () => {
-    if (!window.confirm(
-      'Switch back to Blocks?\n\nYour bot will reload from the blocks — any changes you typed in the code editor will be lost.'
-    )) return;
     const ws = wsRef.current;
+    if (!ws) return;
+    const generated = generatePython(ws);
+    const handwritten = pyRef.current.trim() !== generated.trim();
+    if (handwritten && !window.confirm(
+      'Peek at Blocks?\n\nThis code was written by hand, so the blocks can’t show it. '
+      + 'Your code is kept safe: switch back to Advanced without touching the blocks and it will still be there. '
+      + 'But if you EDIT the blocks, they become the bot and the typed code is discarded.'
+    )) return;
+    pyStash.current = {
+      python: pyRef.current,
+      blocksSnapshot: JSON.stringify(Blockly.serialization.workspaces.save(ws)),
+    };
     setMode('blocks');
-    if (ws) { setGenerated(generatePython(ws)); setTimeout(() => Blockly.svgResize(ws), 0); }
+    setGenerated(generated);
+    setTimeout(() => Blockly.svgResize(ws), 0);
   };
 
   // ---------------------------------------------------------------- python textarea edit + undo

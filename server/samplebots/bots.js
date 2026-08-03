@@ -493,6 +493,135 @@ const HOUSE = [
         return block_contessa()
     `),
   },
+  {
+    name: 'The Hybrid',
+    // Victor's design experiment, validated at ~83% vs the field (champion-
+    // class): real economy + steal defense + the Ambassador dodge, but the
+    // dodge is RATIONED — only while in coup danger, not yet safe, and below
+    // coup range. Defense is a resource you spend, not a stance you hold.
+    source: S(`
+    def dodge_order():
+        return ["ambassador", "contessa", "duke", "captain", "assassin"]
+
+    def is_safe(state):
+        for card in state.my_cards:
+            if card != "ambassador" and card != "contessa":
+                return False
+        return True
+
+    def your_turn(state):
+        call = best_coup_call(state)
+        p_hit = prob_opponent_has(state, call)
+        if state.my_coins >= 10:
+            return coup(call)
+        if state.my_coins >= 7 and p_hit >= 0.5:
+            return coup(call)
+        if state.opponent.coins >= 6 and not is_safe(state) and state.my_coins < 7:
+            return exchange()
+        if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.7:
+            return assassinate(call, 0.35)
+        if "duke" in state.my_cards:
+            return tax()
+        if "captain" in state.my_cards and state.opponent.coins >= 2:
+            return steal()
+        if "duke" in state.opponent.claims:
+            return income()
+        return foreign_aid()
+
+    def respond(state, action):
+        if action.claimed_role != None and unseen_copies(state, action.claimed_role) == 0:
+            return challenge()
+        if action.type == "steal":
+            if "captain" in state.my_cards:
+                return block("captain")
+            if "ambassador" in state.my_cards:
+                return block("ambassador")
+            return block("captain")
+        if action.type == "foreign_aid" and "duke" in state.my_cards:
+            return block("duke")
+        return allow()
+
+    def when_assassinated(state, action):
+        if not (action.call in state.my_cards):
+            return allow()
+        if "contessa" in state.my_cards:
+            return block_contessa()
+        if state.my_lives <= 2 or chance(0.5):
+            return block_contessa()
+        return allow()
+
+    def choose_card_to_lose(state):
+        return reveal(claimed_card(state))
+
+    def choose_exchange(state, pool):
+        if state.opponent.coins >= 6:
+            return strongest_cards(pool, dodge_order(), state.my_num_cards)
+        return strongest_cards(pool, ["duke", "contessa", "captain", "assassin", "ambassador"], state.my_num_cards)
+    `),
+  },
+  {
+    name: 'The Dodger',
+    // pure defense: near-uncoupable (callers hit ~3%), but it pays every
+    // turn for safety and goes broke — survival is not victory (~40%)
+    source: S(`
+    def order():
+        return ["ambassador", "contessa", "duke", "captain", "assassin"]
+
+    def is_safe(state):
+        for card in state.my_cards:
+            if card != "ambassador" and card != "contessa":
+                return False
+        return True
+
+    def your_turn(state):
+        if state.my_coins >= 10:
+            return coup(best_coup_call(state))
+        if state.opponent.coins >= 6 and not is_safe(state):
+            return exchange()
+        if not ("duke" in state.opponent.claims):
+            return foreign_aid()
+        return income()
+
+    def respond(state, action):
+        return allow()
+
+    def when_assassinated(state, action):
+        if not (action.call in state.my_cards):
+            return allow()
+        if "contessa" in state.my_cards:
+            return block_contessa()
+        return allow()
+
+    def choose_card_to_lose(state):
+        return reveal(strongest_cards(state.my_cards, order())[-1])
+
+    def choose_exchange(state, pool):
+        return strongest_cards(pool, order(), state.my_num_cards)
+    `),
+  },
+  {
+    name: 'The Banker',
+    // pure economy: income/foreign aid only, coups only when forced at 10+.
+    // Rich but defenseless (~33%) — money without a game plan loses the race
+    source: S(`
+    def your_turn(state):
+        if state.my_coins >= 10:
+            return coup(best_coup_call(state))
+        if "duke" in state.opponent.claims:
+            return income()
+        return foreign_aid()
+
+    def respond(state, action):
+        return allow()
+
+    def when_assassinated(state, action):
+        if not (action.call in state.my_cards):
+            return allow()
+        if "contessa" in state.my_cards:
+            return block_contessa()
+        return allow()
+    `),
+  },
 ];
 
 module.exports = { BOTS, HOUSE, THE_SCAFFOLD, HONEST_PLUS, THE_EQUILIBRIST };

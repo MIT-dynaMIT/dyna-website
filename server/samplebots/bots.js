@@ -408,11 +408,13 @@ const BOTS = [
  * ascent (best response vs a self-play mirror) over 9 strategy parameters,
  * ~50k headless games; the search converged (no parameter change in round 2)
  * and the result beats four hand-built exploiters (always-challenge,
- * max-bluffer, contessa-hunter, stonewall) and averages ~86% vs the sample
- * personalities. Tuned constants: coup at 7+ when P(hit) ≥ 0.35; assassinate
- * only at P(hit) ≥ 0.7 with a 35% Contessa-block challenge; 15% baseline tax
- * bluff (100% vs proven non-challengers); challenge suspicion > 0.85;
- * 70% fake Captain steal-block; 70% fake Contessa when the call would hit.
+ * max-bluffer, contessa-hunter, stonewall) and averages ~82% vs the sample
+ * personalities. Re-tuned for the redraw rule (a missed call re-deals the
+ * defender's hand — no reveal memory): coup at 9+ when P(hit) ≥ 0.45 (or
+ * forced at 10); assassinate only at P(hit) ≥ 0.7 with a 35% Contessa-block
+ * challenge; no baseline tax bluff but 100% vs proven non-challengers;
+ * challenge suspicion > 0.85; 40% fake Captain steal-block; 70% fake
+ * Contessa when the call would hit.
  */
 const THE_EQUILIBRIST = S(`
     # The Equilibrist — the house champion. Beat it if you can.
@@ -429,7 +431,7 @@ const THE_EQUILIBRIST = S(`
         p_hit = prob_opponent_has(state, call)
         if state.my_coins >= 10:
             return coup(call)
-        if state.my_coins >= 7 and p_hit >= 0.35:
+        if state.my_coins >= 9 and p_hit >= 0.45:
             return coup(call)
         if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.7:
             return assassinate(call, 0.35)
@@ -442,8 +444,6 @@ const THE_EQUILIBRIST = S(`
         # exploit a proven non-challenger with shameless Duke claims,
         # and stop feeding Foreign Aid into a standing Duke block
         if state.turn_number >= 6 and state.opponent.challenges_made == 0:
-            return tax()
-        if chance(0.15):
             return tax()
         if "duke" in state.opponent.claims and not ("duke" in state.my_cards):
             return income()
@@ -461,7 +461,7 @@ const THE_EQUILIBRIST = S(`
                 return block("captain")
             if "ambassador" in state.my_cards:
                 return block("ambassador")
-            if chance(0.7):
+            if chance(0.4):
                 return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")

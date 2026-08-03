@@ -252,13 +252,16 @@ class CoupGame {
       this._queueLose(target, type === 'coup' ? 'couped' : 'assassinated', call);
       return this._drainLoses();
     }
-    // MISS: hand revealed, then redraw two and keep a hand's worth
+    // MISS: the defender proves it by revealing — then the whole hand goes
+    // back into the deck (shuffled) and a fresh one is dealt at random, so
+    // the reveal teaches the attacker nothing lasting
     this._log({ t: 'miss', action: type, actor, target, call, revealed: [...tgt.cards] });
-    const drawn = [this.deck.pop(), this.deck.pop()].filter(Boolean);
-    this.pending = {
-      type: 'exchange', player: target, reason: 'miss',
-      pool: tgt.cards.concat(drawn), keep: tgt.cards.length,
-    };
+    const n = tgt.cards.length;
+    this.deck.push(...tgt.cards.splice(0, tgt.cards.length));
+    this._shuffle(this.deck);
+    for (let i = 0; i < n && this.deck.length; i++) tgt.cards.push(this.deck.pop());
+    this._log({ t: 'redraw', player: target });
+    this._endTurn();
   }
 
   /** pending 'exchange' → keep indices into pending.pool */
@@ -271,12 +274,8 @@ class CoupGame {
     const p = this.player(playerId);
     p.cards = keepIdxs.map((i) => pool[i]);
     const returned = pool.filter((_, i) => !keepIdxs.includes(i));
-    if (reason === 'miss') {
-      this.deck.push(...returned);      // to the TOP of the deck, per the variant
-    } else {
-      this.deck.push(...returned);
-      this._shuffle(this.deck);
-    }
+    this.deck.push(...returned);
+    this._shuffle(this.deck);
     this._log({ t: 'exchanged', player: playerId, reason });
     this._endTurn();
   }

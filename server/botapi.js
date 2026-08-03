@@ -31,8 +31,7 @@ function tallyLog(log, ids) {
   const T = {};
   for (const id of ids) {
     T[id] = {
-      claims: [], challengesMade: 0, challengesWon: 0, caughtBluffing: 0,
-      actions: 0, lastRevealed: [], lastRevealedAt: -1,
+      claims: [], challengesMade: 0, challengesWon: 0, caughtBluffing: 0, actions: 0,
     };
   }
   let actionNo = 0;
@@ -58,16 +57,9 @@ function tallyLog(log, ids) {
           T[e.against].caughtBluffing++;
         }
       }
-    } else if (e.t === 'miss') {
-      if (T[e.target]) {
-        T[e.target].lastRevealed = [...(e.revealed || [])];
-        T[e.target].lastRevealedAt = actionNo;
-      }
-    } else if (e.t === 'exchanged') {
-      if (T[e.player]) {
-        T[e.player].claims = [];
-        if (e.reason !== 'miss') { T[e.player].lastRevealed = []; T[e.player].lastRevealedAt = -1; }
-      }
+    } else if (e.t === 'exchanged' || e.t === 'redraw') {
+      // exchange or post-miss redraw: their hand may be anything now
+      if (T[e.player]) T[e.player].claims = [];
     }
   }
   T.__actionNo = actionNo;
@@ -86,6 +78,7 @@ function friendlyHistory(log, nameOf) {
     else if (e.t === 'lost') out.push({ event: 'lost_card', player: nameOf(e.player), role: e.role, why: e.why, lives: e.lives });
     else if (e.t === 'stole') out.push({ event: 'stole', player: nameOf(e.actor), target: nameOf(e.target), amount: e.amount });
     else if (e.t === 'exchanged') out.push({ event: 'exchanged', player: nameOf(e.player), reason: e.reason });
+    else if (e.t === 'redraw') out.push({ event: 'redraw', player: nameOf(e.player) });
   }
   return out;
 }
@@ -124,12 +117,6 @@ function bestCoupCall(state) {
     let score = probOpponentHas(state, r);
     if (opp) {
       if (opp.claims.includes(r)) score *= 1.7;                       // they said so
-      if (opp.last_revealed.includes(r)) {
-        // after a miss they kept a hand's worth of (revealed + 2 drawn):
-        // revealed cards usually survive the redraw. Decay slowly.
-        score *= opp.last_revealed_age <= 2 ? 1.9
-          : opp.last_revealed_age <= 12 ? 1.5 : 1.15;
-      }
       score *= 1 + 0.05 * ROLE_VALUE[r];  // players tend to keep the strong cards
     }
     if (score > bestScore) { bestScore = score; best = r; }
@@ -159,8 +146,6 @@ function buildState(game, selfId, names, scrimStats = {}) {
       challenges_made: t ? t.challengesMade : 0,
       successful_challenges: t ? t.challengesWon : 0,
       times_caught_bluffing: t ? t.caughtBluffing : 0,
-      last_revealed: t ? [...t.lastRevealed] : [],
-      last_revealed_age: (t && t.lastRevealedAt >= 0) ? (tally.__actionNo - t.lastRevealedAt) : 999,
       scrim_challenge_success: st.challenge_success ?? 0.5,
       scrim_bluff_rate: st.bluff_rate ?? 0.25,
       scrim_win_rate: st.win_rate ?? 0.5,
@@ -438,11 +423,8 @@ class ScriptBot {
         if (idxs.length === keep) return idxs;
       }
     }
-    // default keep: value-ranked, but after a MISS the opponent has just seen
-    // our old cards (pool[0..keep-1]) — prefer the freshly drawn ones so the
-    // next call at us is a guess again
-    const seenPenalty = reason === 'miss' ? 1.6 : 0;
-    const order = pool.map((r, i) => ({ r, i, score: ROLE_VALUE[r] - (i < keep ? seenPenalty : 0) }))
+    // default keep: most valuable distinct roles first
+    const order = pool.map((r, i) => ({ r, i, score: ROLE_VALUE[r] }))
       .sort((a, b) => b.score - a.score);
     const chosen = [];
     for (const c of order) {

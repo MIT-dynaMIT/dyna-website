@@ -8,12 +8,13 @@ heads-up play against bots.
 (https://shelfgamer.com/coup-two-player-ultimate-variant/): five lives each
 (dead cards go face-up to your graveyard and are replaced from the deck until
 the 4th death), full 15-card court deck, and **Call the Coup** — coups *and*
-assassinations must name a character; name wrong and the attack **misses**
-(the defender reveals, redraws 2, and keeps a hand's worth). Everything else
-is standard Coup. The math this creates (hypergeometric card-counting,
-claim-reading, bluff-rate exploitation) is exposed to student bots via
-`prob_opponent_has`, `unseen_copies`, `best_coup_call`, graveyards, and
-miss-reveal memory.
+assassinations must name a character; name wrong and the attack **misses**:
+the defender shows their hand, it returns to the deck (shuffled), and they
+are dealt a fresh random hand — so a reveal teaches nothing lasting.
+Everything else is standard Coup. The math this creates (hypergeometric
+card-counting, claim-reading, bluff-rate exploitation) is exposed to student
+bots via `prob_opponent_has`, `unseen_copies`, `best_coup_call`, graveyards
+and claims (which clear on any exchange or post-miss redraw).
 
 **The Equilibrist** (house champion) was tuned by coordinate ascent against a
 self-play mirror + the 12 sample personalities (~50k headless games; the

@@ -355,25 +355,18 @@ function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchangeSel, o
     );
   }
 
-  // ----- exchange (Ambassador, or a post-miss redraw)
+  // ----- exchange (Ambassador). Post-miss redraws are now automatic — no prompt.
   if (prompt.kind === 'exchange') {
     const pool = prompt.pool || [];
     const keep = prompt.keep || 0;
-    const isMiss = prompt.reason === 'miss';
     const toggle = (i: number) => {
       if (exchangeSel.includes(i)) setExchangeSel(exchangeSel.filter((x) => x !== i));
       else if (exchangeSel.length < keep) setExchangeSel([...exchangeSel, i]);
     };
     return (
       <div>
-        <p className="barhead">
-          {isMiss ? 'The attack MISSED!' : 'Exchange with the court'} — keep exactly {keep} card{keep === 1 ? '' : 's'}.
-        </p>
-        <p className="barsub">
-          {isMiss
-            ? 'Your hand was revealed, so draw 2 and pick your new hand. The rest go to the top of the deck.'
-            : `Chosen ${exchangeSel.length} / ${keep}. The rest return to the deck.`}
-        </p>
+        <p className="barhead">Exchange with the court — keep exactly {keep} card{keep === 1 ? '' : 's'}.</p>
+        <p className="barsub">Chosen {exchangeSel.length} / {keep}. The rest return to the deck.</p>
         <div className="ct-pickcards">
           {pool.map((role, i) => (
             <div key={i} className={`ct-card face role-${role} ${exchangeSel.includes(i) ? 'sel' : ''}`}

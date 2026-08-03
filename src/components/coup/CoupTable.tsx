@@ -55,8 +55,10 @@ export function describe(log: Log | null | undefined, seatNames: string[]): Talk
       return { lead: 'CALLED IT!', text: ` ${nm(log.actor)} names the ${ROLE_UP(log.call)} — ${nm(log.target)} loses it.`, tone: 'kill' };
     case 'miss': {
       const shown = Array.isArray(log.revealed) ? (log.revealed as string[]).map((r) => ROLE_LABEL[r] || r).join(', ') : '';
-      return { lead: 'MISS!', text: ` ${nm(log.target)} holds no ${ROLE_UP(log.call)} (hand: ${shown}). They redraw.`, tone: 'miss' };
+      return { lead: 'MISS!', text: ` ${nm(log.target)} has no ${ROLE_UP(log.call)} — hand shown: ${shown}. It goes back to the deck and they draw a fresh hand.`, tone: 'miss' };
     }
+    case 'redraw':
+      return { lead: nm(log.player), text: ' is dealt a fresh hand.', tone: 'info' };
     case 'exchanged':
       return {
         lead: nm(log.player),
@@ -132,13 +134,26 @@ function computeFx(prev: GameView, cur: GameView, log: Log | null | undefined, W
     }
   }
 
-  // MISS! — the defender's redraw: deck wiggle + two cards slide to them
+  // MISS! — the revealed hand goes back to the deck (shuffled)
   if (log && log.t === 'miss') {
     missFlash = true;
     const i = seatIdx(log.target);
-    if (SEAT_POS[i]) { deckWiggle = true; fly('card', DECK, SEAT_POS[i], 2); }
+    if (SEAT_POS[i]) {
+      deckWiggle = true;
+      const n = cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2;
+      fly('card', SEAT_POS[i], DECK, n);
+    }
   }
-  // exchange (Ambassador, or a post-miss redraw)
+  // redraw (post-miss) — fresh cards slide from the deck to the player
+  if (log && log.t === 'redraw') {
+    const i = seatIdx(log.player);
+    if (SEAT_POS[i]) {
+      deckWiggle = true;
+      const n = cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2;
+      fly('card', DECK, SEAT_POS[i], n);
+    }
+  }
+  // exchange (Ambassador)
   if (log && log.t === 'exchanged') {
     const i = seatIdx(log.player);
     if (SEAT_POS[i]) { deckWiggle = true; fly('card', DECK, SEAT_POS[i], 2); }

@@ -104,7 +104,7 @@ const BLOCKS: Record<string, unknown>[] = [
     type: 'coup_coup', message0: 'Coup! (pay 7) 💥 call their %1',
     args0: [{ type: 'input_value', name: 'ROLE' }],
     previousStatement: null, inputsInline: true, colour: C_ACTION,
-    tooltip: 'Costs 7 coins. Name the card they hold — if you are wrong the coup MISSES and they redraw. Empty socket = the engine calls your best guess.',
+    tooltip: 'Costs 7 coins. Name the card they hold — if the call is wrong it MISSES: they show their hand, it returns to the deck, and they are dealt a fresh random hand. Empty socket = the engine calls your best guess.',
   },
   {
     type: 'coup_assassinate',
@@ -113,7 +113,7 @@ const BLOCKS: Record<string, unknown>[] = [
     message1: 'if they block with Contessa, challenge with chance %1',
     args1: [{ type: 'field_number', name: 'P', value: 0.35, min: 0, max: 1, precision: 0.05 }],
     previousStatement: null, inputsInline: true, colour: C_ACTION,
-    tooltip: 'Costs 3 coins. Name the card they hold — wrong name MISSES. Set how often you challenge a Contessa block. Empty socket = your best guess.',
+    tooltip: 'Costs 3 coins. Name the card they hold — a wrong name MISSES: they show their hand, it returns to the deck, and they are dealt a fresh random hand. Set how often you challenge a Contessa block. Empty socket = your best guess.',
   },
 
   // ---- responses ----------------------------------------------------
@@ -240,8 +240,6 @@ const BLOCKS: Record<string, unknown>[] = [
   { type: 'coup_my_lives', message0: 'my lives', output: 'Number', colour: C_INFO, tooltip: 'How many lives you have left (you start with 5).' },
   { type: 'coup_my_graveyard', message0: 'my dead cards (list)', output: 'Array', colour: C_INFO, tooltip: 'The roles you have already lost, face-up for all to see.' },
   { type: 'coup_opp_graveyard', message0: "opponent's dead cards (list)", output: 'Array', colour: C_INFO, tooltip: "The roles your opponent has lost so far — great for card-counting." },
-  { type: 'coup_opp_last_revealed', message0: 'cards they showed at their last miss (list)', output: 'Array', colour: C_INFO, tooltip: 'When an attack on your opponent misses, they reveal a hand. These are the roles they showed.' },
-  { type: 'coup_opp_last_revealed_age', message0: 'moves since they showed their hand', output: 'Number', colour: C_INFO, tooltip: 'How many moves ago your opponent last revealed cards (huge number if never). Fresher = more trustworthy.' },
   {
     type: 'coup_prob_opp_has', message0: 'chance opponent has %1',
     args0: [{ type: 'input_value', name: 'ROLE' }],
@@ -324,7 +322,6 @@ const BLOCKS: Record<string, unknown>[] = [
     args0: [{ type: 'field_number', name: 'IDX', value: 0, min: 0, precision: 1 }],
     output: 'String', colour: C_INFO, tooltip: 'One of your own cards by position (0 = first).',
   },
-  { type: 'coup_exchange_reason', message0: 'why am I exchanging', output: 'String', colour: C_INFO, tooltip: '"ambassador" if you chose to exchange, or "miss" if you were forced to redraw after an attack on you missed. Only inside the exchange hat.' },
 
   // ---- chance -------------------------------------------------------
   {
@@ -388,7 +385,7 @@ function registerGenerators() {
   forBlock['coup_when_respond'] = hatGen('def respond(state, action):');
   forBlock['coup_when_assassinated'] = hatGen('def when_assassinated(state, action):');
   forBlock['coup_choose_lose'] = hatGen('def choose_card_to_lose(state):');
-  forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool, reason):');
+  forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool):');
 
   // actions (Call-the-Coup: role strings, not players; steal takes nothing)
   forBlock['coup_income'] = () => 'return income()\n';
@@ -455,8 +452,6 @@ function registerGenerators() {
   forBlock['coup_my_lives'] = () => ['state.my_lives', Order.MEMBER];
   forBlock['coup_my_graveyard'] = () => ['state.my_graveyard', Order.MEMBER];
   forBlock['coup_opp_graveyard'] = () => ['state.opponent.graveyard', Order.MEMBER];
-  forBlock['coup_opp_last_revealed'] = () => ['state.opponent.last_revealed', Order.MEMBER];
-  forBlock['coup_opp_last_revealed_age'] = () => ['state.opponent.last_revealed_age', Order.MEMBER];
   forBlock['coup_prob_opp_has'] = (block, gen) => [`prob_opponent_has(state, ${gen.valueToCode(block, 'ROLE', Order.NONE) || '"duke"'})`, Order.FUNCTION_CALL];
   forBlock['coup_best_guess'] = () => ['best_coup_call(state)', Order.FUNCTION_CALL];
   forBlock['coup_unseen'] = (block, gen) => [`unseen_copies(state, ${gen.valueToCode(block, 'ROLE', Order.NONE) || '"duke"'})`, Order.FUNCTION_CALL];
@@ -468,7 +463,6 @@ function registerGenerators() {
   };
   forBlock['coup_my_cards'] = () => ['state.my_cards', Order.MEMBER];
   forBlock['coup_my_claims'] = () => ['state.my_claims', Order.MEMBER];
-  forBlock['coup_exchange_reason'] = () => ['reason', Order.ATOMIC];
 
   // this move (the action passed to respond / when_assassinated)
   forBlock['coup_action_call'] = () => ['action.call', Order.MEMBER];
@@ -708,11 +702,9 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_unseen', inputs: { ROLE: roleShadow('duke') } },
           { kind: 'block', type: 'coup_revealed_count' },
           { kind: 'block', type: 'coup_role_impossible' },
-          // graveyards + miss memory
+          // graveyards
           { kind: 'block', type: 'coup_my_graveyard' },
           { kind: 'block', type: 'coup_opp_graveyard' },
-          { kind: 'block', type: 'coup_opp_last_revealed' },
-          { kind: 'block', type: 'coup_opp_last_revealed_age' },
           { kind: 'block', type: 'coup_history' },
           { kind: 'block', type: 'coup_attr', inputs: { OBJ: { block: { type: 'coup_opponent' } } } },
           // my hand / claims
@@ -725,7 +717,6 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_my_card' },
           { kind: 'block', type: 'coup_first_of' },
           { kind: 'block', type: 'coup_last_of' },
-          { kind: 'block', type: 'coup_exchange_reason' },
         ],
       },
       {

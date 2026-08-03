@@ -296,7 +296,6 @@ function buildNum(ctx: Ctx, e: Node): Blockly.Block {
 
 function buildNameExpr(ctx: Ctx, e: Node): Blockly.Block {
   if (e.v === 'pool') return nb(ctx, 'coup_pool');
-  if (e.v === 'reason') return nb(ctx, 'coup_exchange_reason');
   return varGet(ctx, e.v);
 }
 
@@ -335,8 +334,6 @@ function buildAttr(ctx: Ctx, e: Node): Blockly.Block {
   }
   if (isAttrOf(obj, 'state', 'opponent')) {
     if (name === 'graveyard') return nb(ctx, 'coup_opp_graveyard');
-    if (name === 'last_revealed') return nb(ctx, 'coup_opp_last_revealed');
-    if (name === 'last_revealed_age') return nb(ctx, 'coup_opp_last_revealed_age');
     return playerProp(ctx, name, nb(ctx, 'coup_opponent'));
   }
   if (PLAYER_PROPS.has(name)) return playerProp(ctx, name, buildExpr(ctx, obj));

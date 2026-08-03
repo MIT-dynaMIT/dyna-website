@@ -158,7 +158,9 @@ export default function EditorPage({ user }: { user: CoupUser }) {
         renderer: 'zelos',
         grid: { spacing: 24, length: 2, colour: '#222c35', snap: true },
         zoom: { controls: true, wheel: true, startScale: 0.85, maxScale: 2, minScale: 0.4 },
+        // trashcan without the confusing "recycle bin" flyout — Undo covers recovery
         trashcan: true,
+        maxTrashcanContents: 0,
         move: { scrollbars: true, drag: true, wheel: true },
       });
       wsRef.current = ws;

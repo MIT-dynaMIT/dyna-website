@@ -214,11 +214,14 @@ export interface CoupTableProps {
   banner?: TalkLine | null;
   talk?: TalkLine[];
   overlay?: ReactNode;
+  compact?: boolean;
+  underBoard?: ReactNode;
 }
 
 export default function CoupTable({
   seatNames, view, prevView, youIndex = 0, stepLog,
   animate = false, animKey = 0, banner, talk = [], overlay,
+  compact = false, underBoard,
 }: CoupTableProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -253,7 +256,7 @@ export default function CoupTable({
   }, [talk.length]);
 
   return (
-    <div className="ct-wrap">
+    <div className={`ct-wrap ${compact ? 'ct-compact' : ''}`}>
       <div className="ct-main">
         <div className="ct-board heads-up" ref={boardRef}>
           <div className="ct-felt" />
@@ -327,6 +330,7 @@ export default function CoupTable({
 
           {overlay && <div className="ct-overlay">{overlay}</div>}
         </div>
+        {underBoard}
       </div>
 
       <div className="ct-talk">

@@ -76,32 +76,47 @@ export default function ReplayPage() {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 
+  const strip = (
+    <div className="ct-replay-strip">
+      <Link to="/coup/matches">← Match history</Link>
+      <span className="sep">·</span>
+      {data.seatNames.map((nm, i) => {
+        const d = data.eloDelta[nm] ?? 0;
+        const win = nm === data.winnerName;
+        const owner = data.owners[i] && data.owners[i] !== 'House' ? data.owners[i] : 'House';
+        return (
+          <span key={i}>
+            {i > 0 && <span className="vs"> vs </span>}
+            <span className={`bn ${win ? 'win' : ''}`}>{win ? '♛ ' : ''}{nm}</span>
+            {' '}<span className="ow">({owner})</span>
+            {' '}<span className={`ed ${d >= 0 ? 'pos' : 'neg'}`}>{d >= 0 ? '+' : ''}{d}</span>
+          </span>
+        );
+      })}
+      <span className="date">{dateStr}</span>
+    </div>
+  );
+
+  const transport = (
+    <div className="ct-transport">
+      <div className="grp">
+        <button className="small" onClick={() => go(0, false)} title="Jump to start">⏮</button>
+        <button className="small" onClick={() => go(idx - 1, false)} disabled={idx === 0} title="Previous">◀</button>
+        <button className="small primary" onClick={() => setPlaying((p) => !p)} disabled={idx >= N - 1 && !playing}>
+          {playing ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <button className="small" onClick={() => go(idx + 1, true)} disabled={idx >= N - 1} title="Next">▶</button>
+        <button className="small" onClick={() => go(N - 1, false)} title="Jump to end">⏭</button>
+      </div>
+      <span className="frameno">frame {idx + 1} / {N}</span>
+      <input type="range" min={0} max={Math.max(0, N - 1)} value={idx}
+        onChange={(e) => { setPlaying(false); go(Number(e.target.value), false); }} />
+    </div>
+  );
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <Link to="/coup/matches" className="coup-note" style={{ textDecoration: 'none' }}>← Match history</Link>
-        <div style={{ flex: 1 }} />
-        <span className="coup-note">{dateStr}</span>
-      </div>
-
-      <div className="ct-replayhead">
-        <div className="coup-card" style={{ flex: '1 1 320px', padding: '12px 16px' }}>
-          <div className="ct-seatlist">
-            {data.seatNames.map((nm, i) => {
-              const d = data.eloDelta[nm] ?? 0;
-              const win = nm === data.winnerName;
-              return (
-                <div className="row" key={i}>
-                  <span className={`bn ${win ? 'win' : ''}`}>{win ? '♛ ' : ''}{nm}</span>
-                  <span className="ow">{data.owners[i] && data.owners[i] !== 'House' ? data.owners[i] : 'House'}</span>
-                  <span className={`ed ${d >= 0 ? 'pos' : 'neg'}`}>{d >= 0 ? '+' : ''}{d} ELO</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
+      {strip}
       <CoupTable
         seatNames={data.seatNames}
         view={view}
@@ -112,22 +127,9 @@ export default function ReplayPage() {
         youIndex={0}
         banner={banner}
         talk={talk}
+        compact
+        underBoard={transport}
       />
-
-      <div className="ct-transport">
-        <div className="grp">
-          <button className="small" onClick={() => go(0, false)} title="Jump to start">⏮</button>
-          <button className="small" onClick={() => go(idx - 1, false)} disabled={idx === 0} title="Previous">◀</button>
-          <button className="small primary" onClick={() => setPlaying((p) => !p)} disabled={idx >= N - 1 && !playing}>
-            {playing ? '⏸ Pause' : '▶ Play'}
-          </button>
-          <button className="small" onClick={() => go(idx + 1, true)} disabled={idx >= N - 1} title="Next">▶</button>
-          <button className="small" onClick={() => go(N - 1, false)} title="Jump to end">⏭</button>
-        </div>
-        <span className="frameno">frame {idx + 1} / {N}</span>
-        <input type="range" min={0} max={Math.max(0, N - 1)} value={idx}
-          onChange={(e) => { setPlaying(false); go(Number(e.target.value), false); }} />
-      </div>
     </div>
   );
 }

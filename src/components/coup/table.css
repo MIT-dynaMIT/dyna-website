@@ -6,35 +6,36 @@
 .ct-wrap { display: flex; gap: 18px; align-items: flex-start; }
 .ct-main { flex: 1 1 auto; min-width: 0; }
 
-/* ------------------------------------------------ the board */
+/* ------------------------------------------------ the board (rounded felt rectangle) */
 .ct-board {
   position: relative;
   width: 100%;
-  aspect-ratio: 1.5 / 1;
-  min-height: 430px;
-  border-radius: 50% / 50%;
-  padding: 3px;
+  max-width: 900px;
+  margin: 0 auto;
+  border-radius: 18px;
+  padding: 4px;
   background: linear-gradient(145deg, #d8b95e, #8a6f2e 40%, #5f4a1e 70%, #d8b95e);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
-.ct-board.heads-up { aspect-ratio: 1.42 / 1; }
 .ct-felt {
-  position: absolute; inset: 12px; border-radius: 50% / 50%;
-  background: radial-gradient(ellipse at 50% 50%, var(--felt-1) 0%, var(--felt-2) 66%, #101c22 100%);
+  position: absolute; inset: 6px; border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 70%, #101c22 100%);
   border: 2px solid rgba(0, 0, 0, 0.35);
   box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.04);
 }
 .ct-felt::after {
-  content: ''; position: absolute; inset: 6% 8%;
-  border: 1px solid rgba(201, 168, 76, 0.13); border-radius: 50% / 50%; pointer-events: none;
+  content: ''; position: absolute; inset: 9px;
+  border: 1px solid rgba(201, 168, 76, 0.13); border-radius: 11px; pointer-events: none;
 }
 
-/* ------------------------------------------------ centre: deck + treasury */
-.ct-center {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  display: flex; align-items: center; gap: 22px; pointer-events: none;
+/* ------------------------------------------------ flow layout: rival / centre / you */
+.ct-flow {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 46px 16px 18px;
 }
+.ct-center-row { display: flex; align-items: center; gap: 30px; }
 .ct-deck { position: relative; width: 40px; height: 56px; }
 .ct-deck .ct-card { position: absolute; top: 0; left: 0; }
 .ct-deck .d1 { transform: translate(2px, 2px) rotate(3deg); }
@@ -56,14 +57,11 @@
   font-size: 11px; color: var(--ink-mut); white-space: nowrap; letter-spacing: 0.05em;
 }
 
-/* ------------------------------------------------ seats (heads-up: 2) */
+/* ------------------------------------------------ seats (heads-up: 2, in flow) */
 .ct-seat {
-  position: absolute; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; align-items: center; gap: 7px;
-  width: 260px; transition: filter 0.3s, opacity 0.3s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: filter 0.3s, opacity 0.3s;
 }
-.ct-seat.s0 { left: 50%; top: 78%; }
-.ct-seat.s1 { left: 50%; top: 22%; }
 
 .ct-plate {
   display: flex; align-items: center; gap: 7px;
@@ -212,7 +210,7 @@
 
 /* ------------------------------------------------ winner overlay */
 .ct-overlay {
-  position: absolute; inset: 0; z-index: 8; border-radius: 50% / 50%;
+  position: absolute; inset: 0; z-index: 8; border-radius: 18px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 16px; text-align: center;
   background: radial-gradient(ellipse at 50% 45%, rgba(18, 22, 27, 0.72), rgba(18, 22, 27, 0.92));
@@ -227,7 +225,7 @@
 .ct-talk {
   flex: 0 0 300px; align-self: stretch;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 12px 14px; display: flex; flex-direction: column; max-height: 560px;
+  padding: 12px 14px; display: flex; flex-direction: column; max-height: 440px;
 }
 .ct-talk h3 {
   margin: 0 0 8px; color: var(--parch); font-size: 14px; letter-spacing: 0.06em;
@@ -280,8 +278,8 @@
 
 /* replay transport */
 .ct-transport {
-  margin-top: 16px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 10px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
 .ct-transport .frameno { color: var(--ink-mut); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ct-transport input[type="range"] { flex: 1; min-width: 150px; accent-color: var(--accent); }

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GameView } from './api';
 import { ROLE_GLYPHS, ROLE_LABEL, ACTION_LABEL } from './api';
@@ -84,32 +84,25 @@ export function describe(log: Log | null | undefined, seatNames: string[]): Talk
   }
 }
 
-// ---------------------------------------------------------------- geometry
-// heads-up: you bottom-centre, rival top-centre
-const SEAT_POS = [
-  { x: 50, y: 78 }, // you
-  { x: 50, y: 22 }, // rival
-];
-const railAnchor = (i: number) => ({ x: SEAT_POS[i].x, y: SEAT_POS[i].y + (i === 0 ? 12 : -12) });
-const BANK = { x: 58, y: 50 };
-const DECK = { x: 42, y: 50 };
-
 // ---------------------------------------------------------------- effects diff
+type Pt = { x: number; y: number };
+interface Anchors { seat: (i: number) => Pt | null; rail: (i: number) => Pt | null; bank: Pt | null; deck: Pt | null }
 interface Flyer { id: number; kind: 'coin' | 'card' | 'deadcard'; role?: string; fromX: number; fromY: number; tx: number; ty: number; delay: number }
 interface StepFx { flyers: Flyer[]; shake: Record<number, boolean>; deckWiggle: boolean; missFlash: boolean }
 
 let flyerSeq = 1;
 
-function computeFx(prev: GameView, cur: GameView, log: Log | null | undefined, W: number, H: number): StepFx {
-  const px = (p: { x: number; y: number }) => ({ x: (p.x / 100) * W, y: (p.y / 100) * H });
+/** Diff two views (+ the newest log) into a set of transient board effects.
+ *  Positions come from the live DOM (A), so the flow layout can move freely. */
+function computeFx(prev: GameView, cur: GameView, log: Log | null | undefined, A: Anchors): StepFx {
   const flyers: Flyer[] = [];
   const shake: Record<number, boolean> = {};
   let deckWiggle = false, missFlash = false;
 
-  const fly = (kind: Flyer['kind'], from: { x: number; y: number }, to: { x: number; y: number }, n: number, role?: string) => {
-    const a = px(from), b = px(to);
+  const fly = (kind: Flyer['kind'], from: Pt | null, to: Pt | null, n: number, role?: string) => {
+    if (!from || !to) return;
     for (let i = 0; i < n; i++) {
-      flyers.push({ id: flyerSeq++, kind, role, fromX: a.x, fromY: a.y, tx: b.x - a.x, ty: b.y - a.y, delay: i * 90 });
+      flyers.push({ id: flyerSeq++, kind, role, fromX: from.x, fromY: from.y, tx: to.x - from.x, ty: to.y - from.y, delay: i * 90 });
     }
   };
 
@@ -117,20 +110,20 @@ function computeFx(prev: GameView, cur: GameView, log: Log | null | undefined, W
   const stole = log && log.t === 'stole';
   const sA = stole ? seatIdx(log!.actor) : -1;
   const sT = stole ? seatIdx(log!.target) : -1;
-  if (stole && SEAT_POS[sA] && SEAT_POS[sT]) fly('coin', SEAT_POS[sT], SEAT_POS[sA], Math.min(Number(log!.amount) || 1, 6));
+  if (stole) fly('coin', A.seat(sT), A.seat(sA), Math.min(Number(log!.amount) || 1, 6));
 
-  for (let i = 0; i < cur.players.length && i < SEAT_POS.length; i++) {
+  for (let i = 0; i < cur.players.length; i++) {
     if (i !== sA && i !== sT) {
       const d = cur.players[i].coins - prev.players[i].coins;
-      if (d > 0) fly('coin', BANK, SEAT_POS[i], Math.min(d, 6));
-      else if (d < 0) fly('coin', SEAT_POS[i], BANK, Math.min(-d, 6));
+      if (d > 0) fly('coin', A.bank, A.seat(i), Math.min(d, 6));
+      else if (d < 0) fly('coin', A.seat(i), A.bank, Math.min(-d, 6));
     }
     // an influence just died → its card flies from the hand to the graveyard rail
     const gNow = cur.players[i].graveyard;
     const gBefore = prev.players[i].graveyard;
     if (gNow.length > gBefore.length) {
       shake[i] = true;
-      fly('deadcard', SEAT_POS[i], railAnchor(i), 1, gNow[gNow.length - 1]);
+      fly('deadcard', A.seat(i), A.rail(i), 1, gNow[gNow.length - 1]);
     }
   }
 
@@ -138,25 +131,20 @@ function computeFx(prev: GameView, cur: GameView, log: Log | null | undefined, W
   if (log && log.t === 'miss') {
     missFlash = true;
     const i = seatIdx(log.target);
-    if (SEAT_POS[i]) {
-      deckWiggle = true;
-      const n = cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2;
-      fly('card', SEAT_POS[i], DECK, n);
-    }
+    deckWiggle = true;
+    fly('card', A.seat(i), A.deck, cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2);
   }
   // redraw (post-miss) — fresh cards slide from the deck to the player
   if (log && log.t === 'redraw') {
     const i = seatIdx(log.player);
-    if (SEAT_POS[i]) {
-      deckWiggle = true;
-      const n = cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2;
-      fly('card', DECK, SEAT_POS[i], n);
-    }
+    deckWiggle = true;
+    fly('card', A.deck, A.seat(i), cur.players[i] ? Math.max(1, cur.players[i].cards.length) : 2);
   }
   // exchange (Ambassador)
   if (log && log.t === 'exchanged') {
     const i = seatIdx(log.player);
-    if (SEAT_POS[i]) { deckWiggle = true; fly('card', DECK, SEAT_POS[i], 2); }
+    deckWiggle = true;
+    fly('card', A.deck, A.seat(i), 2);
   }
 
   return { flyers, shake, deckWiggle, missFlash };
@@ -172,10 +160,10 @@ function CardFace({ role, mini, dead }: { role: string; mini?: boolean; dead?: b
   );
 }
 
-function LifeRail({ graveyard, you }: { graveyard: string[]; you: boolean }) {
+function LifeRail({ graveyard, innerRef }: { graveyard: string[]; innerRef?: (el: HTMLDivElement | null) => void }) {
   const remaining = Math.max(0, 5 - graveyard.length);
   return (
-    <div className="ct-rail" title={`${remaining} of 5 lives`} data-you={you ? '1' : '0'}>
+    <div className="ct-rail" ref={innerRef} title={`${remaining} of 5 lives`}>
       {graveyard.map((role, i) => (
         <div className="ct-slot lost" key={`d${i}`}><CardFace role={role} mini dead /></div>
       ))}
@@ -221,41 +209,83 @@ export default function CoupTable({
   animate = false, animKey = 0, banner, talk = [], overlay,
 }: CoupTableProps) {
   const boardRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const deckRef = useRef<HTMLDivElement>(null);
+  const bankRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const railRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [fx, setFx] = useState<StepFx>({ flyers: [], shake: {}, deckWiggle: false, missFlash: false });
   const talkRef = useRef<HTMLDivElement>(null);
   const lastKey = useRef(-1);
 
-  useLayoutEffect(() => {
-    const el = boardRef.current;
-    if (!el) return;
-    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   const reduced = typeof window !== 'undefined'
     && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // fire animations when a new step lands — anchors are read from the live DOM
   useEffect(() => {
     if (animKey === lastKey.current) return;
     lastKey.current = animKey;
-    if (!animate || !prevView || reduced || box.w === 0) { setFx({ flyers: [], shake: {}, deckWiggle: false, missFlash: false }); return; }
-    setFx(computeFx(prevView, view, stepLog, box.w, box.h));
+    const board = boardRef.current;
+    if (!animate || !prevView || reduced || !board) {
+      setFx({ flyers: [], shake: {}, deckWiggle: false, missFlash: false });
+      return;
+    }
+    const b = board.getBoundingClientRect();
+    const centerOf = (el: HTMLElement | null): Pt | null => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - b.left, y: r.top + r.height / 2 - b.top };
+    };
+    const A: Anchors = {
+      seat: (i) => centerOf(cardRefs.current[i]),
+      rail: (i) => centerOf(railRefs.current[i]),
+      bank: centerOf(bankRef.current),
+      deck: centerOf(deckRef.current),
+    };
+    setFx(computeFx(prevView, view, stepLog, A));
     const t = setTimeout(() => setFx({ flyers: [], shake: {}, deckWiggle: false, missFlash: false }), 1100);
     return () => clearTimeout(t);
-  }, [animKey, animate, prevView, view, stepLog, box.w, box.h, reduced]);
+  }, [animKey, animate, prevView, view, stepLog, reduced]);
 
   useEffect(() => {
     if (talkRef.current) talkRef.current.scrollTop = talkRef.current.scrollHeight;
   }, [talk.length]);
 
+  const renderSeat = (i: number) => {
+    const p = view.players[i];
+    if (!p) return null;
+    const isTurn = view.turn === p.id && !view.winner;
+    const you = i === youIndex;
+    const dead = !p.alive;
+    return (
+      <div key={p.id}
+        className={`ct-seat ${isTurn ? 'turn' : ''} ${you ? 'you' : ''} ${dead ? 'dead' : ''} ${fx.shake[i] ? 'shake' : ''}`}>
+        <div className="ct-plate">
+          {isTurn && <span className="ct-crown">▸</span>}
+          <span className="nm">{seatNames[i]}</span>
+          {dead && <span className="ct-fallen">fallen</span>}
+        </div>
+        <div className="ct-mid">
+          <div className="ct-seatcards" ref={(el) => { cardRefs.current[i] = el; }}>
+            <div className="ct-hand">
+              {p.cards.map((c, ci) => (
+                c.role ? <CardFace key={ci} role={c.role} /> : <div key={ci} className="ct-card back" />
+              ))}
+            </div>
+          </div>
+          <CoinStack coins={p.coins} />
+        </div>
+        <LifeRail graveyard={p.graveyard} innerRef={(el) => { railRefs.current[i] = el; }} />
+      </div>
+    );
+  };
+
+  // rival(s) on top, you at the bottom
+  const others = view.players.map((_, i) => i).filter((i) => i !== youIndex);
+
   return (
     <div className="ct-wrap">
       <div className="ct-main">
-        <div className="ct-board heads-up" ref={boardRef}>
+        <div className="ct-board" ref={boardRef}>
           <div className="ct-felt" />
 
           {banner && (
@@ -265,49 +295,24 @@ export default function CoupTable({
             </div>
           )}
 
-          {/* centre: deck + treasury */}
-          <div className="ct-center">
-            <div className={`ct-deck ${fx.deckWiggle ? 'wiggle' : ''}`}>
-              <div className="ct-card back d1" />
-              <div className="ct-card back d2" />
-              <div className="ct-card back" />
-              <div className="ct-count">{view.deckCount} in deck</div>
-            </div>
-            <div className="ct-bank">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
-              <div className="ct-bank-lbl">Treasury</div>
-            </div>
-          </div>
+          <div className="ct-flow">
+            {others.map((i) => renderSeat(i))}
 
-          {/* seats */}
-          {view.players.map((p, i) => {
-            const pos = SEAT_POS[i];
-            if (!pos) return null;
-            const isTurn = view.turn === p.id && !view.winner;
-            const you = i === youIndex;
-            const dead = !p.alive;
-            return (
-              <div key={p.id}
-                className={`ct-seat s${i} ${isTurn ? 'turn' : ''} ${you ? 'you' : ''} ${dead ? 'dead' : ''} ${fx.shake[i] ? 'shake' : ''}`}>
-                <div className="ct-plate">
-                  {isTurn && <span className="ct-crown">▸</span>}
-                  <span className="nm">{seatNames[i]}</span>
-                  {dead && <span className="ct-fallen">fallen</span>}
-                </div>
-                <div className="ct-mid">
-                  <div className="ct-seatcards">
-                    <div className="ct-hand">
-                      {p.cards.map((c, ci) => (
-                        c.role ? <CardFace key={ci} role={c.role} /> : <div key={ci} className="ct-card back" />
-                      ))}
-                    </div>
-                  </div>
-                  <CoinStack coins={p.coins} />
-                </div>
-                <LifeRail graveyard={p.graveyard} you={you} />
+            <div className="ct-center-row">
+              <div className={`ct-deck ${fx.deckWiggle ? 'wiggle' : ''}`} ref={deckRef}>
+                <div className="ct-card back d1" />
+                <div className="ct-card back d2" />
+                <div className="ct-card back" />
+                <div className="ct-count">{view.deckCount} in deck</div>
               </div>
-            );
-          })}
+              <div className="ct-bank" ref={bankRef}>
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
+                <div className="ct-bank-lbl">Treasury</div>
+              </div>
+            </div>
+
+            {renderSeat(youIndex)}
+          </div>
 
           {/* flyers */}
           <div className="ct-fxlayer">

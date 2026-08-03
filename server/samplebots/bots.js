@@ -106,11 +106,8 @@ const BOTS = [
         return foreign_aid()
 
     def respond(state, action):
-        who = action.actor
-        if action.is_block:
-            who = action.blocker
-        if action.claimed_role != None and not who.is_me:
-            if chance(suspicion(state, who, action.claimed_role)):
+        if action.claimed_role != None:
+            if chance(suspicion(state, state.opponent, action.claimed_role)):
                 return challenge()
         return allow()
 
@@ -290,13 +287,10 @@ const BOTS = [
         return foreign_aid()
 
     def respond(state, action):
-        who = action.actor
-        if action.is_block:
-            who = action.blocker
-        if action.claimed_role != None and not who.is_me:
+        if action.claimed_role != None:
             if unseen_copies(state, action.claimed_role) == 0:
                 return challenge()
-            if who.scrim_bluff_rate * 2 + who.times_caught_bluffing * 0.2 > 0.8:
+            if state.opponent.scrim_bluff_rate * 2 + state.opponent.times_caught_bluffing * 0.2 > 0.8:
                 return challenge()
         if action.type == "steal" and "captain" in state.my_cards:
             return block("captain")
@@ -351,10 +345,7 @@ const BOTS = [
         return foreign_aid()
 
     def respond(state, action):
-        who = action.actor
-        if action.is_block:
-            who = action.blocker
-        if action.claimed_role != None and not who.is_me and chance(0.12):
+        if action.claimed_role != None and chance(0.12):
             return challenge()
         if action.type == "steal" and chance(0.6):
             return block("captain")
@@ -450,11 +441,8 @@ const THE_EQUILIBRIST = S(`
         return foreign_aid()
 
     def respond(state, action):
-        who = action.actor
-        if action.is_block:
-            who = action.blocker
-        if action.claimed_role != None and not who.is_me:
-            if suspicion(state, who, action.claimed_role) > 0.85:
+        if action.claimed_role != None:
+            if suspicion(state, state.opponent, action.claimed_role) > 0.85:
                 return challenge()
         if action.type == "steal":
             if "captain" in state.my_cards:
@@ -495,10 +483,7 @@ const HOUSE = [
         return income()
 
     def respond(state, action):
-        who = action.actor
-        if action.is_block:
-            who = action.blocker
-        if action.claimed_role != None and not who.is_me and chance(0.25):
+        if action.claimed_role != None and chance(0.25):
             return challenge()
         return allow()
 

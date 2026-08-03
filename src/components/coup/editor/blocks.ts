@@ -200,10 +200,10 @@ const BLOCKS: Record<string, unknown>[] = [
     output: 'Array', inputsInline: true, colour: C_INFO, tooltip: 'The role names from the first list that are missing from the second — e.g. exchange for cards your opponent does not expect.',
   },
 
-  // ---- this move (inspect the opponent's move) ---------------------
+  // ---- this move (inspect your opponent's move) --------------------
+  // Heads-up: every person is me or my opponent, so there are no actor/target/
+  // blocker blocks — read the mover from "my opponent" (Game Info).
   { type: 'coup_action_call', message0: 'the role they called', output: 'String', colour: C_MOVE, tooltip: 'The character your opponent named when they couped or assassinated you. If it is not a card you hold, the attack misses!' },
-  { type: 'coup_action_actor', message0: 'who made this move', output: 'Player', colour: C_MOVE, tooltip: 'Your opponent — they just moved. Reaction hats only.' },
-  { type: 'coup_action_target', message0: 'the target of this move', output: 'Player', colour: C_MOVE, tooltip: 'Who the move is aimed at (you or nobody). Reaction hats only.' },
   {
     type: 'coup_action_is', message0: 'this move is %1',
     args0: [{
@@ -212,12 +212,10 @@ const BLOCKS: Record<string, unknown>[] = [
         ['Steal', 'steal'], ['Assassinate', 'assassinate'], ['Exchange', 'exchange'], ['Coup', 'coup'],
       ],
     }],
-    output: 'Boolean', colour: C_MOVE, tooltip: 'True if the move you are reacting to is that kind. Reaction hats only.',
+    output: 'Boolean', colour: C_MOVE, tooltip: 'True if your opponent’s move is that kind. Reaction hats only.',
   },
   { type: 'coup_action_claimed_role', message0: 'the role they claim', output: 'String', colour: C_MOVE, tooltip: 'The role your opponent is claiming, e.g. "duke". Reaction hats only.' },
-  { type: 'coup_action_is_block', message0: 'this is a block', output: 'Boolean', colour: C_MOVE, tooltip: 'True if the move you are reacting to is your opponent blocking. Reaction hats only.' },
-  { type: 'coup_action_blocker', message0: 'who is blocking', output: 'Player', colour: C_MOVE, tooltip: 'The player doing the blocking (when this is a block) — in heads-up, your opponent. Reaction hats only.' },
-  { type: 'coup_action_targets_me', message0: 'the move targets me', output: 'Boolean', colour: C_MOVE, tooltip: 'True if this move is aimed at you. Reaction hats only.' },
+  { type: 'coup_action_is_block', message0: 'this is a block', output: 'Boolean', colour: C_MOVE, tooltip: 'True if your opponent’s move is a block. Reaction hats only.' },
   { type: 'coup_action_already_claimed', message0: 'they already claimed this role before ✓', output: 'Boolean', colour: C_MOVE, tooltip: 'True if your opponent claimed this same role earlier in the game. A consistent story is more believable; a brand-new claim is more likely a bluff.' },
   { type: 'coup_claimed_role_impossible', message0: 'the role they claim is impossible now', output: 'Boolean', colour: C_MOVE, tooltip: 'True when all 3 copies of the claimed role are already face-up (deck + graveyards) — a guaranteed bluff. Free challenge!' },
 
@@ -466,13 +464,9 @@ function registerGenerators() {
 
   // this move (the action passed to respond / when_assassinated)
   forBlock['coup_action_call'] = () => ['action.call', Order.MEMBER];
-  forBlock['coup_action_actor'] = () => ['action.actor', Order.MEMBER];
-  forBlock['coup_action_target'] = () => ['action.target', Order.MEMBER];
   forBlock['coup_action_is'] = (block) => [`(action.type == "${block.getFieldValue('TYPE')}")`, Order.ATOMIC];
   forBlock['coup_action_claimed_role'] = () => ['action.claimed_role', Order.MEMBER];
   forBlock['coup_action_is_block'] = () => ['action.is_block', Order.MEMBER];
-  forBlock['coup_action_blocker'] = () => ['action.blocker', Order.MEMBER];
-  forBlock['coup_action_targets_me'] = () => ['(action.target != None and action.target.is_me)', Order.ATOMIC];
   forBlock['coup_action_already_claimed'] = () => ['action.already_claimed', Order.MEMBER];
   forBlock['coup_claimed_role_impossible'] = () =>
     ['(action.claimed_role != None and state.revealed_roles[action.claimed_role] >= 3)', Order.ATOMIC];
@@ -664,12 +658,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'label', text: 'Use these inside "when my opponent makes a move" / "when I am assassinated"' },
           { kind: 'block', type: 'coup_action_call' },
           { kind: 'block', type: 'coup_action_is' },
-          { kind: 'block', type: 'coup_action_targets_me' },
-          { kind: 'block', type: 'coup_action_actor' },
-          { kind: 'block', type: 'coup_action_target' },
           { kind: 'block', type: 'coup_action_claimed_role' },
           { kind: 'block', type: 'coup_action_is_block' },
-          { kind: 'block', type: 'coup_action_blocker' },
           { kind: 'block', type: 'coup_action_already_claimed' },
           { kind: 'block', type: 'coup_claimed_role_impossible' },
           // ready-made: call an impossible claim's bluff instantly
@@ -682,8 +672,9 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           },
           // do I hold the card they just called?
           { kind: 'block', type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } },
-          // chain "This Move" players into "[property] of [player]"
-          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'scrim_bluff_rate' }, inputs: { PLAYER: { block: { type: 'coup_action_actor' } } } },
+          // read the mover — in heads-up that's always "my opponent"
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'scrim_bluff_rate' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
+          { kind: 'block', type: 'coup_player_claimed', fields: { ROLE: 'contessa' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
         ],
       },
       {

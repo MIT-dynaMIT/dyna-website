@@ -324,9 +324,11 @@ function buildAttr(ctx: Ctx, e: Node): Blockly.Block {
     return attrFallback(ctx, e);
   }
   if (isName(obj, 'action')) {
+    if (name === 'actor' || name === 'target' || name === 'blocker') {
+      throw new DecompileError(`in heads-up there is no action.${name} — use the "my opponent" block instead`, e.line);
+    }
     const map: Record<string, string> = {
       call: 'coup_action_call', claimed_role: 'coup_action_claimed_role', is_block: 'coup_action_is_block',
-      actor: 'coup_action_actor', target: 'coup_action_target', blocker: 'coup_action_blocker',
       already_claimed: 'coup_action_already_claimed',
     };
     if (map[name]) return nb(ctx, map[name]);

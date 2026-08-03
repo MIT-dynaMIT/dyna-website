@@ -78,6 +78,16 @@
 .coup-root .blocklyToolboxDiv { border-right: 1px solid var(--line); }
 .blocklyWidgetDiv, .blocklyDropDownDiv, .blocklyTooltipDiv { z-index: 99999; }
 
+/* the "inputs" parameter line on the function-signature hat blocks.
+   (SVG <text> has no box, so these read as muted parameter labels rather
+   than bordered pills — smaller, lowered opacity, italic.) */
+.coup-root text.ed-hat-inputs, .coup-root .ed-hat-inputs {
+  font-size: 10.5px;
+  font-style: italic;
+  fill: rgba(240, 230, 204, 0.5);
+  letter-spacing: 0.02em;
+}
+
 /* ---------------------------------------------------- python editor */
 .coup-root .ed-py { padding: 0; overflow: hidden; }
 .coup-root .ed-py-inner {

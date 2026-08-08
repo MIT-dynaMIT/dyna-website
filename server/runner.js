@@ -31,7 +31,7 @@ function mulberry32(seed) {
  *  scrimStats {name → stats} passed into bot states
  * → {winnerName, seed, decisions, log, names, errorsByBot, adjudicated}
  */
-function playBotGame({ bots, seed, scrimStats = {} }) {
+function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
   // Two independent streams: the engine only ever draws from `rng`, bots from
   // `botRng`. Replay re-runs the engine alone, so its stream must not be
   // perturbed by however many random() calls the bots made in between.
@@ -49,7 +49,7 @@ function playBotGame({ bots, seed, scrimStats = {} }) {
   const botOf = {};
   ids.forEach((id, i) => { botOf[id] = bots[i].bot; });
 
-  const game = new CoupGame(ids, rng);
+  const game = new CoupGame(ids, rng, gameOpts || {});
   const decisions = [];
   let guard = 0;
   const MAX = 2000;

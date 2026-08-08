@@ -24,7 +24,6 @@ const { compile, CompileError, BotRuntimeError, repr } = require('./botlang');
 const { ACTIONS, ROLES, LIVES } = require('./coup');
 
 const ROLE_VALUE = { duke: 5, contessa: 4, captain: 3, assassin: 2, ambassador: 1 };
-const TOTAL_CARDS = 15;
 
 // ------------------------------------------------------------ log tallies
 function tallyLog(log, ids) {
@@ -102,8 +101,11 @@ function probOpponentHas(state, role) {
   if (!ROLES.includes(r)) throw new BotRuntimeError(`prob_opponent_has needs a role name, got ${repr(role)}`);
   const opp = state.opponent;
   if (!opp) return 0;
+  const gameRoles = state.__roles || ROLES;
+  if (!gameRoles.includes(r)) return 0;
   const k = opp.num_cards;
-  const unseen = TOTAL_CARDS - state.my_cards.length - state.my_graveyard.length - opp.graveyard.length;
+  const total = 3 * gameRoles.length;
+  const unseen = total - state.my_cards.length - state.my_graveyard.length - opp.graveyard.length;
   const avail = 3 - (state.revealed_roles[r] || 0) - state.my_cards.filter((c) => c === r).length;
   if (avail <= 0 || k <= 0 || unseen <= 0) return 0;
   return 1 - choose(unseen - avail, k) / choose(unseen, k);
@@ -113,7 +115,7 @@ function probOpponentHas(state, role) {
 function bestCoupCall(state) {
   const opp = state.opponent;
   let best = 'duke', bestScore = -1;
-  for (const r of ROLES) {
+  for (const r of (state.__roles || ROLES)) {
     let score = probOpponentHas(state, r);
     if (opp) {
       if (opp.claims.includes(r)) score *= 1.7;                       // they said so
@@ -181,6 +183,7 @@ function buildState(game, selfId, names, scrimStats = {}) {
   for (const p of game.players) {
     for (const r of p.graveyard) state.revealed_roles[r]++;
   }
+  state.__roles = game.roles;   // variant support: the roles actually in play
   return state;
 }
 
@@ -342,7 +345,10 @@ class ScriptBot {
     const spec = legal.find((l) => l.type === v.__act);
     if (!spec || (mustCoup && v.__act !== 'coup')) return this._fallbackAction(state, legal, mustCoup);
     const act = { type: v.__act, call: null, p: v.p || 0 };
-    if (spec.call) act.call = v.call || auto();
+    if (spec.call) {
+      act.call = v.call || auto();
+      if (!game.roles.includes(act.call)) act.call = auto(); // variant: role removed
+    }
     return act;
   }
 

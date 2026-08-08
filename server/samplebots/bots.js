@@ -11,7 +11,7 @@ const S = (s) => s.replace(/^\n/, '').replace(/^    /gm, '');
 const THE_SCAFFOLD = S(`
     # ================= MY COUP BOT =================
     # your_turn runs on your turn. Return exactly ONE action:
-    #   income() foreign_aid() tax() steal() exchange()
+    #   income() foreign_aid() tax() exchange()
     #   coup(role)              <- CALL the coup: name the card you think they have!
     #   assassinate(role, p)    <- name a card; p = chance you challenge a Contessa block
     # Useful math: prob_opponent_has(state, "duke")  best_coup_call(state)
@@ -23,15 +23,11 @@ const THE_SCAFFOLD = S(`
         # play your real cards
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         # otherwise: quiet money
         return income()
 
     def respond(state, action):
         # your opponent did something. challenge() / block(role) / allow()
-        if action.type == "steal" and "captain" in state.my_cards:
-            return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -60,18 +56,11 @@ const HONEST_PLUS = S(`
                 return assassinate(best_coup_call(state), 0.25)
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         return foreign_aid()
 
     def respond(state, action):
         if action.claimed_role != None and state.revealed_roles[action.claimed_role] >= 3:
             return challenge()
-        if action.type == "steal":
-            if "captain" in state.my_cards:
-                return block("captain")
-            if "ambassador" in state.my_cards:
-                return block("ambassador")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -129,8 +118,6 @@ const BOTS = [
         return income()
 
     def respond(state, action):
-        if action.type == "steal":
-            return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -174,7 +161,7 @@ const BOTS = [
     source: S(`
     # Randy rolls dice for everything, including his coup calls.
     def your_turn(state):
-        roles = ["duke", "assassin", "captain", "ambassador", "contessa"]
+        roles = ["duke", "assassin", "ambassador", "contessa"]
         if state.my_coins >= 10:
             return coup(choice(roles))
         r = random()
@@ -188,7 +175,7 @@ const BOTS = [
             return tax()
         if state.my_coins >= 3 and r < 0.85:
             return assassinate(choice(roles), 0.5)
-        return steal()
+        return foreign_aid()
 
     def respond(state, action):
         if chance(0.15):
@@ -204,17 +191,15 @@ const BOTS = [
   {
     username: 'barry', displayName: 'Bluff Barry', botName: 'SmoothTalker',
     source: S(`
-    # Barry claims whatever pays best right now.
+    # Barry claims whatever pays best — then launders his reputation.
     def your_turn(state):
         if state.my_coins >= 7:
             return coup(best_coup_call(state))
-        if state.opponent.coins >= 2 and chance(0.55):
-            return steal()
+        if len(state.my_claims) >= 2 and chance(0.35):
+            return exchange()
         return tax()
 
     def respond(state, action):
-        if action.type == "steal":
-            return block("captain")
         if action.type == "foreign_aid" and chance(0.5):
             return block("duke")
         return allow()
@@ -282,8 +267,6 @@ const BOTS = [
             return assassinate(call, 0.35)
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         return foreign_aid()
 
     def respond(state, action):
@@ -292,8 +275,6 @@ const BOTS = [
                 return challenge()
             if state.opponent.scrim_bluff_rate * 2 + state.opponent.times_caught_bluffing * 0.2 > 0.8:
                 return challenge()
-        if action.type == "steal" and "captain" in state.my_cards:
-            return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -347,8 +328,6 @@ const BOTS = [
     def respond(state, action):
         if action.claimed_role != None and chance(0.12):
             return challenge()
-        if action.type == "steal" and chance(0.6):
-            return block("captain")
         return allow()
 
     def when_assassinated(state, action):
@@ -375,13 +354,9 @@ const BOTS = [
             return assassinate(best_coup_call(state), 0.4)
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         return foreign_aid()
 
     def respond(state, action):
-        if action.type == "steal" and "captain" in state.my_cards:
-            return block("captain")
         if action.claimed_role != None and state.revealed_roles[action.claimed_role] >= 3:
             return challenge()
         return allow()
@@ -400,12 +375,13 @@ const BOTS = [
  * ~50k headless games; the search converged (no parameter change in round 2)
  * and the result beats four hand-built exploiters (always-challenge,
  * max-bluffer, contessa-hunter, stonewall) and averages ~82% vs the sample
- * personalities. Re-tuned for the redraw rule (a missed call re-deals the
- * defender's hand — no reveal memory): coup at 9+ when P(hit) ≥ 0.45 (or
- * forced at 10); assassinate only at P(hit) ≥ 0.7 with a 35% Contessa-block
- * challenge; no baseline tax bluff but 100% vs proven non-challengers;
- * challenge suspicion > 0.85; 40% fake Captain steal-block; 70% fake
- * Contessa when the call would hit.
+ * personalities. Re-tuned for the dynaMIT rules (no Captain, four lives,
+ * missed calls re-deal): with only four roles a call hits ~53% blind, so
+ * coups turn aggressive — 7+ coins at P(hit) ≥ 0.35; assassinate only at
+ * P(hit) ≥ 0.85 with a 35% Contessa-block challenge; 15% tax bluff (100%
+ * vs proven non-challengers); challenges nearly OFF (suspicion > 1.05 —
+ * four-role claims are usually true); ALWAYS fake the Contessa. ~83% vs
+ * the field, beats all four exploiters.
  */
 const THE_EQUILIBRIST = S(`
     # The Equilibrist — the house champion. Beat it if you can.
@@ -422,19 +398,19 @@ const THE_EQUILIBRIST = S(`
         p_hit = prob_opponent_has(state, call)
         if state.my_coins >= 10:
             return coup(call)
-        if state.my_coins >= 9 and p_hit >= 0.45:
+        if state.my_coins >= 7 and p_hit >= 0.35:
             return coup(call)
-        if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.7:
+        if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.85:
             return assassinate(call, 0.35)
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         if "ambassador" in state.my_cards and not ("duke" in state.my_cards) and chance(0.3):
             return exchange()
         # exploit a proven non-challenger with shameless Duke claims,
         # and stop feeding Foreign Aid into a standing Duke block
         if state.turn_number >= 6 and state.opponent.challenges_made == 0:
+            return tax()
+        if chance(0.15):
             return tax()
         if "duke" in state.opponent.claims and not ("duke" in state.my_cards):
             return income()
@@ -442,15 +418,8 @@ const THE_EQUILIBRIST = S(`
 
     def respond(state, action):
         if action.claimed_role != None:
-            if suspicion(state, state.opponent, action.claimed_role) > 0.85:
+            if suspicion(state, state.opponent, action.claimed_role) > 1.05:
                 return challenge()
-        if action.type == "steal":
-            if "captain" in state.my_cards:
-                return block("captain")
-            if "ambassador" in state.my_cards:
-                return block("ambassador")
-            if chance(0.4):
-                return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -458,11 +427,7 @@ const THE_EQUILIBRIST = S(`
     def when_assassinated(state, action):
         if not (action.call in state.my_cards):
             return allow()
-        if "contessa" in state.my_cards:
-            return block_contessa()
-        if chance(0.7):
-            return block_contessa()
-        return allow()
+        return block_contessa()
 
     def choose_card_to_lose(state):
         return reveal(claimed_card(state))
@@ -496,12 +461,12 @@ const HOUSE = [
   {
     name: 'The Hybrid',
     // Victor's design experiment, validated at ~83% vs the field (champion-
-    // class): real economy + steal defense + the Ambassador dodge, but the
+    // class): real economy + the Ambassador dodge, but the
     // dodge is RATIONED — only while in coup danger, not yet safe, and below
     // coup range. Defense is a resource you spend, not a stance you hold.
     source: S(`
     def dodge_order():
-        return ["ambassador", "contessa", "duke", "captain", "assassin"]
+        return ["ambassador", "contessa", "duke", "assassin"]
 
     def is_safe(state):
         for card in state.my_cards:
@@ -522,8 +487,6 @@ const HOUSE = [
             return assassinate(call, 0.35)
         if "duke" in state.my_cards:
             return tax()
-        if "captain" in state.my_cards and state.opponent.coins >= 2:
-            return steal()
         if "duke" in state.opponent.claims:
             return income()
         return foreign_aid()
@@ -531,12 +494,6 @@ const HOUSE = [
     def respond(state, action):
         if action.claimed_role != None and unseen_copies(state, action.claimed_role) == 0:
             return challenge()
-        if action.type == "steal":
-            if "captain" in state.my_cards:
-                return block("captain")
-            if "ambassador" in state.my_cards:
-                return block("ambassador")
-            return block("captain")
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
         return allow()
@@ -556,7 +513,7 @@ const HOUSE = [
     def choose_exchange(state, pool):
         if state.opponent.coins >= 6:
             return strongest_cards(pool, dodge_order(), state.my_num_cards)
-        return strongest_cards(pool, ["duke", "contessa", "captain", "assassin", "ambassador"], state.my_num_cards)
+        return strongest_cards(pool, ["duke", "contessa", "assassin", "ambassador"], state.my_num_cards)
     `),
   },
   {
@@ -565,7 +522,7 @@ const HOUSE = [
     // turn for safety and goes broke — survival is not victory (~40%)
     source: S(`
     def order():
-        return ["ambassador", "contessa", "duke", "captain", "assassin"]
+        return ["ambassador", "contessa", "duke", "assassin"]
 
     def is_safe(state):
         for card in state.my_cards:

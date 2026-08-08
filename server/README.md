@@ -4,10 +4,13 @@ The backend for the `/coup` pages of the dynaMIT website: student logins, saved
 bot versions, the always-running 1v1 scrimmage ladder (ELO), match replays, and
 heads-up play against bots.
 
-**The game** is two-player "Ultimate" Coup
-(https://shelfgamer.com/coup-two-player-ultimate-variant/): five lives each
-(dead cards go face-up to your graveyard and are replaced from the deck until
-the 4th death), full 15-card court deck, and **Call the Coup** — coups *and*
+**The game** is two-player "Ultimate" Coup, dynaMIT edition (based on
+https://shelfgamer.com/coup-two-player-ultimate-variant/): **no Captain**
+(four roles, 12-card deck, no steal — adopted after a 6,700-game experiment
+showed it removes stalemates and simplifies the strategy space without
+adding luck), **four lives** each (dead cards go face-up to your graveyard
+and are replaced from the deck until the 3rd death), and **Call the Coup** —
+coups *and*
 assassinations must name a character; name wrong and the attack **misses**:
 the defender shows their hand, it returns to the deck (shuffled), and they
 are dealt a fresh random hand — so a reveal teaches nothing lasting.

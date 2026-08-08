@@ -1,12 +1,13 @@
 /**
- * Heads-up Coup engine — the two-player "Ultimate" variant
- * (https://shelfgamer.com/coup-two-player-ultimate-variant/).
+ * Heads-up Coup engine — the two-player "Ultimate" variant, dynaMIT edition
+ * (based on https://shelfgamer.com/coup-two-player-ultimate-variant/).
  *
- * Differences from standard Coup:
- *  - Exactly 2 players, full 15-card court deck.
- *  - FIVE LIVES each: a dead character goes face-up to the player's graveyard
- *    and is replaced from the deck — but the 4th and 5th deaths are NOT
- *    replaced. The game ends when someone's 5th character dies.
+ * dynaMIT rules (validated by simulation, see git history):
+ *  - Exactly 2 players. NO CAPTAIN: four roles (Duke, Assassin, Ambassador,
+ *    Contessa) x 3 copies = a 12-card court deck. No steal action.
+ *  - FOUR LIVES each: a dead character goes face-up to the player's graveyard
+ *    and is replaced from the deck — but the 3rd and 4th deaths are NOT
+ *    replaced. The game ends when someone's 4th character dies.
  *  - CALL THE COUP (and assassinations): the attacker names a character.
  *    If the defender holds it, that exact card dies. If not, the attack
  *    MISSES: the defender reveals their hand, draws two, keeps a hand's
@@ -22,9 +23,9 @@
  */
 'use strict';
 
-const ROLES = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
-const LIVES = 5;
-const REPLACE_UNTIL = 3; // deaths 1..3 are replaced from the deck
+const ROLES = ['duke', 'assassin', 'ambassador', 'contessa'];
+const LIVES = 4;
+const REPLACE_UNTIL = 2; // deaths 1..2 are replaced from the deck
 
 const ACTIONS = {
   income: { label: 'Income', cost: 0 },
@@ -39,11 +40,15 @@ const ACTIONS = {
 function defaultRng() { return Math.random(); }
 
 class CoupGame {
-  constructor(playerIds, rng = defaultRng) {
+  /** opts (experimental variants): roles?: string[], lives?: number, replaceUntil?: number */
+  constructor(playerIds, rng = defaultRng, opts = {}) {
     if (playerIds.length !== 2) throw new Error('heads-up: exactly 2 players');
     this.rng = rng;
+    this.roles = opts.roles || ROLES;
+    this.lives = opts.lives || LIVES;
+    this.replaceUntil = opts.replaceUntil ?? Math.max(1, this.lives - 2);
     this.deck = [];
-    for (const r of ROLES) this.deck.push(r, r, r);
+    for (const r of this.roles) this.deck.push(r, r, r);
     this._shuffle(this.deck);
     this.players = playerIds.map((id) => ({
       id,
@@ -70,11 +75,11 @@ class CoupGame {
 
   player(id) { return this.players.find((p) => p.id === id); }
   other(id) { return this.players.find((p) => p.id !== id); }
-  isAlive(p) { return p.graveyard.length < LIVES && p.cards.length > 0; }
+  isAlive(p) { return p.graveyard.length < this.lives && p.cards.length > 0; }
   alivePlayers() { return this.players.filter((p) => this.isAlive(p)); }
   current() { return this.players[this.turnIdx]; }
   hasRole(p, role) { return p.cards.includes(role); }
-  livesLeft(p) { return LIVES - p.graveyard.length; }
+  livesLeft(p) { return this.lives - p.graveyard.length; }
 
   _log(entry) { this.log.push(Object.assign({ n: this.log.length }, entry)); }
 
@@ -115,6 +120,7 @@ class CoupGame {
     const out = [];
     for (const [type, a] of Object.entries(ACTIONS)) {
       if (a.cost > p.coins) continue;
+      if (a.role && !this.roles.includes(a.role)) continue; // variant: role removed
       out.push({ type, ...(a.targeted ? { targets } : {}), ...(a.call ? { call: true } : {}) });
     }
     return out;
@@ -131,9 +137,10 @@ class CoupGame {
     if (a.cost > p.coins) throw new Error('cannot afford');
     const tgt = a.targeted ? this.other(playerId) : null;
     let named = null;
+    if (a.role && !this.roles.includes(a.role)) throw new Error('that role is not in this game');
     if (a.call) {
       named = String(call || '').toLowerCase();
-      if (!ROLES.includes(named)) throw new Error(`${type} must name a character`);
+      if (!this.roles.includes(named)) throw new Error(`${type} must name a character`);
     }
     this.ctx = { type, actor: playerId, target: tgt ? tgt.id : null, call: named, blocked: false };
     this._log({ t: 'action', action: type, player: playerId, target: this.ctx.target, call: named });
@@ -187,10 +194,11 @@ class CoupGame {
 
   _openBlockWindow() {
     const a = ACTIONS[this.ctx.type];
-    if (!a.blockedBy) return this._applyAction();
+    const blockedBy = (a.blockedBy || []).filter((r) => this.roles.includes(r));
+    if (!blockedBy.length) return this._applyAction();
     const opp = this.other(this.ctx.actor);
     if (!this.isAlive(opp)) return this._applyAction();
-    this.pending = { type: 'block', who: [opp.id], roles: a.blockedBy, action: this.ctx.type, call: this.ctx.call };
+    this.pending = { type: 'block', who: [opp.id], roles: blockedBy, action: this.ctx.type, call: this.ctx.call };
   }
 
   /** pending 'block' → blocker + claimed role, or null to let it through */
@@ -309,9 +317,9 @@ class CoupGame {
     const role = p.cards.splice(idx, 1)[0];
     p.graveyard.push(role);
     const deaths = p.graveyard.length;
-    // deaths 1..3 are replaced from the deck; 4 and 5 are not
-    if (deaths <= REPLACE_UNTIL && this.deck.length) p.cards.push(this.deck.pop());
-    this._log({ t: 'lost', player: p.id, role, why, lives: LIVES - deaths, out: deaths >= LIVES });
+    // early deaths are replaced from the deck; the last two are not
+    if (deaths <= this.replaceUntil && this.deck.length) p.cards.push(this.deck.pop());
+    this._log({ t: 'lost', player: p.id, role, why, lives: this.lives - deaths, out: deaths >= this.lives });
     this._drainLoses();
   }
 

@@ -40,9 +40,21 @@ const HATS: Record<string, string> = {
 // return <call> where the call is one of these maps to a dedicated action/response block
 const NO_ARG: Record<string, string> = {
   income: 'coup_income', foreign_aid: 'coup_foreign_aid', tax: 'coup_tax',
-  exchange: 'coup_exchange', steal: 'coup_steal',
+  exchange: 'coup_exchange',
   allow: 'coup_allow', challenge: 'coup_challenge', block_contessa: 'coup_block_contessa',
 };
+
+// the dynaMIT rules use four roles — no Captain, so no steal action either
+const ROLES = ['duke', 'assassin', 'ambassador', 'contessa'];
+const NO_CAPTAIN = 'there is no Captain in the dynaMIT rules';
+const ACTION_TYPES = new Set(['income', 'foreign_aid', 'tax', 'exchange', 'assassinate', 'coup']);
+
+/** Check a role-name string literal, with a friendly error for the old Captain. */
+function roleLiteral(v: string, where: string, line?: number): string {
+  if (ROLES.includes(v)) return v;
+  if (v === 'captain') throw new DecompileError(`${where} names the Captain — ${NO_CAPTAIN}`, line);
+  throw new DecompileError(`"${v}" is not a character — ${where} needs duke, assassin, ambassador or contessa`, line);
+}
 
 const PLAYER_PROPS = new Set([
   'name', 'coins', 'lives', 'num_cards', 'graveyard', 'cards_lost', 'is_me', 'claims',
@@ -173,6 +185,14 @@ function buildReturn(ctx: Ctx, st: Node): Blockly.Block {
     if (NO_ARG[fn] || fn === 'coup' || fn === 'assassinate' || fn === 'block' || fn === 'reveal') {
       return buildActionResponse(ctx, val);
     }
+    // return strongest_cards(from, order, state.my_num_cards) is the exchange
+    // "keep the strongest cards" block, not a plain value return
+    if (fn === 'strongest_cards' && val.args.length === 3 && isAttrOf(val.args[2], 'state', 'my_num_cards')) {
+      const b = nb(ctx, 'coup_keep_strongest');
+      connectValue(b, 'FROM', buildExpr(ctx, val.args[0]), val.line);
+      connectValue(b, 'ORDER', buildExpr(ctx, val.args[1]), val.line);
+      return b;
+    }
   }
   const b = nb(ctx, 'coup_return');
   if (val) connectValue(b, 'VALUE', buildExpr(ctx, val), st.line);
@@ -188,12 +208,12 @@ function buildActionResponse(ctx: Ctx, call: Node): Blockly.Block {
   }
   if (fn === 'coup') {
     const b = nb(ctx, 'coup_coup');
-    connectValue(b, 'ROLE', buildExpr(ctx, args[0]), call.line);
+    connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'the coup call', call.line), call.line);
     return b;
   }
   if (fn === 'assassinate') {
     const b = nb(ctx, 'coup_assassinate');
-    connectValue(b, 'ROLE', buildExpr(ctx, args[0]), call.line);
+    connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'the assassinate call', call.line), call.line);
     const p = args[1];
     if (!p || p.k !== 'num' || typeof p.v !== 'number') throw new DecompileError('assassinate needs a number for the challenge chance', call.line);
     b.setFieldValue(p.v, 'P');
@@ -203,13 +223,20 @@ function buildActionResponse(ctx: Ctx, call: Node): Blockly.Block {
     const r = args[0];
     if (!r || r.k !== 'str') throw new DecompileError('block() needs a role name', call.line);
     const b = nb(ctx, 'coup_block');
-    b.setFieldValue(r.v, 'ROLE');
+    b.setFieldValue(roleLiteral(r.v, 'block()', call.line), 'ROLE');
     return b;
   }
   // reveal
   const b = nb(ctx, 'coup_reveal');
-  connectValue(b, 'ROLE', buildExpr(ctx, args[0]), call.line);
+  connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'reveal()', call.line), call.line);
   return b;
+}
+
+/** A role argument: any expression, but a string literal must name a real role. */
+function buildCallArg(ctx: Ctx, arg: Node, where: string, line?: number): Blockly.Block {
+  if (!arg) throw new DecompileError(`${where} needs a character to name`, line);
+  if (arg.k === 'str') roleLiteral(arg.v, where, arg.line ?? line);
+  return buildExpr(ctx, arg);
 }
 
 function buildIf(ctx: Ctx, node: Node): Blockly.Block {
@@ -381,6 +408,24 @@ function buildCall(ctx: Ctx, e: Node): Blockly.Block {
       if (a[0]?.k !== 'num' || a[1]?.k !== 'num') throw new DecompileError('random_int needs two number literals to map to a block', e.line);
       return field(ctx, 'coup_random_int', { A: String(a[0].v), B: String(a[1].v) });
     }
+    case 'steal':
+      throw new DecompileError(`steal() is not a move — ${NO_CAPTAIN}`, e.line);
+    case 'strongest_cards': {
+      if (a.length === 2) {
+        const b = nb(ctx, 'coup_sorted_strongest');
+        connectValue(b, 'LIST', buildExpr(ctx, a[0]), e.line);
+        connectValue(b, 'ORDER', buildExpr(ctx, a[1]), e.line);
+        return b;
+      }
+      if (a.length === 3 && a[2].k === 'num' && Number.isInteger(a[2].v)) {
+        const b = nb(ctx, 'coup_strongest_n');
+        b.setFieldValue(String(a[2].v), 'N');
+        connectValue(b, 'LIST', buildExpr(ctx, a[0]), e.line);
+        connectValue(b, 'ORDER', buildExpr(ctx, a[1]), e.line);
+        return b;
+      }
+      throw new DecompileError('strongest_cards needs a list and a power order, plus how many cards to keep', e.line);
+    }
     default:
       if (ctx.procs.has(fn)) return buildProcCall(ctx, fn, a, e.line);
       throw new DecompileError(`no block for the function "${fn}()"`, e.line);
@@ -395,8 +440,10 @@ function buildProcCall(ctx: Ctx, fn: string, args: Node[], line?: number): Block
 }
 
 function buildCmp(ctx: Ctx, e: Node): Blockly.Block {
-  // action.type == "steal"  →  semantic "this move is X"
+  // action.type == "tax"  →  semantic "this move is X"
   if (e.op === '==' && isAttrOf(e.l, 'action', 'type') && e.r.k === 'str') {
+    if (e.r.v === 'steal') throw new DecompileError(`there is no steal move — ${NO_CAPTAIN}`, e.line);
+    if (!ACTION_TYPES.has(e.r.v)) throw new DecompileError(`"${e.r.v}" is not one of the moves`, e.line);
     return field(ctx, 'coup_action_is', { TYPE: e.r.v });
   }
   const b = nb(ctx, 'logic_compare');
@@ -409,16 +456,14 @@ function buildCmp(ctx: Ctx, e: Node): Blockly.Block {
 function buildIn(ctx: Ctx, e: Node): Blockly.Block {
   const { l, r } = e;
   if (isAttrOf(r, 'state', 'my_cards')) {
-    if (l.k === 'str' && ['duke', 'assassin', 'captain', 'ambassador', 'contessa'].includes(l.v)) {
-      return field(ctx, 'coup_has_role', { ROLE: l.v });
-    }
+    if (l.k === 'str') return field(ctx, 'coup_has_role', { ROLE: roleLiteral(l.v, 'this card test', e.line) });
     const b = nb(ctx, 'coup_i_have');
     connectValue(b, 'ROLE', buildExpr(ctx, l), e.line);
     return b;
   }
   if (r.k === 'attr' && r.name === 'claims' && l.k === 'str') {
     const b = nb(ctx, 'coup_player_claimed');
-    b.setFieldValue(l.v, 'ROLE');
+    b.setFieldValue(roleLiteral(l.v, 'this claim test', e.line), 'ROLE');
     connectValue(b, 'PLAYER', buildExpr(ctx, r.obj), e.line);
     return b;
   }

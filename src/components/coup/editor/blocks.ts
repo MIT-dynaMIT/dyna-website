@@ -1,10 +1,11 @@
 /**
  * Blockly wiring for the dynaCOUP bot editor — HEADS-UP "Ultimate" variant.
  *
- * Two players, five lives each, dead cards to a public graveyard, and
+ * Two players, four lives each, dead cards to a public graveyard, and
  * "Call the Coup": coup() and assassinate() NAME a character — name wrong and
  * the attack misses. There is exactly one opponent (state.opponent), so the
- * old multi-player pickers are gone.
+ * old multi-player pickers are gone. The dynaMIT rules drop the Captain: four
+ * roles, a 12-card deck, and no steal action.
  *
  * Everything the editor needs lives here: the custom Coup blocks, the Python
  * generators that turn them into the bot language (see server/botlang.js for
@@ -14,8 +15,8 @@
  * CRITICAL invariant: every generator here must emit code the botlang parser
  * accepts — no imports, lambdas, f-strings, tuples, slicing, comprehensions or
  * keyword args, and NEVER a player object where a role string is expected
- * (coup/assassinate take role strings; steal takes nothing). We override the
- * few standard-block generators that would otherwise reach for random/math.
+ * (coup/assassinate take role strings). We override the few standard-block
+ * generators that would otherwise reach for random/math.
  */
 import * as Blockly from 'blockly/core';
 import { pythonGenerator, Order } from 'blockly/python';
@@ -27,13 +28,12 @@ type Gen = typeof pythonGenerator;
 const ROLE_OPTIONS: [string, string][] = [
   ['Duke', 'duke'],
   ['Assassin', 'assassin'],
-  ['Captain', 'captain'],
   ['Ambassador', 'ambassador'],
   ['Contessa', 'contessa'],
 ];
 
 // fallback power ranking when a strongest-cards ORDER socket is left empty
-const DEFAULT_ORDER = '["duke", "contessa", "captain", "assassin", "ambassador"]';
+const DEFAULT_ORDER = '["duke", "contessa", "assassin", "ambassador"]';
 
 // ---------------------------------------------------------------- colours
 const C_EVENT = '#b0812f';
@@ -99,7 +99,6 @@ const BLOCKS: Record<string, unknown>[] = [
   { type: 'coup_foreign_aid', message0: 'take Foreign Aid (+2) 💰💰', previousStatement: null, colour: C_ACTION, tooltip: '+2 coins, unless your opponent claims a Duke to block it.' },
   { type: 'coup_tax', message0: 'claim Duke → Tax (+3) 👑', previousStatement: null, colour: C_ACTION, tooltip: 'Duke gets +3. A bluff can be challenged.' },
   { type: 'coup_exchange', message0: 'claim Ambassador → Exchange ⚜', previousStatement: null, colour: C_ACTION, tooltip: 'Swap cards with the deck to fix your hand.' },
-  { type: 'coup_steal', message0: 'claim Captain → Steal from opponent 🪙', previousStatement: null, colour: C_ACTION, tooltip: 'Take up to 2 coins from your opponent. They can block with Captain or Ambassador.' },
   {
     type: 'coup_coup', message0: 'Coup! (pay 7) 💥 call their %1',
     args0: [{ type: 'input_value', name: 'ROLE' }],
@@ -123,7 +122,7 @@ const BLOCKS: Record<string, unknown>[] = [
     type: 'coup_block', message0: 'block by claiming %1',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
     previousStatement: null, colour: C_RESPONSE,
-    tooltip: 'Claim a role to stop your opponent (Duke blocks Foreign Aid, Captain/Ambassador block Steal).',
+    tooltip: 'Claim a role to stop your opponent — in the dynaMIT rules the Duke blocks Foreign Aid.',
   },
   { type: 'coup_block_contessa', message0: 'block with Contessa ❦', previousStatement: null, colour: C_RESPONSE, tooltip: 'Survive an assassination by claiming Contessa.' },
   {
@@ -154,16 +153,15 @@ const BLOCKS: Record<string, unknown>[] = [
   // ---- power ordering (value blocks) -------------------------------
   {
     type: 'coup_power_order',
-    message0: 'card power order: 1st %1 2nd %2 3rd %3 4th %4 5th %5',
+    message0: 'card power order: 1st %1 2nd %2 3rd %3 4th %4',
     args0: [
       { type: 'field_dropdown', name: 'R1', options: ROLE_OPTIONS },
       { type: 'field_dropdown', name: 'R2', options: ROLE_OPTIONS },
       { type: 'field_dropdown', name: 'R3', options: ROLE_OPTIONS },
       { type: 'field_dropdown', name: 'R4', options: ROLE_OPTIONS },
-      { type: 'field_dropdown', name: 'R5', options: ROLE_OPTIONS },
     ],
     output: 'Array', inputsInline: true, colour: C_INFO,
-    tooltip: 'Your personal ranking of the 5 roles, strongest first. Plug it into the strongest-cards blocks.',
+    tooltip: 'Your personal ranking of the 4 roles, strongest first. Plug it into the strongest-cards blocks.',
   },
   {
     type: 'coup_strongest_n', message0: 'the strongest %1 of %2 using %3',
@@ -209,7 +207,7 @@ const BLOCKS: Record<string, unknown>[] = [
     args0: [{
       type: 'field_dropdown', name: 'TYPE', options: [
         ['Income', 'income'], ['Foreign Aid', 'foreign_aid'], ['Tax', 'tax'],
-        ['Steal', 'steal'], ['Assassinate', 'assassinate'], ['Exchange', 'exchange'], ['Coup', 'coup'],
+        ['Assassinate', 'assassinate'], ['Exchange', 'exchange'], ['Coup', 'coup'],
       ],
     }],
     output: 'Boolean', colour: C_MOVE, tooltip: 'True if your opponent’s move is that kind. Reaction hats only.',
@@ -235,7 +233,7 @@ const BLOCKS: Record<string, unknown>[] = [
     output: null, colour: C_INFO, tooltip: 'A fact about the current game.',
   },
   { type: 'coup_opponent', message0: 'my opponent', output: 'Player', colour: C_INFO, tooltip: 'Your one rival across the table. Plug into "[property] of [player]".' },
-  { type: 'coup_my_lives', message0: 'my lives', output: 'Number', colour: C_INFO, tooltip: 'How many lives you have left (you start with 5).' },
+  { type: 'coup_my_lives', message0: 'my lives', output: 'Number', colour: C_INFO, tooltip: 'How many lives you have left (you start with 4).' },
   { type: 'coup_my_graveyard', message0: 'my dead cards (list)', output: 'Array', colour: C_INFO, tooltip: 'The roles you have already lost, face-up for all to see.' },
   { type: 'coup_opp_graveyard', message0: "opponent's dead cards (list)", output: 'Array', colour: C_INFO, tooltip: "The roles your opponent has lost so far — great for card-counting." },
   {
@@ -385,12 +383,11 @@ function registerGenerators() {
   forBlock['coup_choose_lose'] = hatGen('def choose_card_to_lose(state):');
   forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool):');
 
-  // actions (Call-the-Coup: role strings, not players; steal takes nothing)
+  // actions (Call-the-Coup: coup/assassinate take role strings, not players)
   forBlock['coup_income'] = () => 'return income()\n';
   forBlock['coup_foreign_aid'] = () => 'return foreign_aid()\n';
   forBlock['coup_tax'] = () => 'return tax()\n';
   forBlock['coup_exchange'] = () => 'return exchange()\n';
-  forBlock['coup_steal'] = () => 'return steal()\n';
   forBlock['coup_coup'] = (block, gen) =>
     `return coup(${gen.valueToCode(block, 'ROLE', Order.NONE) || 'best_coup_call(state)'})\n`;
   forBlock['coup_assassinate'] = (block, gen) => {
@@ -414,7 +411,7 @@ function registerGenerators() {
     return `return strongest_cards(${from}, ${order}, state.my_num_cards)\n`;
   };
   forBlock['coup_power_order'] = (block) => {
-    const roles = ['R1', 'R2', 'R3', 'R4', 'R5'].map((f) => `"${block.getFieldValue(f)}"`);
+    const roles = ['R1', 'R2', 'R3', 'R4'].map((f) => `"${block.getFieldValue(f)}"`);
     return [`[${roles.join(', ')}]`, Order.ATOMIC];
   };
   forBlock['coup_strongest_n'] = (block, gen) => {
@@ -577,7 +574,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
   const bestGuess = () => ({ block: { type: 'coup_best_guess' } });
   // a fresh power-order block with a sensible default ranking
   const powerOrder = () => ({
-    block: { type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
+    block: { type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'assassin', R4: 'ambassador' } },
   });
   const toolbox = {
     kind: 'categoryToolbox',
@@ -599,7 +596,6 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_foreign_aid' },
           { kind: 'block', type: 'coup_tax' },
           { kind: 'block', type: 'coup_exchange' },
-          { kind: 'block', type: 'coup_steal' },
           { kind: 'block', type: 'coup_coup', inputs: { ROLE: roleShadow('duke') } },
           // Coup calling my best guess at their card
           { kind: 'block', type: 'coup_coup', inputs: { ROLE: bestGuess() } },
@@ -646,7 +642,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_keep_strongest', inputs: { ORDER: powerOrder() } },
           // exchange for cards nobody suspects: keep strongest of pool cards not among my claims
           { kind: 'block', type: 'coup_keep_strongest', inputs: { FROM: { block: { type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } } }, ORDER: powerOrder() } },
-          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
+          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'assassin', R4: 'ambassador' } },
           { kind: 'block', type: 'coup_pool' },
           { kind: 'block', type: 'coup_cards_in', inputs: { A: { block: { type: 'coup_my_cards' } }, B: { block: { type: 'coup_my_claims' } } } },
           { kind: 'block', type: 'coup_cards_not_in', inputs: { A: { block: { type: 'coup_pool' } }, B: { block: { type: 'coup_my_claims' } } } },
@@ -703,7 +699,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_my_claims' },
           { kind: 'block', type: 'coup_sorted_strongest', inputs: { LIST: { block: { type: 'coup_my_cards' } }, ORDER: powerOrder() } },
           { kind: 'block', type: 'coup_strongest_n', inputs: { LIST: { block: { type: 'coup_my_cards' } }, ORDER: powerOrder() } },
-          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'captain', R4: 'assassin', R5: 'ambassador' } },
+          { kind: 'block', type: 'coup_power_order', fields: { R1: 'duke', R2: 'contessa', R3: 'assassin', R4: 'ambassador' } },
           { kind: 'block', type: 'coup_role' },
           { kind: 'block', type: 'coup_my_card' },
           { kind: 'block', type: 'coup_first_of' },
@@ -879,10 +875,10 @@ export function generatePython(workspace: Blockly.Workspace): string {
 // ---------------------------------------------------------------- starter
 export const STARTER_PYTHON = `# ================= MY COUP BOT =================
 # your_turn runs on your turn. Return exactly ONE action:
-#   income() foreign_aid() tax() steal() exchange()
-#   coup(role)            <- CALL the coup: name the card you think they have!
-#   assassinate(role, p)  <- name a card; p = chance you challenge a Contessa block
-# Useful math: prob_opponent_has(state, "duke")   best_coup_call(state)
+#   income() foreign_aid() tax() exchange()
+#   coup(role)              <- CALL the coup: name the card you think they have!
+#   assassinate(role, p)    <- name a card; p = chance you challenge a Contessa block
+# Useful math: prob_opponent_has(state, "duke")  best_coup_call(state)
 
 def your_turn(state):
     # at 10+ coins you MUST coup. 7+ is usually worth it anyway.
@@ -891,15 +887,11 @@ def your_turn(state):
     # play your real cards
     if "duke" in state.my_cards:
         return tax()
-    if "captain" in state.my_cards and state.opponent.coins >= 2:
-        return steal()
     # otherwise: quiet money
     return income()
 
 def respond(state, action):
     # your opponent did something. challenge() / block(role) / allow()
-    if action.type == "steal" and "captain" in state.my_cards:
-        return block("captain")
     if action.type == "foreign_aid" and "duke" in state.my_cards:
         return block("duke")
     return allow()
@@ -909,6 +901,9 @@ def when_assassinated(state, action):
     # MISS all by itself. Don't waste a block on a miss!
     if not (action.call in state.my_cards):
         return allow()
+    if "contessa" in state.my_cards:
+        return block_contessa()
+    # no contessa... bluff one anyway? change this and see what happens!
     return block_contessa()
 
 def choose_card_to_lose(state):
@@ -954,27 +949,7 @@ export function starterWorkspaceJson(): object {
                       IF0: iHave('duke'),
                       DO0: { block: { type: 'coup_tax' } },
                     },
-                    next: {
-                      block: {
-                        type: 'controls_if',
-                        inputs: {
-                          IF0: andOf(
-                            iHave('captain'),
-                            {
-                              block: {
-                                type: 'logic_compare', fields: { OP: 'GTE' },
-                                inputs: {
-                                  A: { block: { type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } } },
-                                  B: { shadow: { type: 'math_number', fields: { NUM: 2 } } },
-                                },
-                              },
-                            },
-                          ),
-                          DO0: { block: { type: 'coup_steal' } },
-                        },
-                        next: { block: { type: 'coup_income' } },
-                      },
-                    },
+                    next: { block: { type: 'coup_income' } },
                   },
                 },
               },
@@ -988,19 +963,10 @@ export function starterWorkspaceJson(): object {
               block: {
                 type: 'controls_if',
                 inputs: {
-                  IF0: andOf(actionIs('steal'), iHave('captain')),
-                  DO0: { block: { type: 'coup_block', fields: { ROLE: 'captain' } } },
+                  IF0: andOf(actionIs('foreign_aid'), iHave('duke')),
+                  DO0: { block: { type: 'coup_block', fields: { ROLE: 'duke' } } },
                 },
-                next: {
-                  block: {
-                    type: 'controls_if',
-                    inputs: {
-                      IF0: andOf(actionIs('foreign_aid'), iHave('duke')),
-                      DO0: { block: { type: 'coup_block', fields: { ROLE: 'duke' } } },
-                    },
-                    next: { block: { type: 'coup_allow' } },
-                  },
-                },
+                next: { block: { type: 'coup_allow' } },
               },
             },
           },
@@ -1015,7 +981,16 @@ export function starterWorkspaceJson(): object {
                   IF0: { block: { type: 'logic_negate', inputs: { BOOL: { block: { type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } } } } } },
                   DO0: { block: { type: 'coup_allow' } },
                 },
-                next: { block: { type: 'coup_block_contessa' } },
+                next: {
+                  block: {
+                    type: 'controls_if',
+                    inputs: {
+                      IF0: iHave('contessa'),
+                      DO0: { block: { type: 'coup_block_contessa' } },
+                    },
+                    next: { block: { type: 'coup_block_contessa' } },
+                  },
+                },
               },
             },
           },

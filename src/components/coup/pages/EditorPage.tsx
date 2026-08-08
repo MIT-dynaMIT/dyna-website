@@ -18,7 +18,7 @@ interface ParseResult { ok: boolean; ast?: unknown; error?: string; line?: numbe
 
 const FUN_NAMES = [
   'Sir Bluff-a-Lot', 'Lady Deception', 'The Quiet Duke', 'Baron Backstab',
-  'Countess Cunning', 'Duke Nukem', 'The Contessa Kid', 'Captain Chaos',
+  'Countess Cunning', 'Duke Nukem', 'The Contessa Kid', 'Baroness Chaos',
   'Ambassador Sneaky', 'Reckless Regent',
 ];
 const defaultName = (idx: number) => FUN_NAMES[idx % FUN_NAMES.length];
@@ -109,10 +109,17 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     pyStash.current = null;
 
     loadingRef.current = true;
-    const json = slot && !blocksJsonIsEmpty(slot.blocksJson) ? slot.blocksJson : starterWorkspaceJson();
+    const hasSavedBlocks = !!slot && !blocksJsonIsEmpty(slot.blocksJson);
+    // a saved workspace we can no longer load (e.g. a pre-variant-D bot built
+    // with the old steal/Captain blocks) must NOT be silently replaced by the
+    // starter — fall back to the slot's own code in Advanced instead
+    let blocksUnloadable = false;
     try {
-      Blockly.serialization.workspaces.load(json as object, ws);
+      Blockly.serialization.workspaces.load(
+        (hasSavedBlocks ? slot!.blocksJson : starterWorkspaceJson()) as object, ws,
+      );
     } catch {
+      blocksUnloadable = hasSavedBlocks;
       Blockly.serialization.workspaces.load(starterWorkspaceJson(), ws);
     }
     loadingRef.current = false;
@@ -126,15 +133,22 @@ export default function EditorPage({ user }: { user: CoupUser }) {
 
     // Blocks are the default view. A python-mode slot with real code
     // auto-decompiles into blocks; everything else just shows its blocks.
-    const isPython = slot?.mode === 'python' && !!slot.python && slot.python.trim().length > 0;
+    const savedPython = slot?.python && slot.python.trim().length > 0 ? slot.python : null;
+    if (blocksUnloadable && savedPython) {
+      setPythonText(savedPython);
+      setMode('python');
+      toast('Opened in Advanced — this bot uses blocks the game no longer has (your code is safe)');
+      return;
+    }
+    const isPython = slot?.mode === 'python' && !!savedPython;
     setMode('blocks');
     setTimeout(() => {
       if (loadToken.current !== token || !wsRef.current) return;
       Blockly.svgResize(ws);
       tidyWorkspace(ws, false);
     }, 0);
-    if (isPython) autoDecompile(slot!.python, token);
-  }, [autoDecompile]);
+    if (isPython) autoDecompile(savedPython!, token);
+  }, [autoDecompile, toast]);
 
   // ---------------------------------------------------------------- init: fetch + inject once
   useEffect(() => {
@@ -528,8 +542,9 @@ export default function EditorPage({ user }: { user: CoupUser }) {
             <p className="coup-note ed-py-note">
               Write functions only: <code>your_turn</code>, <code>respond</code>, <code>when_assassinated</code>,
               <code> choose_card_to_lose</code>. Heads-up: <code>coup</code> and <code>assassinate</code> name a
-              character (<code>coup("duke")</code>, <code>assassinate("duke", 0.35)</code>) and <code>steal()</code>
-              takes no argument. No imports, f-strings, or keyword args — pass values positionally.
+              character (<code>coup("duke")</code>, <code>assassinate("duke", 0.35)</code>). There are four
+              characters — duke, assassin, ambassador, contessa. No imports, f-strings, or keyword args — pass
+              values positionally.
             </p>
           </div>
         )}

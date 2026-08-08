@@ -1,4 +1,4 @@
-/* dynaCOUP — the duel table. Oval green felt, two seats face-to-face, five
+/* dynaCOUP — the duel table. Oval green felt, two seats face-to-face, four
    life rails, flying coins & cards. Everything is prefixed .ct- and lives
    inside .coup-root, so the court theme tokens (--felt-1, --accent, role
    colors…) are in scope. */
@@ -88,7 +88,7 @@
 .ct-seat.shake .ct-seatcards { animation: ct-shake 0.42s ease; }
 .ct-hand { display: flex; gap: 6px; }
 
-/* the LIFE RAIL — five slots, the running score of the duel */
+/* the LIFE RAIL — one slot per life (four), the running score of the duel */
 .ct-rail {
   display: flex; gap: 5px; align-items: center; justify-content: center;
   padding: 4px 8px; border-radius: 10px;

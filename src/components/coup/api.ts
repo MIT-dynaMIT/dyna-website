@@ -26,8 +26,9 @@ export interface MatchRow {
 }
 
 export interface CardView { revealed: boolean; role: string | null }
-// Heads-up "Ultimate" variant: two players, five lives each. Dead cards move
-// to the graveyard (face-up) and are replaced from the deck until the 4th death.
+// Heads-up "Ultimate" variant: two players, four lives each. Dead cards move
+// to the graveyard (face-up) and are replaced from the deck until the 3rd death.
+// `lives` is the count still standing, so lives + graveyard.length = the total.
 export interface PlayerView {
   id: string; coins: number; alive: boolean;
   lives: number; graveyard: string[]; cards: CardView[];
@@ -123,6 +124,10 @@ export const api = {
   post: <T>(path: string, body?: unknown) => req<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => req<T>('PUT', path, body),
 };
+
+// The four characters of the heads-up variant — no Captain, 3 copies each.
+// Anything that offers a role choice (the call picker) maps over this.
+export const ROLES_IN_PLAY = ['duke', 'assassin', 'ambassador', 'contessa'] as const;
 
 export const ROLE_GLYPHS: Record<string, string> = {
   duke: '♛', assassin: '†', captain: '⚓', ambassador: '⚜', contessa: '❦',

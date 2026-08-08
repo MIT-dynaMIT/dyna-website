@@ -160,10 +160,13 @@ function CardFace({ role, mini, dead }: { role: string; mini?: boolean; dead?: b
   );
 }
 
-function LifeRail({ graveyard, innerRef }: { graveyard: string[]; innerRef?: (el: HTMLDivElement | null) => void }) {
-  const remaining = Math.max(0, 5 - graveyard.length);
+function LifeRail({ lives, graveyard, innerRef }: {
+  lives: number; graveyard: string[]; innerRef?: (el: HTMLDivElement | null) => void;
+}) {
+  const remaining = Math.max(0, lives);
+  const total = remaining + graveyard.length;
   return (
-    <div className="ct-rail" ref={innerRef} title={`${remaining} of 5 lives`}>
+    <div className="ct-rail" ref={innerRef} title={`${remaining} of ${total} lives`}>
       {graveyard.map((role, i) => (
         <div className="ct-slot lost" key={`d${i}`}><CardFace role={role} mini dead /></div>
       ))}
@@ -274,7 +277,7 @@ export default function CoupTable({
           </div>
           <CoinStack coins={p.coins} />
         </div>
-        <LifeRail graveyard={p.graveyard} innerRef={(el) => { railRefs.current[i] = el; }} />
+        <LifeRail lives={p.lives} graveyard={p.graveyard} innerRef={(el) => { railRefs.current[i] = el; }} />
       </div>
     );
   };

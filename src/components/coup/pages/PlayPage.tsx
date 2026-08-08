@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, ROLE_GLYPHS, ROLE_LABEL, ACTION_LABEL } from '../api';
+import { api, ApiError, ROLE_GLYPHS, ROLE_LABEL, ACTION_LABEL, ROLES_IN_PLAY } from '../api';
 import type { BotSlot, CoupUser, Frame, GameView, PlaySnapshot, Prompt } from '../api';
 import { useToast } from '../CoupApp';
 import CoupTable, { describe } from '../CoupTable';
@@ -7,8 +7,7 @@ import type { TalkLine } from '../CoupTable';
 
 const STEP_MS = 900;         // cadence while animating bot moves
 const ACTION_COST: Record<string, number> = { coup: 7, assassinate: 3 };
-const ACTION_ROLE: Record<string, string> = { tax: 'duke', steal: 'captain', exchange: 'ambassador' };
-const CALL_ROLES = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
+const ACTION_ROLE: Record<string, string> = { tax: 'duke', exchange: 'ambassador' };
 const DEFAULT_HOUSE = 'The Equilibrist';
 
 export default function PlayPage({ user }: { user: CoupUser }) {
@@ -124,7 +123,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
     return (
       <div className="coup-card" style={{ maxWidth: 520 }}>
         <h2 className="coup-h">🎭 Choose your rival</h2>
-        <p className="coup-sub">Duel one bot heads-up — five lives each. Last one standing rules the court.</p>
+        <p className="coup-sub">Duel one bot heads-up — four lives each. Last one standing rules the court.</p>
         <label htmlFor="opp">Opponent</label>
         <select id="opp" value={pick} onChange={(e) => setPick(e.target.value)}>
           <optgroup label="House bots">
@@ -237,7 +236,7 @@ function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchangeSel, o
           <p className="barhead">{ACTION_LABEL[callFor] || callFor} — name the card you think they hold.</p>
           <p className="barsub">Name it right and that exact card dies. Name it wrong and your attack misses — they reveal and redraw.</p>
           <div className="ct-callrow">
-            {CALL_ROLES.map((role) => (
+            {ROLES_IN_PLAY.map((role) => (
               <button key={role} className={`ct-callbtn role-${role}`}
                 onClick={() => onMove({ kind: 'action', type: callFor, call: role })}>
                 <span className="g">{ROLE_GLYPHS[role]}</span>

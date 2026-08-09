@@ -111,10 +111,17 @@
    is ever laid out here, so a two-line banner cannot push or cover a plate.
    Transients that want the middle of the table subtract --ct-lane-block (the
    lane plus the flow gap under it) to centre between the bands instead. */
-.ct-lane {
-  flex: none; width: 100%; height: var(--ct-lane-h);
+/* the middle zone sandwiches between the bands with equal flow gaps, so its
+   centre IS the midpoint between the players — the deck row lives there and
+   the banner floats in the felt above it */
+.ct-mid-zone {
+  position: relative; width: 100%;
+  min-height: calc(var(--ct-lane-h) * 2 + var(--ct-card-h) + 30px);
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: calc(var(--ct-flow-gap) * -0.5);   /* hug the deck row below */
+}
+.ct-lane {
+  position: absolute; top: 0; left: 0; right: 0; height: var(--ct-lane-h);
+  display: flex; align-items: center; justify-content: center;
 }
 /* an empty lane reads as intent, not as a gap */
 .ct-lane:empty::after {
@@ -123,7 +130,8 @@
 
 .ct-center-row {
   display: flex; align-items: center; justify-content: center;
-  gap: calc(var(--ct-card-w) * 1.6); padding: 4px 0 26px;
+  gap: calc(var(--ct-card-w) * 1.6);
+  padding-bottom: 18px;   /* optical: the under-labels hang below the pieces */
 }
 .ct-deck { position: relative; width: var(--ct-card-w); height: var(--ct-card-h); }
 .ct-deck .ct-card { position: absolute; top: 0; left: 0; }

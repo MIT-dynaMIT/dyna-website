@@ -309,19 +309,19 @@ export default function CoupTable({
           <div className="ct-flow">
             {others.map((i) => renderSeat(i))}
 
-            {/* the banner owns a reserved lane between the bands — open felt in
-                the middle of a table reads naturally, and it can never land on
-                a name plate */}
-            <div className="ct-lane">
-              {banner && (
-                <div className={`ct-banner t-${banner.tone}`}>
-                  {banner.lead && <span className="lead">{banner.lead}</span>}
-                  {banner.text}
-                </div>
-              )}
-            </div>
-
-            <div className="ct-center-row">
+            {/* the middle zone: deck + treasury dead-centre between the two
+                bands; the banner floats in the open felt above them and can
+                never land on a name plate */}
+            <div className="ct-mid-zone">
+              <div className="ct-lane">
+                {banner && (
+                  <div className={`ct-banner t-${banner.tone}`}>
+                    {banner.lead && <span className="lead">{banner.lead}</span>}
+                    {banner.text}
+                  </div>
+                )}
+              </div>
+              <div className="ct-center-row">
               <div className={`ct-deck ${fx.deckWiggle ? 'wiggle' : ''}`} ref={deckRef}>
                 <div className="ct-card back d1" />
                 <div className="ct-card back d2" />
@@ -331,6 +331,7 @@ export default function CoupTable({
               <div className="ct-bank" ref={bankRef}>
                 {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
                 <div className="ct-bank-lbl">Treasury</div>
+              </div>
               </div>
             </div>
 

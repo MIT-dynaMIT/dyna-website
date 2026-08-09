@@ -8,7 +8,7 @@ import type { TalkLine } from '../CoupTable';
 const STEP_MS = 900;         // cadence while animating bot moves
 const ACTION_COST: Record<string, number> = { coup: 7, assassinate: 3 };
 const ACTION_ROLE: Record<string, string> = { tax: 'duke', exchange: 'ambassador' };
-const DEFAULT_HOUSE = 'The Equilibrist';
+const DEFAULT_HOUSE = 'Victor bot #1';
 
 export default function PlayPage({ user }: { user: CoupUser }) {
   const toast = useToast();
@@ -145,7 +145,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
           </button>
         </div>
         <p className="coup-note" style={{ marginTop: 12 }}>
-          New here? <b>{DEFAULT_HOUSE}</b> is the tuned house champion — a stern first test.
+          New here? <b>{DEFAULT_HOUSE}</b> is the reigning champion — a stern first test.
         </p>
       </div>
     );

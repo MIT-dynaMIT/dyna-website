@@ -60,10 +60,9 @@ for (const b of BOTS) {
   roster.push({ login: b.username, password: STUDENT_PASS, name: b.displayName, bot: b.botName });
   console.log(`  ✓ ${b.displayName} (${b.username}) — ${b.botName}`);
 }
-// the house bots are the organizer's own submissions (slot 0 = Equilibrist,
-// slot 1 = the scaffold template, house roster from slot 2)
+// the organizer's two ladder bots live in the first two slots
 HOUSE.forEach((h, i) => {
-  const slot = h.name === 'The Equilibrist' ? 0 : i + 1;
+  const slot = i;
   store.saveSlot(admin, slot, { name: h.name, mode: 'python', python: h.source });
   if (!store.scrim.submissions.some((s) => s.owner === 'admin' && s.slot === slot)) {
     const r = store.submit(admin, slot);

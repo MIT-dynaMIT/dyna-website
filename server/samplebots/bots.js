@@ -382,7 +382,7 @@ const BOTS = [
  * caught 3 times in a series.
  */
 const THE_EQUILIBRIST = S(`
-    # The Equilibrist — plays the equilibrium, then punishes your mistakes.
+    # Victor bot #2 — plays the equilibrium, then punishes your mistakes.
     def suspicion(state, who, role):
         if unseen_copies(state, role) == 0:
             return 9
@@ -455,31 +455,9 @@ const THE_EQUILIBRIST = S(`
 
 // house bots pad the pool and give the kids someone to beat
 const HOUSE = [
-  { name: 'The Equilibrist', source: THE_EQUILIBRIST },
-  { name: 'The Marchesa', source: HONEST_PLUS },
+  // Victor's two champions — the only organizer bots on the ladder.
   {
-    name: 'The Auditor',
-    source: S(`
-    def your_turn(state):
-        if state.my_coins >= 7:
-            return coup(best_coup_call(state))
-        if "duke" in state.my_cards:
-            return tax()
-        return income()
-
-    def respond(state, action):
-        if action.claimed_role != None and chance(0.25):
-            return challenge()
-        return allow()
-
-    def when_assassinated(state, action):
-        if not (action.call in state.my_cards):
-            return allow()
-        return block_contessa()
-    `),
-  },
-  {
-    name: 'The Hybrid',
+    name: 'Victor bot #1',
     // Victor's design experiment, validated at ~83% vs the field (champion-
     // class): real economy + the Ambassador dodge, but the
     // dodge is RATIONED — only while in coup danger, not yet safe, and below
@@ -536,69 +514,7 @@ const HOUSE = [
         return strongest_cards(pool, ["duke", "contessa", "assassin", "ambassador"], state.my_num_cards)
     `),
   },
-  {
-    name: 'The Dodger',
-    // pure defense: near-uncoupable (callers hit ~3%), but it pays every
-    // turn for safety and goes broke — survival is not victory (~40%)
-    source: S(`
-    def order():
-        return ["ambassador", "contessa", "duke", "assassin"]
-
-    def is_safe(state):
-        for card in state.my_cards:
-            if card != "ambassador" and card != "contessa":
-                return False
-        return True
-
-    def your_turn(state):
-        if state.my_coins >= 10:
-            return coup(best_coup_call(state))
-        if state.opponent.coins >= 6 and not is_safe(state):
-            return exchange()
-        if not ("duke" in state.opponent.claims):
-            return foreign_aid()
-        return income()
-
-    def respond(state, action):
-        return allow()
-
-    def when_assassinated(state, action):
-        if not (action.call in state.my_cards):
-            return allow()
-        if "contessa" in state.my_cards:
-            return block_contessa()
-        return allow()
-
-    def choose_card_to_lose(state):
-        return reveal(strongest_cards(state.my_cards, order())[-1])
-
-    def choose_exchange(state, pool):
-        return strongest_cards(pool, order(), state.my_num_cards)
-    `),
-  },
-  {
-    name: 'The Banker',
-    // pure economy: income/foreign aid only, coups only when forced at 10+.
-    // Rich but defenseless (~33%) — money without a game plan loses the race
-    source: S(`
-    def your_turn(state):
-        if state.my_coins >= 10:
-            return coup(best_coup_call(state))
-        if "duke" in state.opponent.claims:
-            return income()
-        return foreign_aid()
-
-    def respond(state, action):
-        return allow()
-
-    def when_assassinated(state, action):
-        if not (action.call in state.my_cards):
-            return allow()
-        if "contessa" in state.my_cards:
-            return block_contessa()
-        return allow()
-    `),
-  },
+  { name: 'Victor bot #2', source: THE_EQUILIBRIST },
 ];
 
 module.exports = { BOTS, HOUSE, THE_SCAFFOLD, HONEST_PLUS, THE_EQUILIBRIST };

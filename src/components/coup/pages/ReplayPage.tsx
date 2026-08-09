@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, orientStrip, stripOwner } from '../api';
+import { api, stripOwner } from '../api';
 import type { Frame, SeriesInfo } from '../api';
 import CoupTable, { describe, WinStrip } from '../CoupTable';
 import type { TalkLine } from '../CoupTable';
@@ -81,11 +81,12 @@ export default function ReplayPage() {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 
-  // Seats swap between games of a series, so the strip's '1' is not reliably
-  // this game's seat 0 — orient it to whoever is listed first here.
+  // Seats swap between games of a series, so this game's seat 0 is not a stable
+  // thing to orient a series scoreboard to — it would flip the score between
+  // samples. Anchor to the strip's own bot instead and name both sides.
   const s = data.series;
-  const lead = data.seatNames[0];
-  const strip = s ? orientStrip(s.winStrip, stripOwner(s.winStrip, s.score) !== lead) : null;
+  const home = s ? stripOwner(s.winStrip, s.score) : '';
+  const away = s ? (Object.keys(s.score).find((n) => n !== home) ?? '') : '';
 
   return (
     <div>
@@ -116,7 +117,7 @@ export default function ReplayPage() {
       {s && (
         <div className="ct-serieshead">
           <div className="sline">
-            Series <b>{s.score[lead] ?? 0}–{s.score[data.seatNames[1]] ?? 0}</b>
+            Series {home} <b>{s.score[home] ?? 0}–{s.score[away] ?? 0}</b> {away}
             {' · watching game '}<b>{s.game}</b> of {s.gamesTotal}
           </div>
           <div className="sbtns">
@@ -127,10 +128,11 @@ export default function ReplayPage() {
               </button>
             ))}
           </div>
-          {strip && <WinStrip strip={strip} highlight={s.game}
-            title={`${s.gamesTotal} games — green = ${lead} won`} />}
+          <WinStrip strip={s.winStrip} highlight={s.game}
+            title={`${s.gamesTotal} games — green = ${home} won`} />
           <span className="skey">
-            <i>■</i> {lead} · <s>■</s> {data.seatNames[1]} — only games {s.samples.join(', ')} were recorded
+            <i>■</i> {home} · <s>■</s> {away} — seats swap each game; only games{' '}
+            {s.samples.join(', ')} were recorded
           </span>
         </div>
       )}

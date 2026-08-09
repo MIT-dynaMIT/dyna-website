@@ -94,8 +94,8 @@ export default function ScrimPage({ user }: { user: CoupUser }) {
                 ? 'Organizers can field as many bots as they like (up to 100).'
                 : 'You get one bot on the ladder — submitting a new one replaces it.'}
               {` Every pairing is a ${SERIES_GAMES}-game series with seats swapping each
-                game. ELO moves once per series, on the score itself — winning 90–10
-                is worth far more than 51–49, and one lucky game counts for almost nothing.`}
+                game. ELO moves once per series, on who takes the majority — margins
+                and lucky games don't move ratings.`}
             </p>
             <label htmlFor="slotpick">Choose a saved bot</label>
             <select id="slotpick" value={pick} onChange={(e) => setPick(Number(e.target.value))}>

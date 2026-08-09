@@ -59,10 +59,17 @@ function roleLiteral(v: string, where: string, line?: number): string {
 const PLAYER_PROPS = new Set([
   'name', 'coins', 'lives', 'num_cards', 'graveyard', 'cards_lost', 'is_me', 'claims',
   'challenges_made', 'successful_challenges', 'times_caught_bluffing',
-  'scrim_challenge_success', 'scrim_bluff_rate', 'scrim_win_rate',
+  // series memory, earned inside the current 100-game matchup
+  'series_win_rate', 'series_wins', 'series_challenges_per_game', 'series_claims_per_game',
+  'series_caught_bluffing', 'series_honest_proofs', 'series_contessa_rate',
 ]);
 
+// ladder scouting is gone: bots only know what this matchup has taught them
+const LADDER_STATS = new Set(['scrim_challenge_success', 'scrim_bluff_rate', 'scrim_win_rate']);
+const NO_LADDER = 'ladder stats no longer exist — use the series stats earned during the matchup';
+
 const STATE_FIELD = new Set(['my_coins', 'my_name', 'my_num_cards', 'deck_count', 'turn_number', 'my_lives']);
+const SERIES_FIELD = new Set(['game', 'games_total', 'my_wins', 'their_wins']);
 
 const CMP_OP: Record<string, string> = { '==': 'EQ', '!=': 'NEQ', '<': 'LT', '<=': 'LTE', '>': 'GT', '>=': 'GTE' };
 const ARITH_OP: Record<string, string> = { '+': 'ADD', '-': 'MINUS', '*': 'MULTIPLY', '/': 'DIVIDE', '**': 'POWER' };
@@ -212,11 +219,19 @@ function buildActionResponse(ctx: Ctx, call: Node): Blockly.Block {
     return b;
   }
   if (fn === 'assassinate') {
-    const b = nb(ctx, 'coup_assassinate');
-    connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'the assassinate call', call.line), call.line);
     const p = args[1];
-    if (!p || p.k !== 'num' || typeof p.v !== 'number') throw new DecompileError('assassinate needs a number for the challenge chance', call.line);
-    b.setFieldValue(p.v, 'P');
+    if (!p) throw new DecompileError('assassinate needs a challenge chance as its second argument', call.line);
+    // a plain number is the simple block's field; anything computed (a
+    // variable, a series read) needs the socket variant
+    if (p.k === 'num' && typeof p.v === 'number') {
+      const b = nb(ctx, 'coup_assassinate');
+      connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'the assassinate call', call.line), call.line);
+      b.setFieldValue(p.v, 'P');
+      return b;
+    }
+    const b = nb(ctx, 'coup_assassinate_var');
+    connectValue(b, 'ROLE', buildCallArg(ctx, args[0], 'the assassinate call', call.line), call.line);
+    connectValue(b, 'P', buildExpr(ctx, p), call.line);
     return b;
   }
   if (fn === 'block') {
@@ -341,14 +356,21 @@ function playerProp(ctx: Ctx, prop: string, player: Blockly.Block): Blockly.Bloc
 
 function buildAttr(ctx: Ctx, e: Node): Blockly.Block {
   const { obj, name } = e;
+  if (LADDER_STATS.has(name)) throw new DecompileError(NO_LADDER, e.line);
   if (isName(obj, 'state')) {
     if (STATE_FIELD.has(name)) return field(ctx, 'coup_state_field', { FIELD: name });
     if (name === 'my_cards') return nb(ctx, 'coup_my_cards');
     if (name === 'my_claims') return nb(ctx, 'coup_my_claims');
     if (name === 'my_graveyard') return nb(ctx, 'coup_my_graveyard');
     if (name === 'opponent') return nb(ctx, 'coup_opponent');
+    if (name === 'me') return nb(ctx, 'coup_me');
     if (name === 'history') return nb(ctx, 'coup_history');
     return attrFallback(ctx, e);
+  }
+  // state.series.<field> — the 100-game matchup scoreboard
+  if (isAttrOf(obj, 'state', 'series')) {
+    if (SERIES_FIELD.has(name)) return field(ctx, 'coup_series_field', { FIELD: name });
+    throw new DecompileError(`the series only knows game, games_total, my_wins and their_wins — not "${name}"`, e.line);
   }
   if (isName(obj, 'action')) {
     if (name === 'actor' || name === 'target' || name === 'blocker') {

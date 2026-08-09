@@ -153,7 +153,7 @@
 .match-row:hover { background: var(--panel-2); border-color: var(--accent-dim); }
 .match-row.win { border-left-color: var(--good); }
 .match-row.loss { border-left-color: var(--bad); }
-.match-row .verdict { width: 74px; font-weight: 700; letter-spacing: 0.06em; }
+.match-row .verdict { width: 96px; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap; }
 .match-row.win .verdict { color: var(--good); }
 .match-row.loss .verdict { color: var(--bad); }
 .match-row .verdict small { display: block; font-weight: 400; color: var(--ink-mut); font-size: 11px; }

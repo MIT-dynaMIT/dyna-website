@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, SERIES_GAMES } from '../api';
 import type { BotSlot, CoupUser, LeaderRow, MySub } from '../api';
 import { useToast } from '../CoupApp';
 
@@ -64,12 +64,12 @@ export default function ScrimPage({ user }: { user: CoupUser }) {
       <div className="coup-grid2" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
         <div className="coup-card">
           <h2 className="coup-h">🏆 Ladder — top 10
-            <small>{data.totalBots} bots · {data.totalGames.toLocaleString()} games played · {data.running ? 'scrims live' : 'scrims paused'}</small>
+            <small>{data.totalBots} bots · {data.totalGames.toLocaleString()} series played · {data.running ? 'scrims live' : 'scrims paused'}</small>
           </h2>
           <table className="coup-table">
             <thead>
               <tr><th className="rank">#</th><th>Bot</th><th>Coach</th>
-                <th className="num">ELO</th><th className="num">Games</th><th className="num">Win %</th></tr>
+                <th className="num">ELO</th><th className="num">Series</th><th className="num">Score %</th></tr>
             </thead>
             <tbody>
               {data.top.map((r) => (
@@ -93,6 +93,9 @@ export default function ScrimPage({ user }: { user: CoupUser }) {
               {user.isAdmin
                 ? 'Organizers can field as many bots as they like (up to 100).'
                 : 'You get one bot on the ladder — submitting a new one replaces it.'}
+              {` Every pairing is a ${SERIES_GAMES}-game series with seats swapping each
+                game. ELO moves once per series, on who takes it — the score is the
+                margin, not the rating. One lucky game counts for almost nothing.`}
             </p>
             <label htmlFor="slotpick">Choose a saved bot</label>
             <select id="slotpick" value={pick} onChange={(e) => setPick(Number(e.target.value))}>
@@ -122,9 +125,9 @@ export default function ScrimPage({ user }: { user: CoupUser }) {
                 </div>
                 <div className="coup-stat-row" style={{ marginTop: 8 }}>
                   <div className="stat"><div className="lab">ELO</div><div className="coup-elo-big">{m.elo}</div></div>
-                  <div className="stat"><div className="lab">Win rate (last {m.lastN || 0})</div>
+                  <div className="stat"><div className="lab">Avg series score (last {m.lastN || 0})</div>
                     <div className="val">{m.lastN ? Math.round(m.winRate * 100) + '%' : '—'}</div></div>
-                  <div className="stat"><div className="lab">Games</div><div className="val">{m.games}</div></div>
+                  <div className="stat"><div className="lab">Series</div><div className="val">{m.games}</div></div>
                   {m.errors > 0 && (
                     <div className="stat"><div className="lab">Crashes</div>
                       <div className="val" style={{ color: 'var(--bad)' }}>{m.errors}</div></div>

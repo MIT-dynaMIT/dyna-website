@@ -114,6 +114,17 @@ const BLOCKS: Record<string, unknown>[] = [
     previousStatement: null, inputsInline: true, colour: C_ACTION,
     tooltip: 'Costs 3 coins. Name the card they hold — a wrong name MISSES: they show their hand, it returns to the deck, and they are dealt a fresh random hand. Set how often you challenge a Contessa block. Empty socket = your best guess.',
   },
+  {
+    // same action, but the challenge chance is computed — e.g. raise it once
+    // the series shows they block with the Contessa far too often
+    type: 'coup_assassinate_var',
+    message0: 'Assassinate! (pay 3) 🗡 call their %1',
+    args0: [{ type: 'input_value', name: 'ROLE' }],
+    message1: 'if they block with Contessa, challenge with chance %1',
+    args1: [{ type: 'input_value', name: 'P' }],
+    previousStatement: null, inputsInline: true, colour: C_ACTION,
+    tooltip: 'Assassinate, but the Contessa-challenge chance comes from a socket, so it can be a variable or a calculation instead of a fixed number.',
+  },
 
   // ---- responses ----------------------------------------------------
   { type: 'coup_allow', message0: 'allow it ✔', previousStatement: null, colour: C_RESPONSE, tooltip: 'Let the move happen (in when-assassinated this is a dodge — legal and often best).' },
@@ -233,6 +244,21 @@ const BLOCKS: Record<string, unknown>[] = [
     output: null, colour: C_INFO, tooltip: 'A fact about the current game.',
   },
   { type: 'coup_opponent', message0: 'my opponent', output: 'Player', colour: C_INFO, tooltip: 'Your one rival across the table. Plug into "[property] of [player]".' },
+  { type: 'coup_me', message0: 'me (myself)', output: 'Player', colour: C_INFO, tooltip: 'You — plug into "[property] of [player]" to read your OWN series stats, e.g. how often you have been caught bluffing this matchup. Great for noticing your own bluffs stopped working.' },
+  {
+    // the series scoreboard: you play the same opponent 100 times in a row
+    type: 'coup_series_field', message0: '%1',
+    args0: [{
+      type: 'field_dropdown', name: 'FIELD', options: [
+        ['series game number', 'game'],
+        ['games in the series', 'games_total'],
+        ['my wins so far', 'my_wins'],
+        ['their wins so far', 'their_wins'],
+      ],
+    }],
+    output: 'Number', colour: C_INFO,
+    tooltip: 'You play the same opponent 100 times in a row. Game 1 knows nothing. Watch, learn, then exploit — but remember they’re learning about you too.',
+  },
   { type: 'coup_my_lives', message0: 'my lives', output: 'Number', colour: C_INFO, tooltip: 'How many lives you have left (you start with 4).' },
   { type: 'coup_my_graveyard', message0: 'my dead cards (list)', output: 'Array', colour: C_INFO, tooltip: 'The roles you have already lost, face-up for all to see.' },
   { type: 'coup_opp_graveyard', message0: "opponent's dead cards (list)", output: 'Array', colour: C_INFO, tooltip: "The roles your opponent has lost so far — great for card-counting." },
@@ -281,9 +307,15 @@ const BLOCKS: Record<string, unknown>[] = [
           ['challenges made', 'challenges_made'],
           ['successful challenges', 'successful_challenges'],
           ['times caught bluffing', 'times_caught_bluffing'],
-          ['ladder challenge success', 'scrim_challenge_success'],
-          ['ladder bluff rate', 'scrim_bluff_rate'],
-          ['ladder win rate', 'scrim_win_rate'],
+          // series memory: everything you have learned about them in THIS
+          // 100-game matchup. All zero (win rate 0.5) in game 1.
+          ['series: win rate', 'series_win_rate'],
+          ['series: games won', 'series_wins'],
+          ['series: challenges per game', 'series_challenges_per_game'],
+          ['series: claims per game', 'series_claims_per_game'],
+          ['series: times caught bluffing', 'series_caught_bluffing'],
+          ['series: times proved honest', 'series_honest_proofs'],
+          ['series: Contessa blocks per game', 'series_contessa_rate'],
         ],
       },
       { type: 'input_value', name: 'PLAYER' },
@@ -407,6 +439,11 @@ function registerGenerators() {
     const p = Number(block.getFieldValue('P'));
     return `return assassinate(${call}, ${p})\n`;
   };
+  forBlock['coup_assassinate_var'] = (block, gen) => {
+    const call = gen.valueToCode(block, 'ROLE', Order.NONE) || 'best_coup_call(state)';
+    const p = gen.valueToCode(block, 'P', Order.NONE) || '0.35';
+    return `return assassinate(${call}, ${p})\n`;
+  };
 
   // responses
   forBlock['coup_allow'] = () => 'return allow()\n';
@@ -456,6 +493,8 @@ function registerGenerators() {
   // game info
   forBlock['coup_state_field'] = (block) => [`state.${block.getFieldValue('FIELD')}`, Order.MEMBER];
   forBlock['coup_opponent'] = () => ['state.opponent', Order.MEMBER];
+  forBlock['coup_me'] = () => ['state.me', Order.MEMBER];
+  forBlock['coup_series_field'] = (block) => [`state.series.${block.getFieldValue('FIELD')}`, Order.MEMBER];
   forBlock['coup_my_lives'] = () => ['state.my_lives', Order.MEMBER];
   forBlock['coup_my_graveyard'] = () => ['state.my_graveyard', Order.MEMBER];
   forBlock['coup_opp_graveyard'] = () => ['state.opponent.graveyard', Order.MEMBER];
@@ -621,6 +660,12 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_assassinate', inputs: { ROLE: roleShadow('assassin') } },
           // Assassinate calling my best guess
           { kind: 'block', type: 'coup_assassinate', inputs: { ROLE: bestGuess() } },
+          // ...with a computed challenge chance (e.g. raise it once the series
+          // shows they hide behind the Contessa)
+          {
+            kind: 'block', type: 'coup_assassinate_var',
+            inputs: { ROLE: bestGuess(), P: { shadow: { type: 'math_number', fields: { NUM: 0.35 } } } },
+          },
         ],
       },
       {
@@ -688,10 +733,28 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           // do I hold the card they just called?
           { kind: 'block', type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } },
           // read the mover — in heads-up that's always "my opponent"
-          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'scrim_bluff_rate' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
+          // suspicion now comes from series memory, not from ladder scouting
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_challenges_per_game' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           { kind: 'block', type: 'coup_player_claimed', fields: { ROLE: 'contessa' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           // how OFTEN they made this claim — the claims list only says whether
           { kind: 'block', type: 'coup_times_claimed', fields: { ROLE: 'duke' } },
+          // challenge more once the series has caught them bluffing 3 times
+          {
+            kind: 'block', type: 'controls_if',
+            inputs: {
+              IF0: {
+                block: {
+                  type: 'logic_compare', fields: { OP: 'GTE' },
+                  inputs: {
+                    A: { block: { type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } } },
+                    B: { shadow: { type: 'math_number', fields: { NUM: 3 } } },
+                  },
+                },
+              },
+              DO0: { block: { type: 'coup_challenge' } },
+            },
+          },
         ],
       },
       {
@@ -702,10 +765,33 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_has_role' },
           { kind: 'block', type: 'coup_i_have', inputs: { ROLE: roleShadow('duke') } },
           { kind: 'block', type: 'coup_opponent' },
+          { kind: 'block', type: 'coup_me' },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: oppShadow() } },
           { kind: 'block', type: 'coup_player_claimed', inputs: { PLAYER: oppShadow() } },
           { kind: 'block', type: 'coup_times_claimed', fields: { ROLE: 'duke' } },
           { kind: 'block', type: 'coup_times_claimed_of', inputs: { PLAYER: oppShadow(), ROLE: roleShadow('duke') } },
+          // ---- series memory: 100 games against the SAME opponent ----
+          { kind: 'label', text: 'Series memory — game 1 knows nothing. Watch, learn, then exploit!' },
+          { kind: 'block', type: 'coup_series_field', fields: { FIELD: 'game' } },
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_challenges_per_game' }, inputs: { PLAYER: oppShadow() } },
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: oppShadow() } },
+          // read your OWN series stats — are your bluffs still working?
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_me' } } } },
+          // only trust what the series says after enough games have been played
+          {
+            kind: 'block', type: 'controls_if',
+            inputs: {
+              IF0: {
+                block: {
+                  type: 'logic_compare', fields: { OP: 'GT' },
+                  inputs: {
+                    A: { block: { type: 'coup_series_field', fields: { FIELD: 'game' } } },
+                    B: { shadow: { type: 'math_number', fields: { NUM: 20 } } },
+                  },
+                },
+              },
+            },
+          },
           // the card-counting workhorses
           { kind: 'block', type: 'coup_prob_opp_has', inputs: { ROLE: roleShadow('duke') } },
           { kind: 'block', type: 'coup_best_guess' },

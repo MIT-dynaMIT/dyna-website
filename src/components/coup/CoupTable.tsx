@@ -177,6 +177,20 @@ function LifeRail({ lives, graveyard, innerRef }: {
   );
 }
 
+/** One tick per game of a series, left to right. '1' = a win for whoever the
+ *  strip has been oriented to. `highlight` is a 1-based game number. */
+export function WinStrip({ strip, highlight, title }: {
+  strip: string; highlight?: number; title?: string;
+}) {
+  return (
+    <div className="ct-strip" title={title}>
+      {Array.from(strip).map((c, i) => (
+        <span key={i} className={`tick ${c === '1' ? 'w' : 'l'} ${highlight === i + 1 ? 'on' : ''}`} />
+      ))}
+    </div>
+  );
+}
+
 function CoinStack({ coins }: { coins: number }) {
   const left = Math.min(coins, 5);
   const right = coins > 5 ? Math.min(coins - 5, 5) : 0;

@@ -20,9 +20,24 @@ export interface MySub {
   winRate: number; lastN: number; errors: number; rank: number;
 }
 
+// A ladder pairing is a SERIES of games, scored as a whole; ELO moves once per
+// series on the score fraction. `turns` is the per-game average.
 export interface MatchRow {
   id: string; ts: number; myBot: string; win: boolean; winnerName: string;
   players: string[]; owners: string[]; eloDelta: number; turns: number; adjudicated: boolean;
+  series?: boolean;
+  gamesTotal?: number;
+  score?: Record<string, number>;   // wins per bot name
+  winStrip?: string;                // one char per game, '1' = players[0] won it
+  sampleGames?: number[];           // game numbers that have a stored replay
+}
+
+export interface SeriesInfo {
+  game: number; gamesTotal: number;
+  score: Record<string, number>;
+  winStrip: string;
+  samples: number[];      // game numbers with replays; index into this is the ?sample= arg
+  sampleIndex: number;
 }
 
 export interface CardView { revealed: boolean; role: string | null }
@@ -139,6 +154,26 @@ export const ACTION_LABEL: Record<string, string> = {
   income: 'Income', foreign_aid: 'Foreign Aid', coup: 'Coup', tax: 'Tax',
   assassinate: 'Assassinate', steal: 'Steal', exchange: 'Exchange',
 };
+
+// The server default (server/scrim.js, overridable there via COUP_SERIES_GAMES).
+// Only safe for static copy — anything rendering real data must read gamesTotal
+// off the payload, since a series may have been played at another length.
+export const SERIES_GAMES = 100;
+
+/** Re-cut a win strip so '1' means the bot you're looking at won that game. */
+export function orientStrip(strip: string, flip: boolean): string {
+  if (!flip) return strip;
+  return strip.replace(/[01]/g, (c) => (c === '1' ? '0' : '1'));
+}
+
+/** Whose wins the '1's are: the bot whose series score equals the number of 1s.
+ *  A drawn series is ambiguous, and then either name gives the same tally, so
+ *  fall back to the first scored name (the series' seat 0). */
+export function stripOwner(strip: string, score: Record<string, number>): string {
+  const names = Object.keys(score);
+  const ones = (strip.match(/1/g) || []).length;
+  return names.find((n) => score[n] === ones) ?? names[0] ?? '';
+}
 
 export function timeAgo(ts: number): string {
   const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));

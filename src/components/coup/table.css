@@ -104,6 +104,33 @@
 }
 .ct-slot.lost { animation: ct-slotin 0.4s ease; }
 
+/* series win strip — one tick per game, green = a win for the oriented bot */
+.ct-strip {
+  display: flex; gap: 1px; width: 100%; height: 14px;
+  padding: 2px; border-radius: 4px;
+  background: rgba(12, 18, 22, 0.55); border: 1px solid var(--line);
+}
+.ct-strip .tick { flex: 1 1 0; min-width: 0; border-radius: 1px; background: var(--bad); opacity: 0.5; }
+.ct-strip .tick.w { background: var(--good); }
+.ct-strip .tick.on { opacity: 1; box-shadow: 0 0 0 1px var(--parch); }
+
+/* match history: give the series row a second line for its strip */
+.match-row.ct-hasstrip { flex-wrap: wrap; row-gap: 8px; }
+/* a drawn series outranks the win/loss colouring whatever order the css loads in */
+.match-row.win.ct-draw, .match-row.loss.ct-draw { border-left-color: var(--accent-dim); }
+.match-row.win.ct-draw .verdict, .match-row.loss.ct-draw .verdict { color: var(--accent); }
+.match-row.ct-hasstrip .ct-strip { flex: 0 0 100%; }
+
+/* replay: series scoreboard above the transport */
+.ct-serieshead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ct-serieshead .sline { font-size: 14px; color: var(--ink-mut); }
+.ct-serieshead .sline b { color: var(--parch); font-variant-numeric: tabular-nums; }
+.ct-serieshead .sbtns { display: flex; gap: 6px; margin-left: auto; }
+.ct-serieshead .ct-strip { flex: 0 0 100%; height: 16px; }
+.ct-serieshead .skey { flex: 0 0 100%; font-size: 11.5px; color: var(--ink-mut); }
+.ct-serieshead .skey i { font-style: normal; color: var(--good); }
+.ct-serieshead .skey s { text-decoration: none; color: var(--bad); }
+
 /* per-player coin stack */
 .ct-coinstack { display: flex; gap: 3px; align-items: flex-end; min-height: 20px; }
 .ct-stackcol { display: flex; flex-direction: column-reverse; }

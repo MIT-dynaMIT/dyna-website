@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api } from '../api';
-import type { Frame } from '../api';
-import CoupTable, { describe } from '../CoupTable';
+import { api, orientStrip, stripOwner } from '../api';
+import type { Frame, SeriesInfo } from '../api';
+import CoupTable, { describe, WinStrip } from '../CoupTable';
 import type { TalkLine } from '../CoupTable';
 
 interface ReplayData {
@@ -12,6 +12,7 @@ interface ReplayData {
   winnerName: string | null;
   eloDelta: Record<string, number>;
   ts: number;
+  series?: SeriesInfo;
 }
 
 export default function ReplayPage() {
@@ -19,6 +20,9 @@ export default function ReplayPage() {
   const [data, setData] = useState<ReplayData | null>(null);
   const [err, setErr] = useState('');
   const [idx, setIdx] = useState(0);
+  // which stored sample game to watch — this is an INDEX into series.samples,
+  // not a game number, and it is what ?sample= expects.
+  const [sample, setSample] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -26,10 +30,11 @@ export default function ReplayPage() {
 
   useEffect(() => {
     if (!id) return;
-    api.get<ReplayData>(`/matches/${id}/replay`)
-      .then((d) => { setData(d); setIdx(0); })
+    setPlaying(false);
+    api.get<ReplayData>(`/matches/${id}/replay?sample=${sample}`)
+      .then((d) => { setData(d); setIdx(0); setAnimate(false); })
       .catch((ex) => setErr(ex instanceof Error ? ex.message : 'could not load the replay'));
-  }, [id]);
+  }, [id, sample]);
 
   const N = data ? data.frames.length : 0;
 
@@ -76,6 +81,12 @@ export default function ReplayPage() {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 
+  // Seats swap between games of a series, so the strip's '1' is not reliably
+  // this game's seat 0 — orient it to whoever is listed first here.
+  const s = data.series;
+  const lead = data.seatNames[0];
+  const strip = s ? orientStrip(s.winStrip, stripOwner(s.winStrip, s.score) !== lead) : null;
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -101,6 +112,28 @@ export default function ReplayPage() {
           </div>
         </div>
       </div>
+
+      {s && (
+        <div className="ct-serieshead">
+          <div className="sline">
+            Series <b>{s.score[lead] ?? 0}–{s.score[data.seatNames[1]] ?? 0}</b>
+            {' · watching game '}<b>{s.game}</b> of {s.gamesTotal}
+          </div>
+          <div className="sbtns">
+            {s.samples.map((g, i) => (
+              <button key={g} className={`small ${i === s.sampleIndex ? 'primary' : ''}`}
+                onClick={() => setSample(i)} disabled={i === s.sampleIndex}>
+                Game {g}
+              </button>
+            ))}
+          </div>
+          {strip && <WinStrip strip={strip} highlight={s.game}
+            title={`${s.gamesTotal} games — green = ${lead} won`} />}
+          <span className="skey">
+            <i>■</i> {lead} · <s>■</s> {data.seatNames[1]} — only games {s.samples.join(', ')} were recorded
+          </span>
+        </div>
+      )}
 
       <CoupTable
         seatNames={data.seatNames}

@@ -307,7 +307,11 @@ export default function CoupTable({
           <div className="ct-felt" />
 
           <div className="ct-flow">
-            {/* the banner owns a reserved lane, so it can never land on a name plate */}
+            {others.map((i) => renderSeat(i))}
+
+            {/* the banner owns a reserved lane between the bands — open felt in
+                the middle of a table reads naturally, and it can never land on
+                a name plate */}
             <div className="ct-lane">
               {banner && (
                 <div className={`ct-banner t-${banner.tone}`}>
@@ -316,8 +320,6 @@ export default function CoupTable({
                 </div>
               )}
             </div>
-
-            {others.map((i) => renderSeat(i))}
 
             <div className="ct-center-row">
               <div className={`ct-deck ${fx.deckWiggle ? 'wiggle' : ''}`} ref={deckRef}>

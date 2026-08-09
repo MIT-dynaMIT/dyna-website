@@ -114,6 +114,7 @@
 .ct-lane {
   flex: none; width: 100%; height: var(--ct-lane-h);
   display: flex; align-items: center; justify-content: center;
+  margin-bottom: calc(var(--ct-flow-gap) * -0.5);   /* hug the deck row below */
 }
 /* an empty lane reads as intent, not as a gap */
 .ct-lane:empty::after {
@@ -122,7 +123,7 @@
 
 .ct-center-row {
   display: flex; align-items: center; justify-content: center;
-  gap: calc(var(--ct-card-w) * 1.6); padding: 12px 0 26px;
+  gap: calc(var(--ct-card-w) * 1.6); padding: 4px 0 26px;
 }
 .ct-deck { position: relative; width: var(--ct-card-w); height: var(--ct-card-h); }
 .ct-deck .ct-card { position: absolute; top: 0; left: 0; }
@@ -353,10 +354,9 @@
   width: 30px; height: 42px; border-radius: 4px;
   background: linear-gradient(160deg, #223543, #16232a); border: 1px solid var(--accent-dim);
 }
-/* centred on the deck/treasury lane, sized to stay clear of both bands */
+/* centred on the middle zone (banner lane + deck/treasury), clear of bands */
 .ct-missflash {
   position: absolute; top: 50%; left: 50%; z-index: 7;
-  margin-top: calc(var(--ct-lane-block) / 2);
   transform: translate(-50%, -50%);
   font-size: 50px; line-height: 1; font-weight: 800; letter-spacing: 0.06em; color: #6fb6d8;
   text-shadow: 0 0 24px rgba(36, 113, 163, 0.8), 0 3px 0 rgba(0, 0, 0, 0.4);
@@ -369,9 +369,6 @@
    readable underneath instead of being taken over wholesale. */
 .ct-overlay {
   position: absolute; inset: 6px; z-index: 8; border-radius: 14px;
-  /* discount the banner lane so the plaque centres on the deck row between the
-     two bands rather than on the board, where it would sit over the rival */
-  padding-top: var(--ct-lane-block);
   display: flex; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at 50% 50%, rgba(18, 22, 27, 0.80), rgba(18, 22, 27, 0.62));
   animation: ct-fadein 0.4s ease;

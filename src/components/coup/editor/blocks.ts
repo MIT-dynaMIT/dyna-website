@@ -309,6 +309,18 @@ const BLOCKS: Record<string, unknown>[] = [
     output: 'Boolean', inputsInline: true, colour: C_INFO, tooltip: 'True if that player has claimed the role this game.',
   },
   {
+    type: 'coup_times_claimed', message0: 'times my opponent has claimed %1',
+    args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
+    output: 'Number', colour: C_INFO,
+    tooltip: 'How often they’ve made this exact claim this game. The same claim over and over is a little more suspect each time — this is how you catch a serial bluffer like TaxMachine!',
+  },
+  {
+    type: 'coup_times_claimed_of', message0: 'times %1 has claimed %2',
+    args0: [{ type: 'input_value', name: 'PLAYER' }, { type: 'input_value', name: 'ROLE' }],
+    output: 'Number', inputsInline: true, colour: C_INFO,
+    tooltip: 'How often that player has made that exact claim this game. The count starts over if their hand is replaced — an exchange, a redraw, or a challenge they proved.',
+  },
+  {
     type: 'coup_role', message0: '%1',
     args0: [{ type: 'field_dropdown', name: 'ROLE', options: ROLE_OPTIONS }],
     output: 'String', colour: C_INFO, tooltip: 'A role name.',
@@ -481,6 +493,13 @@ function registerGenerators() {
   forBlock['coup_player_claimed'] = (block, gen) => {
     const player = gen.valueToCode(block, 'PLAYER', Order.MEMBER) || 'state.opponent';
     return [`("${block.getFieldValue('ROLE')}" in ${player}.claims)`, Order.ATOMIC];
+  };
+  forBlock['coup_times_claimed'] = (block) =>
+    [`times_claimed(state.opponent, "${block.getFieldValue('ROLE')}")`, Order.FUNCTION_CALL];
+  forBlock['coup_times_claimed_of'] = (block, gen) => {
+    const player = gen.valueToCode(block, 'PLAYER', Order.NONE) || 'state.opponent';
+    const role = gen.valueToCode(block, 'ROLE', Order.NONE) || '"duke"';
+    return [`times_claimed(${player}, ${role})`, Order.FUNCTION_CALL];
   };
   forBlock['coup_role'] = (block) => [`"${block.getFieldValue('ROLE')}"`, Order.ATOMIC];
   forBlock['coup_my_card'] = (block) => {
@@ -671,6 +690,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           // read the mover — in heads-up that's always "my opponent"
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'scrim_bluff_rate' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           { kind: 'block', type: 'coup_player_claimed', fields: { ROLE: 'contessa' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
+          // how OFTEN they made this claim — the claims list only says whether
+          { kind: 'block', type: 'coup_times_claimed', fields: { ROLE: 'duke' } },
         ],
       },
       {
@@ -683,6 +704,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_opponent' },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: oppShadow() } },
           { kind: 'block', type: 'coup_player_claimed', inputs: { PLAYER: oppShadow() } },
+          { kind: 'block', type: 'coup_times_claimed', fields: { ROLE: 'duke' } },
+          { kind: 'block', type: 'coup_times_claimed_of', inputs: { PLAYER: oppShadow(), ROLE: roleShadow('duke') } },
           // the card-counting workhorses
           { kind: 'block', type: 'coup_prob_opp_has', inputs: { ROLE: roleShadow('duke') } },
           { kind: 'block', type: 'coup_best_guess' },

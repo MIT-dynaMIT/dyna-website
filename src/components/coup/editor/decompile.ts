@@ -410,6 +410,19 @@ function buildCall(ctx: Ctx, e: Node): Blockly.Block {
     }
     case 'steal':
       throw new DecompileError(`steal() is not a move — ${NO_CAPTAIN}`, e.line);
+    case 'times_claimed': {
+      if (a.length !== 2) throw new DecompileError('times_claimed needs a player and a role', e.line);
+      if (a[1].k === 'str') roleLiteral(a[1].v, 'times_claimed', e.line);
+      // the plain "times my opponent has claimed [role]" block covers the
+      // common shape; anything else (a variable player or role) needs sockets
+      if (isAttrOf(a[0], 'state', 'opponent') && a[1].k === 'str') {
+        return field(ctx, 'coup_times_claimed', { ROLE: a[1].v });
+      }
+      const b = nb(ctx, 'coup_times_claimed_of');
+      connectValue(b, 'PLAYER', buildExpr(ctx, a[0]), e.line);
+      connectValue(b, 'ROLE', buildExpr(ctx, a[1]), e.line);
+      return b;
+    }
     case 'strongest_cards': {
       if (a.length === 2) {
         const b = nb(ctx, 'coup_sorted_strongest');

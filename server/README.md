@@ -8,8 +8,8 @@ heads-up play against bots.
 https://shelfgamer.com/coup-two-player-ultimate-variant/): **no Captain**
 (four roles, 12-card deck, no steal — adopted after a 6,700-game experiment
 showed it removes stalemates and simplifies the strategy space without
-adding luck), **four lives** each (dead cards go face-up to your graveyard
-and are replaced from the deck until the 3rd death), and **Call the Coup** —
+adding luck), **four lives** each (a dead card goes face-up to your graveyard and is
+always replaced — you hold a full 2-card hand until your 4th death ends it), and **Call the Coup** —
 coups *and*
 assassinations must name a character; name wrong and the attack **misses**:
 the defender shows their hand, it returns to the deck (shuffled), and they

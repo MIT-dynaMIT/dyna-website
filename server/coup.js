@@ -5,9 +5,10 @@
  * dynaMIT rules (validated by simulation, see git history):
  *  - Exactly 2 players. NO CAPTAIN: four roles (Duke, Assassin, Ambassador,
  *    Contessa) x 3 copies = a 12-card court deck. No steal action.
- *  - FOUR LIVES each: a dead character goes face-up to the player's graveyard
- *    and is replaced from the deck — but the 3rd and 4th deaths are NOT
- *    replaced. The game ends when someone's 4th character dies.
+ *  - FOUR LIVES each: a dead character goes face-up to the player's
+ *    graveyard and is ALWAYS replaced from the deck — you play with a full
+ *    2-card hand until the end. The game ends when someone's 4th character
+ *    dies (no 1-card endgame).
  *  - CALL THE COUP (and assassinations): the attacker names a character.
  *    If the defender holds it, that exact card dies. If not, the attack
  *    MISSES: the defender reveals their hand, draws two, keeps a hand's
@@ -25,7 +26,7 @@
 
 const ROLES = ['duke', 'assassin', 'ambassador', 'contessa'];
 const LIVES = 4;
-const REPLACE_UNTIL = 2; // deaths 1..2 are replaced from the deck
+const REPLACE_UNTIL = 3; // every death but the last is replaced — hand stays at 2
 
 const ACTIONS = {
   income: { label: 'Income', cost: 0 },
@@ -46,7 +47,7 @@ class CoupGame {
     this.rng = rng;
     this.roles = opts.roles || ROLES;
     this.lives = opts.lives || LIVES;
-    this.replaceUntil = opts.replaceUntil ?? Math.max(1, this.lives - 2);
+    this.replaceUntil = opts.replaceUntil ?? Math.max(1, this.lives - 1);
     this.deck = [];
     for (const r of this.roles) this.deck.push(r, r, r);
     this._shuffle(this.deck);
@@ -317,7 +318,7 @@ class CoupGame {
     const role = p.cards.splice(idx, 1)[0];
     p.graveyard.push(role);
     const deaths = p.graveyard.length;
-    // early deaths are replaced from the deck; the last two are not
+    // every death but the last is replaced — the hand stays at two cards
     if (deaths <= this.replaceUntil && this.deck.length) p.cards.push(this.deck.pop());
     this._log({ t: 'lost', player: p.id, role, why, lives: this.lives - deaths, out: deaths >= this.lives });
     this._drainLoses();

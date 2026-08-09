@@ -128,7 +128,13 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401) clearAuth();
+    // an expired/invalidated session (e.g. after a server reseed) should bounce
+    // straight back to the login screen, not strand pages on their spinners —
+    // but never reload on a failed login attempt itself
+    if (res.status === 401 && !path.startsWith('/login')) {
+      clearAuth();
+      window.location.reload();
+    }
     throw new ApiError((data as { error?: string }).error || `request failed (${res.status})`, res.status);
   }
   return data as T;

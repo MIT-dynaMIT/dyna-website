@@ -166,6 +166,13 @@
 .coup-root .ed-notes li { color: var(--ink-mut); font-size: 13px; padding: 3px 0; }
 
 /* ------------------------------------------------ fullscreen editor */
+/* fullscreen = the workspace and nothing else: hide the name/hint header rows
+   and the generated-code panel; keep the toolbar (mode toggle, undo, check,
+   save, exit-fullscreen) reachable */
+.coup-root .ed-main:fullscreen .ed-head-top,
+.coup-root .ed-main:fullscreen .ed-hint,
+.coup-root .ed-main:fullscreen .ed-codepanel { display: none; }
+
 .coup-root .ed-main:fullscreen {
   background:
     radial-gradient(ellipse at 50% -10%, #1e2833 0%, #12161b 55%),
@@ -174,10 +181,10 @@
   overflow-y: auto;
 }
 .coup-root .ed-main:fullscreen .ed-blockly {
-  height: calc(100vh - 300px);
+  height: calc(100vh - 120px);
   min-height: 500px;
 }
 .coup-root .ed-main:fullscreen .ed-py-inner {
-  height: calc(100vh - 330px);
+  height: calc(100vh - 150px);
   min-height: 480px;
 }

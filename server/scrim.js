@@ -7,15 +7,16 @@
  * past ladder results is fed to bots (that was scouting for free); within a
  * series, explore → exploit.
  *
- * ELO: one update per series on the score fraction (62-38 → S=0.62),
- * delta = K * (S - E) — the margin is real evidence, so it moves ratings.
+ * ELO: one update per series on WHO TAKES THE SERIES (win=1, loss=0, a
+ * 50-50 split counts half), delta = K * (result - E). Margins display on
+ * the ladder but do not move ratings.
  */
 'use strict';
 
 const { ScriptBot } = require('./botapi');
 const { playSeries } = require('./runner');
 
-const K = 64;
+const K = 32;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 
 class ScrimServer {
@@ -70,9 +71,10 @@ class ScrimServer {
     });
 
     const winsA = r.winsByName[sa.name];
-    const score = winsA / SERIES_GAMES;                       // A's score fraction
+    const score = winsA / SERIES_GAMES;                       // display only
+    const result = winsA * 2 === SERIES_GAMES ? 0.5 : winsA * 2 > SERIES_GAMES ? 1 : 0;
     const expected = 1 / (1 + 10 ** ((sb.elo - sa.elo) / 400));
-    const delta = K * (score - expected);
+    const delta = K * (result - expected);
     const eloDelta = { [sa.name]: delta, [sb.name]: -delta };
 
     const perBot = {

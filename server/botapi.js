@@ -30,7 +30,7 @@ function tallyLog(log, ids) {
   const T = {};
   for (const id of ids) {
     T[id] = {
-      claims: [], challengesMade: 0, challengesWon: 0, caughtBluffing: 0, actions: 0,
+      claims: [], claimCounts: {}, challengesMade: 0, challengesWon: 0, caughtBluffing: 0, actions: 0,
     };
   }
   let actionNo = 0;
@@ -40,10 +40,16 @@ function tallyLog(log, ids) {
       const a = ACTIONS[e.action];
       if (T[e.player]) {
         T[e.player].actions++;
-        if (a && a.role && !T[e.player].claims.includes(a.role)) T[e.player].claims.push(a.role);
+        if (a && a.role) {
+          if (!T[e.player].claims.includes(a.role)) T[e.player].claims.push(a.role);
+          T[e.player].claimCounts[a.role] = (T[e.player].claimCounts[a.role] || 0) + 1;
+        }
       }
     } else if (e.t === 'block') {
-      if (T[e.player] && !T[e.player].claims.includes(e.role)) T[e.player].claims.push(e.role);
+      if (T[e.player]) {
+        if (!T[e.player].claims.includes(e.role)) T[e.player].claims.push(e.role);
+        T[e.player].claimCounts[e.role] = (T[e.player].claimCounts[e.role] || 0) + 1;
+      }
     } else if (e.t === 'challenge') {
       if (T[e.by]) {
         T[e.by].challengesMade++;
@@ -51,14 +57,16 @@ function tallyLog(log, ids) {
       }
       if (T[e.against]) {
         if (e.truthful) {
+          // proved it and redrew — that role's story resets
           T[e.against].claims = T[e.against].claims.filter((r) => r !== e.role);
+          T[e.against].claimCounts[e.role] = 0;
         } else {
           T[e.against].caughtBluffing++;
         }
       }
     } else if (e.t === 'exchanged' || e.t === 'redraw') {
       // exchange or post-miss redraw: their hand may be anything now
-      if (T[e.player]) T[e.player].claims = [];
+      if (T[e.player]) { T[e.player].claims = []; T[e.player].claimCounts = {}; }
     }
   }
   T.__actionNo = actionNo;
@@ -145,6 +153,12 @@ function buildState(game, selfId, names, scrimStats = {}) {
       graveyard: [...p.graveyard],
       cards_lost: [...p.graveyard],          // alias kept for the blocks
       claims: t ? [...t.claims] : [],
+      claim_counts: {
+        duke: (t && t.claimCounts.duke) || 0,
+        assassin: (t && t.claimCounts.assassin) || 0,
+        ambassador: (t && t.claimCounts.ambassador) || 0,
+        contessa: (t && t.claimCounts.contessa) || 0,
+      },
       challenges_made: t ? t.challengesMade : 0,
       successful_challenges: t ? t.challengesWon : 0,
       times_caught_bluffing: t ? t.caughtBluffing : 0,
@@ -286,6 +300,16 @@ function gameBuiltins(state) {
     nat('best_coup_call', (st) => bestCoupCall(st)),
     // convenience
     nat('has_role', (st, role) => (st && Array.isArray(st.my_cards) ? st.my_cards.includes(String(role).toLowerCase()) : false)),
+    // how many times a player has claimed a role THIS game (resets when their
+    // hand is replaced: exchange, redraw, or a proven challenge)
+    nat('times_claimed', (player, role) => {
+      const r = String(role || '').toLowerCase();
+      if (!player || typeof player !== 'object' || !player.claim_counts) {
+        throw new BotRuntimeError('times_claimed(player, role) needs a player, e.g. state.opponent');
+      }
+      if (!(r in player.claim_counts)) throw new BotRuntimeError(`times_claimed: unknown role ${repr(role)}`);
+      return player.claim_counts[r];
+    }),
     nat('player_named', (name) => state.__byName[name] || null),
     nat('opponent_with_most', (st, prop) => pickOpponent(st, prop, 1)),
     nat('opponent_with_least', (st, prop) => pickOpponent(st, prop, -1)),

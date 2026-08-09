@@ -375,13 +375,14 @@ const BOTS = [
  * ~50k headless games; the search converged (no parameter change in round 2)
  * and the result beats four hand-built exploiters (always-challenge,
  * max-bluffer, contessa-hunter, stonewall) and averages ~82% vs the sample
- * personalities. Re-tuned for the dynaMIT rules (no Captain, four lives,
- * missed calls re-deal): with only four roles a call hits ~53% blind, so
- * coups turn aggressive — 7+ coins at P(hit) ≥ 0.35; assassinate only at
- * P(hit) ≥ 0.85 with a 35% Contessa-block challenge; 15% tax bluff (100%
- * vs proven non-challengers); challenges nearly OFF (suspicion > 1.05 —
- * four-role claims are usually true); ALWAYS fake the Contessa. ~83% vs
- * the field, beats all four exploiters.
+ * personalities. Tuned for the dynaMIT rules (no Captain, four lives,
+ * missed calls re-deal): coups at 8+ when P(hit) ≥ 0.35 (blind calls hit
+ * ~53% among four roles); assassinate only at P(hit) ≥ 0.85 with a 35%
+ * Contessa-block challenge; 15% tax bluff (100% vs proven
+ * non-challengers); ALWAYS fake the Contessa; and a SERIAL-CLAIMER sense —
+ * suspicion grows +0.05 per repeat of the same claim, which un-launders
+ * blanket bluffers like TaxMachine (65% → 87% head-to-head). ~85% vs the
+ * field, beats all four exploiters.
  */
 const THE_EQUILIBRIST = S(`
     # The Equilibrist — the house champion. Beat it if you can.
@@ -391,6 +392,10 @@ const THE_EQUILIBRIST = S(`
         s = who.scrim_bluff_rate * 1.2 + who.times_caught_bluffing * 0.2
         s = s + len(who.claims) * 0.1
         s = s + (1 - prob_opponent_has(state, role)) * 0.5
+        # the same claim over and over? each repeat is a little more suspect
+        reps = times_claimed(who, role)
+        if reps > 1:
+            s = s + (reps - 1) * 0.05
         return s
 
     def your_turn(state):
@@ -398,7 +403,7 @@ const THE_EQUILIBRIST = S(`
         p_hit = prob_opponent_has(state, call)
         if state.my_coins >= 10:
             return coup(call)
-        if state.my_coins >= 7 and p_hit >= 0.35:
+        if state.my_coins >= 8 and p_hit >= 0.35:
             return coup(call)
         if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.85:
             return assassinate(call, 0.35)
@@ -418,7 +423,7 @@ const THE_EQUILIBRIST = S(`
 
     def respond(state, action):
         if action.claimed_role != None:
-            if suspicion(state, state.opponent, action.claimed_role) > 1.05:
+            if suspicion(state, state.opponent, action.claimed_role) > 0.85:
                 return challenge()
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")

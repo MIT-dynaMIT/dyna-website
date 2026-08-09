@@ -135,14 +135,23 @@ function bestCoupCall(state) {
 }
 
 // ------------------------------------------------------------ state building
-function buildState(game, selfId, names, scrimStats = {}) {
+/**
+ * seriesCtx (100-game matchup memory), earned during the current series:
+ *   { game, total, winsByName: {name: n}, statsByName: {name: {
+ *       challenges, claims, caught, proofs, contessaBlocks }} }
+ * Nothing carries over from the ladder — game 1 knows nothing.
+ */
+function buildState(game, selfId, names, seriesCtx = null) {
   const nameOf = (id) => names[id] || String(id);
   const tally = tallyLog(game.log, game.players.map((p) => p.id));
   const byName = {};
+  const played = seriesCtx ? Math.max(0, (seriesCtx.game || 1) - 1) : 0;
 
   const players = game.players.map((p) => {
     const t = tally[p.id];
-    const st = scrimStats[p.id] || {};
+    const sName = nameOf(p.id);
+    const ss = (seriesCtx && seriesCtx.statsByName && seriesCtx.statsByName[sName]) || {};
+    const sw = (seriesCtx && seriesCtx.winsByName && seriesCtx.winsByName[sName]) || 0;
     const obj = {
       name: nameOf(p.id),
       is_me: p.id === selfId,
@@ -162,9 +171,15 @@ function buildState(game, selfId, names, scrimStats = {}) {
       challenges_made: t ? t.challengesMade : 0,
       successful_challenges: t ? t.challengesWon : 0,
       times_caught_bluffing: t ? t.caughtBluffing : 0,
-      scrim_challenge_success: st.challenge_success ?? 0.5,
-      scrim_bluff_rate: st.bluff_rate ?? 0.25,
-      scrim_win_rate: st.win_rate ?? 0.5,
+      // series memory — what THIS 100-game matchup has revealed so far.
+      // All zeros in game 1: information must be earned.
+      series_win_rate: played > 0 ? sw / played : 0.5,
+      series_wins: sw,
+      series_challenges_per_game: played > 0 ? (ss.challenges || 0) / played : 0,
+      series_claims_per_game: played > 0 ? (ss.claims || 0) / played : 0,
+      series_caught_bluffing: ss.caught || 0,
+      series_honest_proofs: ss.proofs || 0,
+      series_contessa_rate: played > 0 ? (ss.contessaBlocks || 0) / played : 0,
       __id: p.id,
     };
     byName[obj.name] = obj;
@@ -191,6 +206,14 @@ function buildState(game, selfId, names, scrimStats = {}) {
     turn_number: game.log.filter((e) => e.t === 'action').length,
     richest_player: opp, strongest_player: opp, weakest_player: opp, // heads-up: it's always them
     history: friendlyHistory(game.log, nameOf),
+    me,   // my own player object (series_* self-stats live here too)
+    // the series scoreboard: which game of the matchup this is, and the score
+    series: {
+      game: seriesCtx ? (seriesCtx.game || 1) : 1,
+      games_total: seriesCtx ? (seriesCtx.total || 100) : 100,
+      my_wins: (seriesCtx && seriesCtx.winsByName && seriesCtx.winsByName[me.name]) || 0,
+      their_wins: (opp && seriesCtx && seriesCtx.winsByName && seriesCtx.winsByName[opp.name]) || 0,
+    },
     __byName: byName,
   };
   state.revealed_roles = { duke: 0, assassin: 0, captain: 0, ambassador: 0, contessa: 0 };
@@ -240,7 +263,8 @@ function buildActionInfo(game, state, kind) {
 // ------------------------------------------------------------ builtins
 const NUMERIC_PLAYER_PROPS = new Set(['coins', 'num_cards', 'lives', 'claims', 'cards_lost', 'graveyard',
   'challenges_made', 'successful_challenges', 'times_caught_bluffing',
-  'scrim_challenge_success', 'scrim_bluff_rate', 'scrim_win_rate']);
+  'series_win_rate', 'series_wins', 'series_challenges_per_game', 'series_claims_per_game',
+  'series_caught_bluffing', 'series_honest_proofs', 'series_contessa_rate']);
 
 function pickOpponent(st, prop, dir) {
   const p = String(prop || '');
@@ -359,8 +383,8 @@ class ScriptBot {
   }
 
   /** → engine action {type, call, p} */
-  yourTurn(game, selfId, names, scrimStats, rng) {
-    const state = buildState(game, selfId, names, scrimStats);
+  yourTurn(game, selfId, names, seriesCtx, rng) {
+    const state = buildState(game, selfId, names, seriesCtx);
     const mustCoup = game.player(selfId).coins >= 10;
     const legal = game.legalActions(selfId);
     const v = this._call('your_turn', [state], state, rng);
@@ -384,8 +408,8 @@ class ScriptBot {
     return { type: 'income', call: null, p: 0 };
   }
 
-  respond(game, selfId, names, scrimStats, rng, kind) {
-    const state = buildState(game, selfId, names, scrimStats);
+  respond(game, selfId, names, seriesCtx, rng, kind) {
+    const state = buildState(game, selfId, names, seriesCtx);
     const action = buildActionInfo(game, state, kind);
     const v = this._call('respond', [state, action], state, rng);
     if (!v || typeof v !== 'object' || !v.__resp) return 'pass';
@@ -398,8 +422,8 @@ class ScriptBot {
   }
 
   /** → {block:'contessa'} | {reveal: role|null} — sees the called role */
-  whenAssassinated(game, selfId, names, scrimStats, rng) {
-    const state = buildState(game, selfId, names, scrimStats);
+  whenAssassinated(game, selfId, names, seriesCtx, rng) {
+    const state = buildState(game, selfId, names, seriesCtx);
     const action = buildActionInfo(game, state, 'block');
     action.call = game.pending && game.pending.call ? game.pending.call : action.call;
     const v = this._call('when_assassinated', [state, action], state, rng);
@@ -417,12 +441,12 @@ class ScriptBot {
     return { reveal: null };
   }
 
-  chooseCardToLose(game, selfId, names, scrimStats, rng, preferRole = null) {
+  chooseCardToLose(game, selfId, names, seriesCtx, rng, preferRole = null) {
     const p = game.player(selfId);
     if (p.cards.length === 1) return 0;
     let role = preferRole;
     if (!role) {
-      const state = buildState(game, selfId, names, scrimStats);
+      const state = buildState(game, selfId, names, seriesCtx);
       const v = this._call('choose_card_to_lose', [state], state, rng);
       if (v && typeof v === 'object' && v.__reveal) role = v.__reveal;
     }
@@ -436,10 +460,10 @@ class ScriptBot {
     return worst;
   }
 
-  chooseExchange(game, selfId, names, scrimStats, rng) {
+  chooseExchange(game, selfId, names, seriesCtx, rng) {
     const { pool, keep, reason } = game.pending;
     if (this.program.has('choose_exchange')) {
-      const state = buildState(game, selfId, names, scrimStats);
+      const state = buildState(game, selfId, names, seriesCtx);
       const v = this._call('choose_exchange', [state, [...pool], reason || 'ambassador'], state, rng);
       if (Array.isArray(v) && v.length === keep) {
         const used = new Set();

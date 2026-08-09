@@ -11,10 +11,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const MATCH_CAP = 2500;
-const LAST_N_RESULTS = 100;   // win-rate window
-const STAT_GAMES = 50;        // scrim-stat window fed back into bot states
-const MATCH_REFS = 20;        // per-bot match history shown to students
+const MATCH_CAP = 600;   // series records carry sample replays
+const LAST_N_RESULTS = 100;   // rolling series-score window
+const MATCH_REFS = 20;        // per-bot series history shown to students
 
 function hashPassword(pw) {
   const salt = crypto.randomBytes(12).toString('hex');
@@ -180,19 +179,6 @@ class Store {
     return this.scrim.submissions.filter((s) => s.owner === user.username);
   }
 
-  /** the stats object injected into bot states, per submission name */
-  statsFor(sub) {
-    const r = sub.recent.slice(-STAT_GAMES);
-    const sum = (k) => r.reduce((a, x) => a + (x[k] || 0), 0);
-    const last = sub.last.slice(-STAT_GAMES);
-    return {
-      challenge_success: sum('ch') ? sum('chW') / sum('ch') : 0.5,
-      bluff_rate: sum('cl') ? sum('clC') / sum('cl') : 0.15,
-      win_rate: last.length ? last.reduce((a, x) => a + x, 0) / last.length : 0.2,
-      games: sub.games,
-    };
-  }
-
   recordScrimGame(match, perBot) {
     // perBot: {submissionId: {win, ch, chW, cl, clC, errors, eloDelta}}
     this.scrim.totalGames++;
@@ -204,13 +190,11 @@ class Store {
     for (const [sid, r] of Object.entries(perBot)) {
       const sub = this.scrim.submissions.find((s) => s.id === sid);
       if (!sub) continue;
-      sub.games++;
+      sub.games++;                 // series played
       if (r.win) sub.wins++;
       sub.elo = Math.round((sub.elo + r.eloDelta) * 10) / 10;
-      sub.last.push(r.win ? 1 : 0);
+      sub.last.push(r.score ?? (r.win ? 1 : 0));   // score fraction per series
       if (sub.last.length > LAST_N_RESULTS) sub.last.splice(0, sub.last.length - LAST_N_RESULTS);
-      sub.recent.push({ ch: r.ch, chW: r.chW, cl: r.cl, clC: r.clC });
-      if (sub.recent.length > STAT_GAMES) sub.recent.splice(0, sub.recent.length - STAT_GAMES);
       sub.matchIds.push(id);
       if (sub.matchIds.length > MATCH_REFS) sub.matchIds.splice(0, sub.matchIds.length - MATCH_REFS);
       if (r.errors) sub.errors += r.errors;

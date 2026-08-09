@@ -28,10 +28,11 @@ function mulberry32(seed) {
  * Play one full game between ScriptBots.
  *  bots       [{bot: ScriptBot, name}] — seat order
  *  seed       integer
- *  scrimStats {name → stats} passed into bot states
+ *  series     optional 100-game matchup memory {game, total, winsByName,
+ *             statsByName} — passed into bot states as state.series / series_*
  * → {winnerName, seed, decisions, log, names, errorsByBot, adjudicated}
  */
-function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
+function playBotGame({ bots, seed, series = null, gameOpts }) {
   // Two independent streams: the engine only ever draws from `rng`, bots from
   // `botRng`. Replay re-runs the engine alone, so its stream must not be
   // perturbed by however many random() calls the bots made in between.
@@ -40,12 +41,6 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
   const ids = bots.map((_, i) => 'p' + i);
   const names = {};
   ids.forEach((id, i) => { names[id] = bots[i].name; });
-  const statsById = {};
-  ids.forEach((id, i) => {
-    const per = {};
-    ids.forEach((oid, j) => { per[oid] = scrimStats[bots[j].name] || {}; });
-    statsById[id] = per;
-  });
   const botOf = {};
   ids.forEach((id, i) => { botOf[id] = bots[i].bot; });
 
@@ -60,7 +55,7 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
     if (!pend) break;
     if (pend.type === 'action') {
       const id = pend.player;
-      const act = botOf[id].yourTurn(game, id, names, statsById[id], botRng);
+      const act = botOf[id].yourTurn(game, id, names, series, botRng);
       decisions.push(['action', id, { type: act.type, call: act.call }]);
       // remember the assassin's auto-challenge probability for the contessa block
       game._assassinP = act.type === 'assassinate' ? (act.p || 0) : 0;
@@ -77,7 +72,7 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
       if (!challenger) {
         for (const id of pend.who) {
           if (id === game.ctx?.actor && pend.blocking && game.ctx.type === 'assassinate') continue; // already rolled
-          const r = botOf[id].respond(game, id, names, statsById[id], botRng, 'challenge');
+          const r = botOf[id].respond(game, id, names, series, botRng, 'challenge');
           if (r && r.challenge) { challenger = id; break; }
         }
       }
@@ -88,10 +83,10 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
       for (const id of pend.who) {
         let r;
         if (game.ctx.type === 'assassinate' && id === game.ctx.target) {
-          const w = botOf[id].whenAssassinated(game, id, names, statsById[id], botRng);
+          const w = botOf[id].whenAssassinated(game, id, names, series, botRng);
           r = w.block ? { block: 'contessa' } : 'pass';
         } else {
-          r = botOf[id].respond(game, id, names, statsById[id], botRng, 'block');
+          r = botOf[id].respond(game, id, names, series, botRng, 'block');
         }
         if (r && r.block) { blocker = id; role = r.block; break; }
       }
@@ -99,12 +94,12 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
       game.resolveBlock(blocker, role);
     } else if (pend.type === 'lose') {
       const id = pend.player;
-      const idx = botOf[id].chooseCardToLose(game, id, names, statsById[id], botRng);
+      const idx = botOf[id].chooseCardToLose(game, id, names, series, botRng);
       decisions.push(['lose', id, idx]);
       game.resolveLose(id, idx);
     } else if (pend.type === 'exchange') {
       const id = pend.player;
-      const keep = botOf[id].chooseExchange(game, id, names, statsById[id], botRng);
+      const keep = botOf[id].chooseExchange(game, id, names, series, botRng);
       decisions.push(['exchange', id, keep]);
       game.resolveExchange(id, keep);
     } else {
@@ -127,6 +122,63 @@ function playBotGame({ bots, seed, scrimStats = {}, gameOpts }) {
     adjudicated: !!game.log.find((e) => e.t === 'win' && e.adjudicated),
     errorsByBot,
   };
+}
+
+
+/** Count one game's public log into a series stats accumulator. */
+function accumulateSeriesStats(log, names, statsByName) {
+  const { ACTIONS } = require('./coup');
+  for (const e of log) {
+    if (e.t === 'action' && ACTIONS[e.action] && ACTIONS[e.action].role) {
+      statsByName[names[e.player]].claims++;
+    } else if (e.t === 'block') {
+      statsByName[names[e.player]].claims++;
+      if (e.role === 'contessa') statsByName[names[e.player]].contessaBlocks++;
+    } else if (e.t === 'challenge') {
+      statsByName[names[e.by]].challenges++;
+      if (e.truthful) statsByName[names[e.against]].proofs++;
+      else statsByName[names[e.against]].caught++;
+    }
+  }
+}
+
+/**
+ * A MATCHUP: `total` games between two bots, seats alternating, with series
+ * memory (score + behavioral aggregates) fed to both bots each game.
+ * → { winsByName, statsByName, winStrip (A's perspective), samples, errors,
+ *     turnsTotal, adjudicated }
+ */
+function playSeries({ botA, botB, total = 100, seedBase = 1, gameOpts, sampleAt = null }) {
+  const winsByName = { [botA.name]: 0, [botB.name]: 0 };
+  const statsByName = {
+    [botA.name]: { challenges: 0, claims: 0, caught: 0, proofs: 0, contessaBlocks: 0 },
+    [botB.name]: { challenges: 0, claims: 0, caught: 0, proofs: 0, contessaBlocks: 0 },
+  };
+  const samples = [];
+  const sampleIdx = new Set(sampleAt || [0, Math.floor(total / 2), total - 1]);
+  const errors = {};
+  let winStrip = '';
+  let turnsTotal = 0, adjudicated = 0;
+  for (let g = 0; g < total; g++) {
+    const seats = g % 2 === 0 ? [botA, botB] : [botB, botA];
+    const seed = (seedBase + g * 7919) >>> 0;
+    const r = playBotGame({
+      bots: seats, seed, gameOpts,
+      series: { game: g + 1, total, winsByName, statsByName },
+    });
+    winsByName[r.winnerName]++;
+    winStrip += r.winnerName === botA.name ? '1' : '0';
+    turnsTotal += r.log.filter((e) => e.t === 'action').length;
+    if (r.adjudicated) adjudicated++;
+    accumulateSeriesStats(r.log, r.names, statsByName);
+    for (const [n, errs] of Object.entries(r.errorsByBot)) {
+      errors[n] = (errors[n] || 0) + errs.length;
+    }
+    if (sampleIdx.has(g)) {
+      samples.push({ g: g + 1, seed, seatNames: r.seatNames, decisions: r.decisions, winnerName: r.winnerName });
+    }
+  }
+  return { winsByName, statsByName, winStrip, samples, errors, turnsTotal, adjudicated, total };
 }
 
 /**
@@ -166,4 +218,4 @@ function replayMatch({ seed, seatNames, decisions }) {
   return { frames, seatNames, winnerName: game.winner ? seatNames[ids.indexOf(game.winner)] : null };
 }
 
-module.exports = { playBotGame, replayMatch, mulberry32 };
+module.exports = { playBotGame, playSeries, replayMatch, mulberry32 };

@@ -81,7 +81,8 @@ const BOTS = [
     source: S(`
     # Charlie calls out anything that smells — and anything impossible.
     def suspicion(state, who, role):
-        s = who.scrim_bluff_rate + who.times_caught_bluffing * 0.15
+        s = who.times_caught_bluffing * 0.3
+        s = s + who.series_caught_bluffing * 0.08
         s = s + len(who.claims) * 0.1
         if role != None and unseen_copies(state, role) == 0:
             s = 5
@@ -273,7 +274,7 @@ const BOTS = [
         if action.claimed_role != None:
             if unseen_copies(state, action.claimed_role) == 0:
                 return challenge()
-            if state.opponent.scrim_bluff_rate * 2 + state.opponent.times_caught_bluffing * 0.2 > 0.8:
+            if state.opponent.series_caught_bluffing >= 3 or state.opponent.times_caught_bluffing >= 2:
                 return challenge()
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")
@@ -370,60 +371,74 @@ const BOTS = [
 ];
 
 /**
- * THE_EQUILIBRIST — the tuned near-equilibrium champion. Found by coordinate
- * ascent (best response vs a self-play mirror) over 9 strategy parameters,
- * ~50k headless games; the search converged (no parameter change in round 2)
- * and the result beats four hand-built exploiters (always-challenge,
- * max-bluffer, contessa-hunter, stonewall) and averages ~82% vs the sample
- * personalities. Tuned for the dynaMIT rules (no Captain, four lives,
- * missed calls re-deal): coups at 8+ when P(hit) ≥ 0.35 (blind calls hit
- * ~53% among four roles); assassinate only at P(hit) ≥ 0.85 with a 35%
- * Contessa-block challenge; 15% tax bluff (100% vs proven
- * non-challengers); ALWAYS fake the Contessa; and a SERIAL-CLAIMER sense —
- * suspicion grows +0.05 per repeat of the same claim, which un-launders
- * blanket bluffers like TaxMachine (65% → 87% head-to-head). ~85% vs the
- * field, beats all four exploiters.
+ * THE_EQUILIBRIST — the series-mode champion: a Nash-ish baseline plus
+ * evidence-gated exploits (explore → exploit across the 100-game matchup).
+ * Tuned by coordinate ascent vs personalities + probe dummies + a self-play
+ * mirror. Validated: adapting beats not-adapting (+19pp vs over-challengers,
+ * +13 vs challenge-happy bots, +9 vs never-challengers) AND survives the
+ * mirror (53% vs its own frozen self) — the key trick is exploiting UNDER
+ * THE RADAR: repeated bluff-claims are capped at 5 per game so the victim's
+ * serial-claim sense never trips, and the exploit shuts off after being
+ * caught 3 times in a series.
  */
 const THE_EQUILIBRIST = S(`
-    # The Equilibrist — the house champion. Beat it if you can.
+    # The Equilibrist — plays the equilibrium, then punishes your mistakes.
     def suspicion(state, who, role):
         if unseen_copies(state, role) == 0:
             return 9
-        s = who.scrim_bluff_rate * 1.2 + who.times_caught_bluffing * 0.2
+        s = who.series_caught_bluffing * 0.06 + who.times_caught_bluffing * 0.2
         s = s + len(who.claims) * 0.1
         s = s + (1 - prob_opponent_has(state, role)) * 0.5
-        # the same claim over and over? each repeat is a little more suspect
         reps = times_claimed(who, role)
         if reps > 1:
             s = s + (reps - 1) * 0.05
         return s
 
+    def warmed(state):
+        # explore first: trust series reads only after 20 games of evidence
+        return state.series.game > 20
+
     def your_turn(state):
         call = best_coup_call(state)
         p_hit = prob_opponent_has(state, call)
+        opp = state.opponent
         if state.my_coins >= 10:
             return coup(call)
         if state.my_coins >= 8 and p_hit >= 0.35:
             return coup(call)
+        a_chal = 0.35
+        if warmed(state) and opp.series_contessa_rate > 0.6:
+            a_chal = 0.7
         if "assassin" in state.my_cards and state.my_coins >= 3 and p_hit >= 0.85:
-            return assassinate(call, 0.35)
+            return assassinate(call, a_chal)
         if "duke" in state.my_cards:
             return tax()
         if "ambassador" in state.my_cards and not ("duke" in state.my_cards) and chance(0.3):
             return exchange()
-        # exploit a proven non-challenger with shameless Duke claims,
-        # and stop feeding Foreign Aid into a standing Duke block
-        if state.turn_number >= 6 and state.opponent.challenges_made == 0:
+        # EXPLOIT a proven non-challenger: free tax — but stay under the
+        # radar (cap repeats per game) and stop if I keep getting caught
+        if warmed(state) and opp.series_challenges_per_game < 0.25:
+            if state.me.series_caught_bluffing < 3 and times_claimed(state.me, "duke") < 5:
+                return tax()
+        # RESPECT an over-challenger: never bluff, quiet money only
+        if warmed(state) and opp.series_challenges_per_game > 2.2:
+            if "duke" in opp.claims and not ("duke" in state.my_cards):
+                return income()
+            return foreign_aid()
+        if state.turn_number >= 6 and opp.challenges_made == 0:
             return tax()
         if chance(0.15):
             return tax()
-        if "duke" in state.opponent.claims and not ("duke" in state.my_cards):
+        if "duke" in opp.claims and not ("duke" in state.my_cards):
             return income()
         return foreign_aid()
 
     def respond(state, action):
         if action.claimed_role != None:
-            if suspicion(state, state.opponent, action.claimed_role) > 0.85:
+            th = 1.0
+            if warmed(state) and state.opponent.series_caught_bluffing >= 3:
+                th = th - 0.3
+            if suspicion(state, state.opponent, action.claimed_role) > th:
                 return challenge()
         if action.type == "foreign_aid" and "duke" in state.my_cards:
             return block("duke")

@@ -11,7 +11,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const args = process.argv.slice(2);
-const GAMES = Number(args.find((a) => /^\d+$/.test(a))) || 1500;
+const GAMES = Number(args.find((a) => /^\d+$/.test(a))) || 60;   // series, not games
 const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
 if (args.includes('--fresh')) fs.rmSync(dataDir, { recursive: true, force: true });
 
@@ -37,13 +37,11 @@ function ensureUser(username, pass, displayName, isAdmin) {
 }
 
 const admin = ensureUser('admin', ADMIN_PASS, 'Organizer', true);
-// the champion + the kid scaffold live in the organizer's first two slots
+// the kid scaffold template lives in the organizer's last slot
 {
-  const { THE_EQUILIBRIST, THE_SCAFFOLD } = require('./samplebots/bots');
-  store.saveSlot(admin, 0, { name: 'The Equilibrist', mode: 'python', python: THE_EQUILIBRIST });
-  store.saveSlot(admin, 1, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
+  const { THE_SCAFFOLD } = require('./samplebots/bots');
+  store.saveSlot(admin, 99, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
 }
-const house = ensureUser('__house', require('node:crypto').randomBytes(12).toString('hex'), 'House', true);
 
 console.log('\nSeeding students + bots…');
 const roster = [];
@@ -62,31 +60,35 @@ for (const b of BOTS) {
   roster.push({ login: b.username, password: STUDENT_PASS, name: b.displayName, bot: b.botName });
   console.log(`  ✓ ${b.displayName} (${b.username}) — ${b.botName}`);
 }
+// the house bots are the organizer's own submissions (slot 0 = Equilibrist,
+// slot 1 = the scaffold template, house roster from slot 2)
 HOUSE.forEach((h, i) => {
-  store.saveSlot(house, i, { name: h.name, mode: 'python', python: h.source });
-  if (!store.scrim.submissions.some((s) => s.owner === '__house' && s.slot === i)) {
-    const r = store.submit(house, i);
+  const slot = h.name === 'The Equilibrist' ? 0 : i + 1;
+  store.saveSlot(admin, slot, { name: h.name, mode: 'python', python: h.source });
+  if (!store.scrim.submissions.some((s) => s.owner === 'admin' && s.slot === slot)) {
+    const r = store.submit(admin, slot);
     if (r.error) throw new Error(r.error);
   }
-  console.log(`  ✓ house bot — ${h.name}`);
+  console.log(`  ✓ organizer bot — ${h.name} (slot ${slot + 1})`);
 });
 
 // ------------------------------------------------------------ warm the ladder
-console.log(`\nPlaying ${GAMES} scrim games…`);
+console.log(`\nPlaying ${GAMES} scrim series (${GAMES * 100} games)…`);
 const t0 = Date.now();
 const played = scrim.runMany(GAMES, (n) => {
-  if (n % 500 === 0) console.log(`  …${n} games (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+  console.log(`  …${n} series (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 });
 console.log(`  done: ${played}/${GAMES} in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
-// sanity: a recorded match must replay to the same winner
-const sample = store.matches.list[store.matches.list.length - 1];
-const rep = replayMatch(sample);
-if (rep.winnerName !== sample.winnerName) {
-  console.error(`  ✗ REPLAY MISMATCH: recorded ${sample.winnerName}, replayed ${rep.winnerName}`);
+// sanity: a stored sample game must replay to the same winner
+const series = store.matches.list[store.matches.list.length - 1];
+const g0 = series.samples[0];
+const rep = replayMatch(g0);
+if (rep.winnerName !== g0.winnerName) {
+  console.error(`  ✗ REPLAY MISMATCH: recorded ${g0.winnerName}, replayed ${rep.winnerName}`);
   process.exit(1);
 }
-console.log(`  ✓ replay determinism check passed (${rep.frames.length} frames)`);
+console.log(`  ✓ replay determinism check passed (series game ${g0.g}, ${rep.frames.length} frames)`);
 
 // ------------------------------------------------------------ report
 console.log('\n=== LEADERBOARD ===');

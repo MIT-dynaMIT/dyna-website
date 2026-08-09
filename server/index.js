@@ -132,6 +132,11 @@ app.get('/api/coup/matches', auth, (req, res) => {
     eloDelta: m.eloDelta[sub.name] ?? 0,
     turns: m.turns,
     adjudicated: !!m.adjudicated,
+    series: !!m.series,
+    gamesTotal: m.gamesTotal,
+    score: m.score,
+    winStrip: m.winStrip,
+    sampleGames: (m.samples || []).map((s) => s.g),
   }));
   res.json({
     bot: { id: sub.id, name: sub.name, elo: Math.round(sub.elo), games: sub.games },
@@ -141,11 +146,17 @@ app.get('/api/coup/matches', auth, (req, res) => {
 
 app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
   const m = store.getMatch(req.params.id);
-  if (!m) return res.status(404).json({ error: 'match not found (older games are pruned)' });
-  const r = replayMatch(m);
+  if (!m) return res.status(404).json({ error: 'match not found (older series are pruned)' });
+  // a series stores a few sample games; ?sample=n picks one (default first)
+  const samples = m.samples || [];
+  const si = Math.max(0, Math.min(samples.length - 1, Number(req.query.sample) || 0));
+  const sample = samples[si];
+  if (!sample) return res.status(404).json({ error: 'no replayable games stored for this series' });
+  const r = replayMatch(sample);
   res.json({
-    frames: r.frames, seatNames: m.seatNames, owners: m.owners,
-    winnerName: m.winnerName, eloDelta: m.eloDelta, ts: m.ts,
+    frames: r.frames, seatNames: sample.seatNames, owners: m.owners,
+    winnerName: sample.winnerName, eloDelta: m.eloDelta, ts: m.ts,
+    series: { game: sample.g, gamesTotal: m.gamesTotal, score: m.score, winStrip: m.winStrip, samples: samples.map((s) => s.g), sampleIndex: si },
   });
 });
 

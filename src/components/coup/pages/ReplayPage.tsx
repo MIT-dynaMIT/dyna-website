@@ -90,7 +90,7 @@ export default function ReplayPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+      <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
         <Link to="/coup/matches" className="coup-note" style={{ textDecoration: 'none' }}>← Match history</Link>
         <div style={{ flex: 1 }} />
         <span className="coup-note">{dateStr}</span>

@@ -3,21 +3,92 @@
    inside .coup-root, so the court theme tokens (--felt-1, --accent, role
    colors…) are in scope. */
 
-.ct-wrap { display: flex; gap: 18px; align-items: flex-start; }
-.ct-main { flex: 1 1 auto; min-width: 0; }
+/* One centred column for the whole screen: board + log + action bar/transport
+   all share --ct-shell so nothing runs wider than the composition. */
+.ct-shell, .ct-wrap, .ct-actionbar, .ct-transport, .ct-serieshead, .ct-replayhead {
+  --ct-board: 1250px;   /* ceiling; the board otherwise takes the column */
+  --ct-log: 300px;
+  --ct-shell: 1680px;
+  max-width: var(--ct-shell);
+  margin-left: auto; margin-right: auto;
+}
+@media (min-width: 1200px) {
+  .ct-shell, .ct-wrap, .ct-actionbar, .ct-transport, .ct-serieshead, .ct-replayhead {
+    --ct-log: 340px;
+  }
+}
+@media (min-width: 1500px) {
+  .ct-shell, .ct-wrap, .ct-actionbar, .ct-transport, .ct-serieshead, .ct-replayhead {
+    --ct-log: 400px;
+  }
+}
+
+/* the log stretches to the board's own height rather than guessing at one */
+.ct-wrap { display: flex; gap: 18px; align-items: stretch; justify-content: center; }
+/* the board takes the column; the log keeps a fixed, readable measure */
+.ct-main { flex: 1 1 auto; min-width: 0; display: flex; }
 
 /* ------------------------------------------------ the board (rounded felt rectangle) */
 .ct-board {
   position: relative;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%; max-width: var(--ct-board);
+  align-self: flex-start;
+
+  /* One scale for every piece on the felt, so the table grows as a whole
+     instead of a widget stretching. Bumped once the viewport can afford it. */
+  --ct-card-w: 42px; --ct-card-h: 58px;
+  --ct-coin: 17px;
+  --ct-slot-w: 24px; --ct-slot-h: 32px;
+  --ct-plate-fs: 14px;
+  --ct-banner-fs: 13.5px;
+  --ct-bank-scale: 1;
+  --ct-flow-gap: 20px;
+  --ct-lane-h: 52px;
+  --ct-name-w: 230px;
+  --ct-band: 820px;
+  /* the middle of the table, for transients that must clear both bands */
+  --ct-lane-block: calc(var(--ct-lane-h) + var(--ct-flow-gap));
+  /* fixed tracks, derived so both bands always line up column-for-column */
+  --ct-hand-w: calc(var(--ct-card-w) * 2 + 6px);
+  --ct-coins-w: calc(var(--ct-coin) * 2 + 46px);
+  --ct-rail-w: calc(var(--ct-slot-w) * 4 + 33px);
   border-radius: 18px;
   padding: 4px;
   background: linear-gradient(145deg, #d8b95e, #8a6f2e 40%, #5f4a1e 70%, #d8b95e);
   box-shadow: 0 20px 52px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
+/* once there is room, every piece steps up together and the felt reads as a
+   real table rather than a widget */
+@media (min-width: 1200px) {
+  .ct-board {
+    --ct-card-w: 48px; --ct-card-h: 66px;
+    --ct-coin: 18px;
+    --ct-slot-w: 27px; --ct-slot-h: 36px;
+    --ct-plate-fs: 14.8px;
+    --ct-banner-fs: 14px;
+    --ct-bank-scale: 1.1;
+    --ct-flow-gap: 23px;
+    --ct-lane-h: 56px;
+    --ct-name-w: 265px;
+    --ct-band: 900px;
+  }
+}
+@media (min-width: 1500px) {
+  .ct-board {
+    --ct-card-w: 52px; --ct-card-h: 72px;
+    --ct-coin: 20px;
+    --ct-slot-w: 30px; --ct-slot-h: 40px;
+    --ct-plate-fs: 15.5px;
+    --ct-banner-fs: 15px;
+    --ct-bank-scale: 1.2;
+    --ct-flow-gap: 26px;
+    --ct-lane-h: 60px;
+    --ct-name-w: 300px;
+    --ct-band: 1000px;
+  }
+}
+
 .ct-felt {
   position: absolute; inset: 6px; border-radius: 14px;
   background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 70%, #101c22 100%);
@@ -29,14 +100,31 @@
   border: 1px solid rgba(201, 168, 76, 0.13); border-radius: 11px; pointer-events: none;
 }
 
-/* ------------------------------------------------ flow layout: rival / centre / you */
+/* --------------------------- flow layout: banner lane / rival / centre / you */
 .ct-flow {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; align-items: center;
-  gap: 14px; padding: 46px 16px 18px;
+  gap: var(--ct-flow-gap); padding: 18px 20px 20px;
 }
-.ct-center-row { display: flex; align-items: center; gap: 30px; }
-.ct-deck { position: relative; width: 40px; height: 56px; }
+
+/* A lane reserved for the banner whether or not one is showing. Nothing else
+   is ever laid out here, so a two-line banner cannot push or cover a plate.
+   Transients that want the middle of the table subtract --ct-lane-block (the
+   lane plus the flow gap under it) to centre between the bands instead. */
+.ct-lane {
+  flex: none; width: 100%; height: var(--ct-lane-h);
+  display: flex; align-items: center; justify-content: center;
+}
+/* an empty lane reads as intent, not as a gap */
+.ct-lane:empty::after {
+  content: '⚜'; color: var(--accent); opacity: 0.16; font-size: 17px;
+}
+
+.ct-center-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: calc(var(--ct-card-w) * 1.6); padding: 12px 0 26px;
+}
+.ct-deck { position: relative; width: var(--ct-card-w); height: var(--ct-card-h); }
 .ct-deck .ct-card { position: absolute; top: 0; left: 0; }
 .ct-deck .d1 { transform: translate(2px, 2px) rotate(3deg); }
 .ct-deck .d2 { transform: translate(-2px, 1px) rotate(-2deg); }
@@ -45,7 +133,12 @@
   position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
   font-size: 11px; color: var(--ink-mut); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
-.ct-bank { position: relative; width: 54px; height: 54px; }
+/* a hand-tuned pile of coins — scaled as a unit rather than re-tuned per size
+   (getBoundingClientRect sees the transform, so the flyer anchor stays true) */
+.ct-bank {
+  position: relative; width: 54px; height: 54px;
+  transform: scale(var(--ct-bank-scale));
+}
 .ct-bank .ct-coin { position: absolute; }
 .ct-bank .ct-coin:nth-child(1) { left: 8px;  top: 20px; }
 .ct-bank .ct-coin:nth-child(2) { left: 22px; top: 14px; }
@@ -57,49 +150,69 @@
   font-size: 11px; color: var(--ink-mut); white-space: nowrap; letter-spacing: 0.05em;
 }
 
-/* ------------------------------------------------ seats (heads-up: 2, in flow) */
+/* ---------------------------------- seats: one horizontal band per player
+   Three groups — name placard | resources (hand + coins) | life rail — spread
+   evenly across the band. Every track is a fixed width, so the two bands
+   distribute their slack identically and line up column-for-column. */
 .ct-seat {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  transition: filter 0.3s, opacity 0.3s;
+  display: grid;
+  grid-template-columns: var(--ct-name-w) auto var(--ct-rail-w);
+  justify-content: space-between;
+  align-items: center; gap: 18px;
+  width: 100%; max-width: var(--ct-band);
+  padding: 12px 20px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid transparent;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.12));
+  transition: border-color 0.25s, box-shadow 0.25s, filter 0.3s, opacity 0.3s;
 }
+/* whose turn it is reads as a gold edge on the whole band, not a badge */
+.ct-seat.turn {
+  border-color: rgba(201, 168, 76, 0.34);
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.16), inset 0 0 26px rgba(201, 168, 76, 0.07);
+}
+.ct-seat.you { background: linear-gradient(90deg, rgba(201, 168, 76, 0.11), rgba(0, 0, 0, 0.12)); }
 
+/* a placard of consistent width, not a pill that ragged-edges with the name */
 .ct-plate {
-  display: flex; align-items: center; gap: 7px;
-  background: rgba(12, 18, 22, 0.75); border: 1px solid var(--line);
-  border-radius: 999px; padding: 4px 14px; max-width: 100%;
-  color: var(--ink); font-size: 14px; letter-spacing: 0.02em;
+  justify-self: stretch; min-width: 0;
+  display: flex; align-items: baseline; gap: 8px;
+  background: rgba(12, 18, 22, 0.72); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 15px;
+  color: var(--ink); font-size: var(--ct-plate-fs); letter-spacing: 0.02em;
 }
-.ct-plate .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ct-seat.turn .ct-plate {
-  border-color: var(--accent); color: var(--parch);
-  box-shadow: 0 0 0 1px var(--accent-dim), 0 0 18px rgba(201, 168, 76, 0.4);
-}
-.ct-seat.you .ct-plate { background: rgba(201, 168, 76, 0.14); border-color: var(--accent-dim); }
-.ct-crown { color: var(--accent); }
+.ct-plate .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-seat.turn .ct-plate { border-color: var(--accent-dim); color: var(--parch); }
+.ct-seat.you .ct-plate { background: rgba(201, 168, 76, 0.13); border-color: var(--accent-dim); }
 .ct-fallen {
-  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bad);
-  border: 1px solid var(--bad); border-radius: 4px; padding: 0 5px;
+  flex: none; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--bad); border: 1px solid var(--bad); border-radius: 4px; padding: 0 5px;
 }
 .ct-seat.dead { filter: grayscale(0.85) brightness(0.66); opacity: 0.85; }
 .ct-seat.dead .ct-plate .nm { text-decoration: line-through; color: var(--ink-mut); }
 
-.ct-mid { display: flex; align-items: center; gap: 16px; }
+/* hand + coins travel together as one group; the coin stack is given a fixed
+   width so the group never changes size as coins come and go */
+.ct-res { display: flex; align-items: center; gap: 18px; }
 .ct-seatcards { position: relative; }
 .ct-seat.shake .ct-seatcards { animation: ct-shake 0.42s ease; }
 .ct-hand { display: flex; gap: 6px; }
 
 /* the LIFE RAIL — one slot per life (four), the running score of the duel */
 .ct-rail {
+  justify-self: end; width: var(--ct-rail-w);
   display: flex; gap: 5px; align-items: center; justify-content: center;
   padding: 4px 8px; border-radius: 10px;
   background: rgba(12, 18, 22, 0.5); border: 1px solid var(--line);
 }
 .ct-slot {
-  width: 24px; height: 32px; border-radius: 4px;
+  width: var(--ct-slot-w); height: var(--ct-slot-h); border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
 }
 .ct-slot.life {
-  color: var(--accent); font-size: 15px;
+  color: var(--accent); font-size: calc(var(--ct-slot-w) * 0.62);
   border: 1px dashed var(--accent-dim); background: rgba(201, 168, 76, 0.06);
 }
 .ct-slot.lost { animation: ct-slotin 0.4s ease; }
@@ -132,9 +245,9 @@
 .ct-serieshead .skey s { text-decoration: none; color: var(--bad); }
 
 /* per-player coin stack */
-.ct-coinstack { display: flex; gap: 3px; align-items: flex-end; min-height: 20px; }
+.ct-coinstack { width: var(--ct-coins-w); display: flex; gap: 3px; align-items: flex-end; min-height: 20px; }
 .ct-stackcol { display: flex; flex-direction: column-reverse; }
-.ct-stackcol .ct-coin { margin-top: -11px; }
+.ct-stackcol .ct-coin { margin-top: calc(var(--ct-coin) * -0.65); }
 .ct-stackcol .ct-coin:first-child { margin-top: 0; }
 .ct-coinchip {
   align-self: center; margin-left: 3px;
@@ -145,14 +258,21 @@
 
 /* ------------------------------------------------ coins & cards */
 .ct-coin {
-  width: 17px; height: 17px; border-radius: 50%;
+  width: var(--ct-coin); height: var(--ct-coin); border-radius: 50%;
   background: radial-gradient(circle at 34% 30%, #f4e29a, #d8b95e 45%, #9a7f37 100%);
   border: 1px solid #7d6526; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); position: relative;
 }
 .ct-coin::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid rgba(125, 101, 38, 0.6); }
 
-.ct-card { width: 42px; height: 58px; border-radius: 5px; position: relative; flex: none; font-family: Georgia, serif; }
-.ct-card.mini { width: 22px; height: 30px; border-radius: 3px; }
+.ct-card {
+  width: var(--ct-card-w); height: var(--ct-card-h);
+  border-radius: 5px; position: relative; flex: none; font-family: Georgia, serif;
+}
+/* mini cards are the dead influences sitting in a life-rail slot */
+.ct-card.mini {
+  width: calc(var(--ct-slot-w) - 2px); height: calc(var(--ct-slot-h) - 2px);
+  border-radius: 3px;
+}
 .ct-card.back {
   background:
     repeating-linear-gradient(45deg, rgba(201,168,76,0.10) 0 4px, transparent 4px 8px),
@@ -160,7 +280,9 @@
   border: 1px solid var(--accent-dim); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.25);
   display: flex; align-items: center; justify-content: center;
 }
-.ct-card.back::after { content: '♜'; color: rgba(201, 168, 76, 0.55); font-size: 20px; }
+.ct-card.back::after {
+  content: '♜'; color: rgba(201, 168, 76, 0.55); font-size: calc(var(--ct-card-w) * 0.48);
+}
 
 .ct-card.face {
   background: linear-gradient(180deg, #fbf4df, var(--parch));
@@ -168,14 +290,14 @@
   display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
 }
 .ct-card.face .band {
-  height: 24px; display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 15px; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  height: calc(var(--ct-card-h) * 0.41); display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: calc(var(--ct-card-w) * 0.36); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
-.ct-card.mini.face .band { height: 100%; font-size: 12px; }
+.ct-card.mini.face .band { height: 100%; font-size: calc(var(--ct-slot-w) * 0.5); }
 .ct-card.face .rname {
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 6.5px; letter-spacing: 0; text-transform: uppercase;
+  font-size: calc(var(--ct-card-w) * 0.155); letter-spacing: 0; text-transform: uppercase;
   color: #4a3f28; text-align: center; padding: 0; line-height: 1.1;
   white-space: nowrap; transform: scaleX(0.85);
 }
@@ -194,13 +316,16 @@
 .ct-card.mini.dead::before { height: 2px; }
 
 /* ------------------------------------------------ action banner */
+/* Sits inside .ct-lane — in flow, never absolutely placed over the felt.
+   Clamped to two lines so the lane height is a guarantee, not a hope; the
+   full wording is always in the table-talk log beside the board. */
 .ct-banner {
-  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-  max-width: 82%; text-align: center; z-index: 6;
+  max-width: 100%; text-align: center;
   background: linear-gradient(180deg, #fbf4df, var(--parch)); color: var(--ink-dark);
-  border: 1px solid #b9a878; border-radius: 8px; padding: 7px 16px;
-  font-size: 14px; line-height: 1.25; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-  animation: ct-bannerin 0.3s ease;
+  border: 1px solid #b9a878; border-radius: 8px; padding: 6px 16px;
+  font-size: var(--ct-banner-fs); line-height: 1.28; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  animation: ct-lanein 0.3s ease;
 }
 .ct-banner .lead { font-weight: 700; }
 .ct-banner.t-action { border-color: var(--accent); }
@@ -228,31 +353,50 @@
   width: 30px; height: 42px; border-radius: 4px;
   background: linear-gradient(160deg, #223543, #16232a); border: 1px solid var(--accent-dim);
 }
+/* centred on the deck/treasury lane, sized to stay clear of both bands */
 .ct-missflash {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 7;
-  font-size: 68px; font-weight: 800; letter-spacing: 0.06em; color: #6fb6d8;
+  position: absolute; top: 50%; left: 50%; z-index: 7;
+  margin-top: calc(var(--ct-lane-block) / 2);
+  transform: translate(-50%, -50%);
+  font-size: 50px; line-height: 1; font-weight: 800; letter-spacing: 0.06em; color: #6fb6d8;
   text-shadow: 0 0 24px rgba(36, 113, 163, 0.8), 0 3px 0 rgba(0, 0, 0, 0.4);
   pointer-events: none; animation: ct-missflash 1.1s ease forwards;
 }
 
 /* ------------------------------------------------ winner overlay */
+/* The scrim dims the felt but the opaque plaque is confined to the middle lane,
+   so the final board state — both name plates and both life rails — stays
+   readable underneath instead of being taken over wholesale. */
 .ct-overlay {
-  position: absolute; inset: 0; z-index: 8; border-radius: 18px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; text-align: center;
-  background: radial-gradient(ellipse at 50% 45%, rgba(18, 22, 27, 0.72), rgba(18, 22, 27, 0.92));
-  animation: ct-bannerin 0.4s ease;
+  position: absolute; inset: 6px; z-index: 8; border-radius: 14px;
+  /* discount the banner lane so the plaque centres on the deck row between the
+     two bands rather than on the board, where it would sit over the rival */
+  padding-top: var(--ct-lane-block);
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 50%, rgba(18, 22, 27, 0.80), rgba(18, 22, 27, 0.62));
+  animation: ct-fadein 0.4s ease;
 }
-.ct-overlay .crown { font-size: 46px; color: var(--accent); filter: drop-shadow(0 0 18px rgba(201,168,76,0.6)); }
-.ct-overlay .rules { font-size: 24px; color: var(--parch); letter-spacing: 0.03em; }
-.ct-overlay .rules b { color: var(--accent); }
-.ct-overlay .ovbtns { display: flex; gap: 12px; margin-top: 4px; }
+.ct-plaque {
+  display: grid; grid-template-columns: auto auto;
+  grid-template-areas: 'crown rules' 'btns btns';
+  align-items: center; justify-items: center;
+  gap: 8px 12px; text-align: center;
+  padding: 12px 30px; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 36, 43, 0.97), rgba(18, 22, 27, 0.97));
+  border: 1px solid var(--accent-dim);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(201, 168, 76, 0.06);
+  animation: ct-plaquein 0.4s ease;
+}
+.ct-plaque .crown { grid-area: crown; font-size: 30px; line-height: 1; color: var(--accent); filter: drop-shadow(0 0 18px rgba(201,168,76,0.6)); }
+.ct-plaque .rules { grid-area: rules; font-size: 19px; color: var(--parch); letter-spacing: 0.03em; white-space: nowrap; }
+.ct-plaque .rules b { color: var(--accent); }
+.ct-plaque .ovbtns { grid-area: btns; display: flex; gap: 12px; }
 
 /* ------------------------------------------------ table-talk log panel */
 .ct-talk {
-  flex: 0 0 300px; align-self: stretch;
+  flex: 0 0 var(--ct-log); align-self: stretch; min-height: 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 12px 14px; display: flex; flex-direction: column; max-height: 440px;
+  padding: 12px 14px; display: flex; flex-direction: column;
 }
 .ct-talk h3 {
   margin: 0 0 8px; color: var(--parch); font-size: 14px; letter-spacing: 0.06em;
@@ -271,7 +415,9 @@
 @keyframes ct-fly { from { transform: translate(-50%, -50%); } to { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))); opacity: 0.85; } }
 @keyframes ct-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-5px) rotate(-1.5deg); } 40% { transform: translateX(5px) rotate(1.5deg); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 @keyframes ct-wiggle { 0%,100% { transform: rotate(0); } 30% { transform: rotate(-4deg); } 65% { transform: rotate(4deg); } }
-@keyframes ct-bannerin { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes ct-lanein { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ct-fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ct-plaquein { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
 @keyframes ct-slotin { from { opacity: 0; transform: scale(0.4) rotate(-14deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes ct-missflash { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); } }
 
@@ -322,9 +468,18 @@
 .ct-seatlist .ed.pos { color: var(--good); }
 .ct-seatlist .ed.neg { color: var(--bad); }
 
-@media (max-width: 900px) {
-  .ct-wrap { flex-direction: column; }
-  .ct-talk { flex: 1 1 auto; width: 100%; max-height: 240px; }
+/* below this the board and the log stop fitting side by side at a usable size */
+@media (max-width: 1000px) {
+  /* stacked: a flex basis would become a HEIGHT in a column flex container */
+  .ct-wrap { flex-direction: column; align-items: center; }
+  .ct-main { flex: 0 0 auto; width: 100%; justify-content: center; }
+  .ct-talk { flex: 0 0 auto; width: 100%; max-height: 240px; }
+  /* the three groups stop fitting on one line — drop the rail to its own row */
+  .ct-seat {
+    grid-template-columns: minmax(0, var(--ct-name-w)) auto;
+    justify-content: space-between; gap: 12px 16px;
+  }
+  .ct-rail { grid-column: 1 / -1; justify-self: stretch; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ct-flyer, .ct-missflash { display: none; }

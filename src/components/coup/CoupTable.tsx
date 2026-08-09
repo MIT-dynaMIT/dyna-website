@@ -273,15 +273,16 @@ export default function CoupTable({
     const isTurn = view.turn === p.id && !view.winner;
     const you = i === youIndex;
     const dead = !p.alive;
+    // One horizontal band per player: name · hand · coins · life rail. The four
+    // tracks are fixed width so both players' columns line up for comparison.
     return (
       <div key={p.id}
         className={`ct-seat ${isTurn ? 'turn' : ''} ${you ? 'you' : ''} ${dead ? 'dead' : ''} ${fx.shake[i] ? 'shake' : ''}`}>
-        <div className="ct-plate">
-          {isTurn && <span className="ct-crown">▸</span>}
+        <div className="ct-plate" title={seatNames[i]}>
           <span className="nm">{seatNames[i]}</span>
           {dead && <span className="ct-fallen">fallen</span>}
         </div>
-        <div className="ct-mid">
+        <div className="ct-res">
           <div className="ct-seatcards" ref={(el) => { cardRefs.current[i] = el; }}>
             <div className="ct-hand">
               {p.cards.map((c, ci) => (
@@ -305,14 +306,17 @@ export default function CoupTable({
         <div className="ct-board" ref={boardRef}>
           <div className="ct-felt" />
 
-          {banner && (
-            <div className={`ct-banner t-${banner.tone}`}>
-              {banner.lead && <span className="lead">{banner.lead}</span>}
-              {banner.text}
-            </div>
-          )}
-
           <div className="ct-flow">
+            {/* the banner owns a reserved lane, so it can never land on a name plate */}
+            <div className="ct-lane">
+              {banner && (
+                <div className={`ct-banner t-${banner.tone}`}>
+                  {banner.lead && <span className="lead">{banner.lead}</span>}
+                  {banner.text}
+                </div>
+              )}
+            </div>
+
             {others.map((i) => renderSeat(i))}
 
             <div className="ct-center-row">
@@ -347,7 +351,11 @@ export default function CoupTable({
 
           {fx.missFlash && <div className="ct-missflash">MISS!</div>}
 
-          {overlay && <div className="ct-overlay">{overlay}</div>}
+          {overlay && (
+            <div className="ct-overlay">
+              <div className="ct-plaque">{overlay}</div>
+            </div>
+          )}
         </div>
       </div>
 

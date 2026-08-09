@@ -172,7 +172,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+      <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <h2 className="coup-h" style={{ margin: 0 }}>🎭 Your duel
           <small>heads-up · you are {snap.you}</small>
         </h2>

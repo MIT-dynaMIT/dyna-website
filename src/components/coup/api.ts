@@ -41,9 +41,9 @@ export interface SeriesInfo {
 }
 
 export interface CardView { revealed: boolean; role: string | null }
-// Heads-up "Ultimate" variant: two players, four lives each. Dead cards move
-// to the graveyard (face-up) and are replaced from the deck until the 3rd death.
-// `lives` is the count still standing, so lives + graveyard.length = the total.
+// Heads-up "Ultimate" variant: two players, four lives each. A dead card moves
+// to the graveyard (face-up) and is always replaced — hands stay at 2 cards
+// until the 4th death ends the game. lives + graveyard.length = the total.
 export interface PlayerView {
   id: string; coins: number; alive: boolean;
   lives: number; graveyard: string[]; cards: CardView[];

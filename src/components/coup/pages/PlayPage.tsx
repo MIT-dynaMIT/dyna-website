@@ -219,7 +219,7 @@ function actionGlyph(type: string) {
   return role ? ROLE_GLYPHS[role] : (type === 'coup' ? '⚔' : type === 'assassinate' ? '†' : type === 'income' ? '＋' : '⛃');
 }
 
-function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchangeSel, onMove }: {
+export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchangeSel, onMove }: {
   prompt: Prompt;
   callFor: string | null;
   setCallFor: (t: string | null) => void;

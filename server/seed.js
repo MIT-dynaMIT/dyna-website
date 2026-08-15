@@ -31,9 +31,9 @@ const scrim = new ScrimServer(store);
 const ADMIN_PASS = process.env.ADMIN_PASS || 'dynamit';
 
 // ------------------------------------------------------------ users
-function ensureUser(username, pass, displayName, isAdmin) {
+function ensureUser(username, pass, displayName, isAdmin, role) {
   if (!store.users[username]) {
-    const r = store.createUser(username, pass, displayName, isAdmin);
+    const r = store.createUser(username, pass, displayName, isAdmin, role);
     if (r.error) throw new Error(`${username}: ${r.error}`);
   }
   return store.users[username];
@@ -52,9 +52,8 @@ if (fs.existsSync(rosterPath)) {
     if (!row.trim()) continue;
     const [username, password, displayName, role] = row.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
     if (!username || !password) continue;
-    ensureUser(username, password, displayName || username, false);
+    ensureUser(username, password, displayName || username, false, role);
     rosterCount++;
-    void role;
   }
   console.log(`\n  ✓ ${rosterCount} camp logins from roster.csv`);
 } else {

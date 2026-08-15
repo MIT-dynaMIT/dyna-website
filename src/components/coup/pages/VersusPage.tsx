@@ -1,0 +1,272 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api, ApiError } from '../api';
+import type { CoupUser, Frame, GameView, LiveSnapshot, Prompt } from '../api';
+import { useLive, useToast } from '../CoupApp';
+import CoupTable, { describe } from '../CoupTable';
+import type { TalkLine } from '../CoupTable';
+import { ActionBar } from './PlayPage';
+
+const STEP_MS = 900;       // cadence while replaying the opponent's moves
+const POLL_MS = 1200;      // how often we ask the server for news mid-duel
+
+export default function VersusPage({ user }: { user: CoupUser }) {
+  const toast = useToast();
+  const live = useLive();
+
+  // localMatch makes accept-a-challenge snappy; the global poll catches up
+  const [localMatch, setLocalMatch] = useState<string | null>(null);
+  const matchId = localMatch ?? live?.match ?? null;
+
+  // ------------------------------------------------ live game state
+  const [snap, setSnap] = useState<LiveSnapshot | null>(null);
+  const [displayView, setDisplayView] = useState<GameView | null>(null);
+  const [prevView, setPrevView] = useState<GameView | null>(null);
+  const [stepLog, setStepLog] = useState<Record<string, unknown> | null>(null);
+  const [animKey, setAnimKey] = useState(0);
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [queue, setQueue] = useState<Frame[]>([]);
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [callFor, setCallFor] = useState<string | null>(null);
+  const [exchangeSel, setExchangeSel] = useState<number[]>([]);
+
+  const snapRef = useRef<LiveSnapshot | null>(null);
+  const viewRef = useRef<GameView | null>(null);
+  const pendingPrompt = useRef<Prompt | null>(null);
+  viewRef.current = displayView;
+
+  const applySnapshot = useCallback((s: LiveSnapshot, isStart: boolean) => {
+    const prev = snapRef.current;
+    snapRef.current = s;
+    setSnap(s);
+    pendingPrompt.current = s.prompt;
+    // don't wipe a half-picked call/exchange on a quiet poll — only when
+    // something actually happened or the ask itself changed
+    const promptChanged = JSON.stringify(prev?.prompt ?? null) !== JSON.stringify(s.prompt);
+    if (isStart || s.frames.length > 0 || promptChanged) {
+      setCallFor(null);
+      setExchangeSel([]);
+    }
+    if (isStart) {
+      setLogs([]);
+      setPrevView(null);
+      setQueue([]);
+      setDisplayView(s.view);
+      viewRef.current = s.view;
+      // opening frames replay from a blank table; skip straight to now
+      setLogs(s.frames.map((f) => f.log));
+      setPrompt(s.prompt);
+      return;
+    }
+    if (s.frames.length > 0) setQueue((q) => [...q, ...s.frames]);
+  }, []);
+
+  // drain the frame queue one step at a time, then reveal the prompt
+  useEffect(() => {
+    if (queue.length === 0) { setPrompt(pendingPrompt.current); return; }
+    const t = setTimeout(() => {
+      setQueue((q) => {
+        if (q.length === 0) return q;
+        const [f, ...rest] = q;
+        setPrevView(viewRef.current);
+        setDisplayView(f.view);
+        viewRef.current = f.view;
+        setStepLog(f.log);
+        setAnimKey((k) => k + 1);
+        setLogs((l) => [...l, f.log]);
+        return rest;
+      });
+    }, STEP_MS);
+    return () => clearTimeout(t);
+  }, [queue, snap]);
+
+  // join / rejoin the assigned duel
+  useEffect(() => {
+    if (!matchId) { setSnap(null); snapRef.current = null; return; }
+    if (snapRef.current?.id === matchId) return;
+    api.get<LiveSnapshot>(`/live/match/${matchId}?cursor=0`)
+      .then((s) => applySnapshot(s, true))
+      .catch(() => setLocalMatch(null));
+  }, [matchId, applySnapshot]);
+
+  // poll for the opponent's moves
+  useEffect(() => {
+    if (!matchId || !snap || (snap.done && queue.length === 0)) return;
+    const t = setInterval(() => {
+      const cur = snapRef.current;
+      if (!cur || busy) return;
+      api.get<LiveSnapshot>(`/live/match/${matchId}?cursor=${cur.cursor}`)
+        .then((s) => applySnapshot(s, false))
+        .catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(t);
+  }, [matchId, snap, busy, queue.length, applySnapshot]);
+
+  const sendMove = async (msg: Record<string, unknown>) => {
+    const s = snapRef.current;
+    if (!s || busy) return;
+    setBusy(true);
+    setPrompt(null);
+    try {
+      const next = await api.post<LiveSnapshot>(`/live/match/${s.id}/move`, { cursor: s.cursor, ...msg });
+      applySnapshot(next, false);
+    } catch (ex) {
+      toast(ex instanceof ApiError ? ex.message : 'the court rejected that move');
+      setPrompt(pendingPrompt.current);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const concede = async () => {
+    const s = snapRef.current;
+    if (!s) return;
+    if (!window.confirm('Concede this duel?')) return;
+    try {
+      const next = await api.post<LiveSnapshot>(`/live/match/${s.id}/forfeit`, { cursor: s.cursor });
+      applySnapshot(next, false);
+    } catch { /* poll will catch up */ }
+  };
+
+  const backToLobby = async () => {
+    try { await api.post('/live/leave'); } catch { /* fine */ }
+    setLocalMatch(null);
+    setSnap(null); snapRef.current = null;
+    setDisplayView(null); viewRef.current = null;
+    setPrevView(null); setLogs([]); setQueue([]); setPrompt(null);
+  };
+
+  // ------------------------------------------------ lobby
+  const challenge = async (to: string, name: string) => {
+    try {
+      await api.post('/live/challenge', { to });
+      toast(`Challenge sent to ${name} — waiting for them to accept.`);
+    } catch (ex) {
+      toast(ex instanceof Error ? ex.message : 'challenge failed');
+    }
+  };
+
+  const answerInvite = async (accept: boolean) => {
+    try {
+      const r = await api.post<{ match?: string }>('/live/respond', { accept });
+      if (accept && r.match) setLocalMatch(r.match);
+    } catch (ex) {
+      toast(ex instanceof Error ? ex.message : 'that challenge expired');
+    }
+  };
+
+  if (!matchId || !snap || !displayView) {
+    const online = live?.online ?? [];
+    return (
+      <div className="coup-grid2" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+        <div className="coup-card">
+          <h2 className="coup-h">🏟 The arena
+            <small>{online.length} other player{online.length === 1 ? '' : 's'} at court</small>
+          </h2>
+          <p className="coup-sub">Duel a REAL person, heads-up — same rules as the bot tables.
+            Challenge anyone online, or wait for the organizers to throw everyone into the pit at once.</p>
+          {live?.invite && (
+            <div className="coup-card" style={{ background: 'var(--panel-2)', marginBottom: 14 }}>
+              <p style={{ margin: '0 0 10px' }}>⚔ <b>{live.invite.fromName}</b> challenges you to a duel!</p>
+              <button className="primary" onClick={() => answerInvite(true)}>Accept</button>{' '}
+              <button className="ghost" onClick={() => answerInvite(false)}>Decline</button>
+            </div>
+          )}
+          {online.length === 0 && <p className="coup-note">Nobody else is online right now — the court is quiet.</p>}
+          {online.length > 0 && (
+            <table className="coup-table">
+              <thead><tr><th>Player</th><th /><th /></tr></thead>
+              <tbody>
+                {online.map((o) => (
+                  <tr key={o.username}>
+                    <td>{o.displayName}</td>
+                    <td style={{ color: 'var(--ink-mut)', fontSize: 12.5 }}>{o.role === 'mentor' ? 'mentor' : o.role === 'organizer' ? 'organizer' : ''}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="small" onClick={() => challenge(o.username, o.displayName)}>⚔ Challenge</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="coup-card">
+          <h2 className="coup-h">How it works</h2>
+          <p className="coup-sub">
+            Challenges arrive live — the other player gets an Accept button within a few
+            seconds. When the organizers hit the big red button, every online student is
+            paired into a random duel and pulled straight to this page. Leaving a duel
+            mid-game concedes it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------ game screen
+  const talk: TalkLine[] = logs.map((l) => describe(l, snap.seatNames)).filter(Boolean) as TalkLine[];
+  const banner = talk.length ? talk[talk.length - 1] : null;
+  const animating = queue.length > 0;
+  const showPrompt = !animating && !!prompt && !busy;
+  const done = snap.done && !animating;
+  const oppName = snap.seatNames[1 - snap.youIndex];
+
+  const overlay = done ? (
+    <>
+      <div className="crown">♛</div>
+      <div className="rules">
+        {snap.forfeited && <div style={{ marginBottom: 6 }}>The duel was conceded.</div>}
+        {snap.winnerName === user.displayName
+          ? <><b>You</b> rule the court!</>
+          : <><b>{snap.winnerName}</b> rules the court.</>}
+      </div>
+      <div className="ovbtns"><button className="primary" onClick={backToLobby}>Back to the arena</button></div>
+    </>
+  ) : null;
+
+  return (
+    <div>
+      <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+        <h2 className="coup-h" style={{ margin: 0 }}>🏟 Live duel
+          <small>you vs {oppName} — a real person!</small>
+        </h2>
+        <div style={{ flex: 1 }} />
+        {!done && <button className="ghost small danger" onClick={concede}>Concede</button>}
+      </div>
+
+      <CoupTable
+        seatNames={snap.seatNames}
+        view={displayView}
+        prevView={prevView}
+        stepLog={stepLog}
+        animate
+        animKey={animKey}
+        youIndex={snap.youIndex}
+        banner={banner}
+        talk={talk}
+        overlay={overlay}
+      />
+
+      {!done && (
+        <div className="ct-actionbar">
+          {animating && <p className="barsub">The tale unfolds…</p>}
+          {showPrompt && prompt && (
+            <ActionBar
+              prompt={prompt}
+              callFor={callFor}
+              setCallFor={setCallFor}
+              exchangeSel={exchangeSel}
+              setExchangeSel={setExchangeSel}
+              onMove={sendMove}
+            />
+          )}
+          {!animating && !showPrompt && (
+            <p className="barsub">
+              {snap.waitingFor ? <>Waiting for <b>{snap.waitingFor}</b>…</> : 'Waiting…'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

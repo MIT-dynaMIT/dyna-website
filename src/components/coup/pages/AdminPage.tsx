@@ -34,6 +34,13 @@ export default function AdminPage() {
     refresh();
   };
 
+  const pairUp = async () => {
+    const r = await api.post<{ matches: number; paired: number; benched: string | null }>('/admin/pair-online');
+    if (!r.matches && !r.benched) { toast('No students are online right now'); return; }
+    toast(`⚔ ${r.paired} students sent to ${r.matches} duel${r.matches === 1 ? '' : 's'}`
+      + (r.benched ? ` — ${r.benched} sits out (odd one out)` : ''));
+  };
+
   const resetPw = async (username: string) => {
     const pw = window.prompt(`New password for ${username}:`, 'coup123');
     if (!pw) return;
@@ -61,6 +68,10 @@ export default function AdminPage() {
         </h2>
         <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={toggleScrims}>{data.running ? '⏸ Pause scrims' : '▶ Resume scrims'}</button>
+          <button className="primary" onClick={pairUp}
+            title="Every online student is paired into a random live duel and pulled to the Versus page">
+            ⚔ Pair up online students
+          </button>
           {data.perf && (
             <span className="coup-sub" style={{ margin: 0, fontSize: 13 }}>
               ladder slice {data.perf.lastChunkMs}ms · worst {data.perf.maxChunkMs}ms

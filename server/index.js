@@ -15,6 +15,7 @@ const express = require('express');
 const { Store } = require('./store');
 const { ScrimServer } = require('./scrim');
 const { PlayManager } = require('./play');
+const { LiveManager } = require('./live');
 const { ScriptBot, checkProgram } = require('./botapi');
 const { replayMatch } = require('./runner');
 const { HOUSE } = require('./samplebots/bots');
@@ -23,6 +24,7 @@ const PORT = Number(process.env.PORT || 8787);
 const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
 const scrim = new ScrimServer(store);
 const plays = new PlayManager();
+const live = new LiveManager(store);
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -206,6 +208,51 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
   res.json(sess.snapshot(cursor));
 });
 
+// ------------------------------------------------------------ live (human vs human)
+// presence heartbeat + who's online + your invite/match — clients poll this
+app.post('/api/coup/live/poll', auth, (req, res) => {
+  res.json(live.poll(req.user));
+});
+
+app.post('/api/coup/live/challenge', auth, (req, res) => {
+  const r = live.challenge(req.user, req.body.to);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+app.post('/api/coup/live/respond', auth, (req, res) => {
+  const r = live.respondInvite(req.user, !!req.body.accept);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+app.post('/api/coup/live/leave', auth, (req, res) => {
+  live.leave(req.user);
+  res.json({ ok: true });
+});
+
+app.get('/api/coup/live/match/:id', auth, (req, res) => {
+  const sess = live.get(req.params.id);
+  if (!sess || !sess.seatOf[req.user.username]) return res.status(404).json({ error: 'no such duel' });
+  res.json(sess.snapshot(req.user.username, Number(req.query.cursor) || 0));
+});
+
+app.post('/api/coup/live/match/:id/move', auth, (req, res) => {
+  const sess = live.get(req.params.id);
+  if (!sess || !sess.seatOf[req.user.username]) return res.status(404).json({ error: 'no such duel' });
+  const cursor = Number(req.body.cursor) || 0;
+  try { sess.move(req.user.username, req.body || {}); }
+  catch (err) { return res.status(400).json({ error: err.message }); }
+  res.json(sess.snapshot(req.user.username, cursor));
+});
+
+app.post('/api/coup/live/match/:id/forfeit', auth, (req, res) => {
+  const sess = live.get(req.params.id);
+  if (!sess || !sess.seatOf[req.user.username]) return res.status(404).json({ error: 'no such duel' });
+  sess.forfeit(req.user.username);
+  res.json(sess.snapshot(req.user.username, Number(req.body.cursor) || 0));
+});
+
 // ------------------------------------------------------------ admin
 app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
   res.json({
@@ -234,9 +281,14 @@ app.post('/api/coup/admin/reset-password', auth, adminOnly, (req, res) => {
 });
 
 app.post('/api/coup/admin/create-user', auth, adminOnly, (req, res) => {
-  const r = store.createUser(req.body.username, req.body.password || 'coup123', req.body.displayName, false);
+  const r = store.createUser(req.body.username, req.body.password || 'coup123', req.body.displayName, false, req.body.role);
   if (r.error) return res.status(400).json(r);
   res.json({ ok: true, user: pub(r.user) });
+});
+
+// pair every online student into a random live duel
+app.post('/api/coup/admin/pair-online', auth, adminOnly, (req, res) => {
+  res.json(live.pairStudents());
 });
 
 // SPA fallback for /coup/* deep links in production mode

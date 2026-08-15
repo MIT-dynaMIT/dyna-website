@@ -59,7 +59,7 @@ class Store {
   }
 
   // ------------------------------------------------------------ users/auth
-  createUser(username, password, displayName, isAdmin = false) {
+  createUser(username, password, displayName, isAdmin = false, role = 'student') {
     const uname = String(username || '').trim().toLowerCase();
     if (!/^[a-z0-9_]{2,20}$/.test(uname)) return { error: 'username: 2-20 letters/numbers' };
     if (this.users[uname]) return { error: 'username taken' };
@@ -68,6 +68,7 @@ class Store {
       displayName: String(displayName || username).slice(0, 24),
       pass: hashPassword(password),
       isAdmin: !!isAdmin,
+      role: isAdmin ? 'organizer' : (role === 'mentor' ? 'mentor' : 'student'),
     };
     this._save('users.json', this.users);
     return { user: this.users[uname] };

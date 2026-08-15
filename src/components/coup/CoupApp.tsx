@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, clearAuth, getStoredUser, storeAuth } from './api';
-import type { CoupUser } from './api';
+import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
 import EditorPage from './pages/EditorPage';
 import ScrimPage from './pages/ScrimPage';
 import PlayPage from './pages/PlayPage';
+import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
 import ReplayPage from './pages/ReplayPage';
 import AdminPage from './pages/AdminPage';
@@ -14,6 +15,12 @@ import AdminPage from './pages/AdminPage';
 // ------------------------------------------------------------ toast
 const ToastCtx = createContext<(msg: string) => void>(() => {});
 export const useToast = () => useContext(ToastCtx);
+
+// ------------------------------------------------------------ live presence
+// One app-wide heartbeat: tells the server we're online, and carries back
+// who else is, any challenge aimed at us, and the duel we belong at.
+const LiveCtx = createContext<LivePollData | null>(null);
+export const useLive = () => useContext(LiveCtx);
 
 // ------------------------------------------------------------ login
 function LoginPage({ onLogin }: { onLogin: (u: CoupUser) => void }) {
@@ -63,6 +70,42 @@ export default function CoupApp() {
   const [toast, setToast] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // live presence heartbeat — and the tap on the shoulder when you're paired
+  const [live, setLive] = useState<LivePollData | null>(null);
+  const lastMatch = useRef<string | null>(null);
+  const lastInviteFrom = useRef<string | null>(null);
+  const onVersus = location.pathname.startsWith('/coup/versus');
+  const onVersusRef = useRef(onVersus);
+  onVersusRef.current = onVersus;
+
+  useEffect(() => {
+    if (!user) { setLive(null); return; }
+    let stop = false;
+    const beat = async () => {
+      try {
+        const d = await api.post<LivePollData>('/live/poll');
+        if (stop) return;
+        setLive(d);
+        if (d.match && d.match !== lastMatch.current) {
+          lastMatch.current = d.match;
+          if (!onVersusRef.current) navigate('/coup/versus');
+        }
+        if (!d.match) lastMatch.current = null;
+        const from = d.invite?.from ?? null;
+        if (from && from !== lastInviteFrom.current && !onVersusRef.current) {
+          setToast(`⚔ ${d.invite!.fromName} challenges you — head to Versus!`);
+          clearTimeout(toastTimer.current);
+          toastTimer.current = setTimeout(() => setToast(''), 4000);
+        }
+        lastInviteFrom.current = from;
+      } catch { /* offline blip — next beat retries */ }
+    };
+    beat();
+    const t = setInterval(beat, 3000);
+    return () => { stop = true; clearInterval(t); };
+  }, [user, navigate]);
 
   // the game world is dark — paint the page itself so overscroll never flashes white
   useEffect(() => {
@@ -91,12 +134,14 @@ export default function CoupApp() {
     { name: 'Bot Editor', to: '/coup/editor' },
     { name: 'Scrimmage', to: '/coup/scrim' },
     { name: 'Play a Table', to: '/coup/play' },
+    { name: 'Versus', to: '/coup/versus' },
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
 
   return (
     <ToastCtx.Provider value={showToast}>
+      <LiveCtx.Provider value={live}>
       <div className="coup-root">
         <div className="coup-shell">
           <header className="coup-top">
@@ -119,6 +164,7 @@ export default function CoupApp() {
             <Route path="editor" element={<EditorPage user={user} />} />
             <Route path="scrim" element={<ScrimPage user={user} />} />
             <Route path="play" element={<PlayPage user={user} />} />
+            <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />
@@ -127,6 +173,7 @@ export default function CoupApp() {
         </div>
         <div className={`coup-toast ${toast ? 'show' : ''}`}>{toast}</div>
       </div>
+      </LiveCtx.Provider>
     </ToastCtx.Provider>
   );
 }

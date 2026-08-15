@@ -89,6 +89,19 @@ export interface PlaySnapshot {
   prompt: Prompt | null; done: boolean; winnerName: string | null;
 }
 
+// live human-vs-human
+export interface LiveOnlineUser { username: string; displayName: string; role: string }
+export interface LivePollData {
+  online: LiveOnlineUser[];
+  invite: { from: string; fromName: string } | null;
+  match: string | null;
+}
+export interface LiveSnapshot extends PlaySnapshot {
+  youIndex: number;
+  waitingFor: string | null;
+  forfeited: boolean;
+}
+
 export interface CheckResult {
   ok: boolean;
   problems: { fn?: string; line?: number; message: string }[];

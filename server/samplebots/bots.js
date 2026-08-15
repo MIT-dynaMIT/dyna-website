@@ -386,7 +386,7 @@ const THE_EQUILIBRIST = S(`
     def suspicion(state, who, role):
         if unseen_copies(state, role) == 0:
             return 9
-        s = who.series_caught_bluffing * 0.06 + who.times_caught_bluffing * 0.2
+        s = who.series_caught_per_game * 1.5 + who.times_caught_bluffing * 0.2
         s = s + len(who.claims) * 0.1
         s = s + (1 - prob_opponent_has(state, role)) * 0.5
         reps = times_claimed(who, role)
@@ -436,7 +436,7 @@ const THE_EQUILIBRIST = S(`
     def respond(state, action):
         if action.claimed_role != None:
             th = 1.0
-            if warmed(state) and state.opponent.series_caught_bluffing >= 3:
+            if warmed(state) and state.opponent.series_caught_per_game >= 0.15:
                 th = th - 0.3
             if suspicion(state, state.opponent, action.claimed_role) > th:
                 return challenge()

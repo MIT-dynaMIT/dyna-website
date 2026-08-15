@@ -177,8 +177,12 @@ function buildState(game, selfId, names, seriesCtx = null) {
       series_wins: sw,
       series_challenges_per_game: played > 0 ? (ss.challenges || 0) / played : 0,
       series_claims_per_game: played > 0 ? (ss.claims || 0) / played : 0,
-      series_caught_bluffing: ss.caught || 0,
+      series_caught_bluffing: ss.caught || 0,           // raw totals (stop-rules)
       series_honest_proofs: ss.proofs || 0,
+      // per-game RATES — bounded, comparable at any point in the series;
+      // use these in suspicion math (totals grow forever and diverge)
+      series_caught_per_game: played > 0 ? (ss.caught || 0) / played : 0,
+      series_proofs_per_game: played > 0 ? (ss.proofs || 0) / played : 0,
       series_contessa_rate: played > 0 ? (ss.contessaBlocks || 0) / played : 0,
       __id: p.id,
     };
@@ -264,7 +268,8 @@ function buildActionInfo(game, state, kind) {
 const NUMERIC_PLAYER_PROPS = new Set(['coins', 'num_cards', 'lives', 'claims', 'cards_lost', 'graveyard',
   'challenges_made', 'successful_challenges', 'times_caught_bluffing',
   'series_win_rate', 'series_wins', 'series_challenges_per_game', 'series_claims_per_game',
-  'series_caught_bluffing', 'series_honest_proofs', 'series_contessa_rate']);
+  'series_caught_bluffing', 'series_honest_proofs', 'series_contessa_rate',
+  'series_caught_per_game', 'series_proofs_per_game']);
 
 function pickOpponent(st, prop, dir) {
   const p = String(prop || '');

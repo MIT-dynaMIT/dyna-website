@@ -26,3 +26,6 @@ dist-ssr
 # dynaCOUP server
 server/node_modules/
 server/data/
+
+# camp logins with plaintext passwords — never commit
+server/roster.csv

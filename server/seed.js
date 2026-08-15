@@ -1,9 +1,13 @@
 /**
- * seed — set up the camp: admin login, a dozen sample students with bots,
- * submit them all to the scrimmage ladder, and pre-play a pile of games so
- * the leaderboard is alive before anyone logs in.
+ * seed — set up the camp: the admin login, real camper/mentor logins from
+ * roster.csv (if present), the three graded house bots on the ladder, and a
+ * pile of pre-played series so the leaderboard is alive before anyone logs in.
  *
- *   node seed.js [games]        (default 1500; use --fresh to wipe data/)
+ *   node seed.js [series]       (default 60; use --fresh to wipe data/)
+ *
+ * roster.csv lives next to this file (NOT in data/, so --fresh keeps it and
+ * NOT in git — it holds plaintext passwords). Columns:
+ *   username,password,displayName,role      role = student | mentor
  */
 'use strict';
 
@@ -19,15 +23,14 @@ const { Store } = require('./store');
 const { ScrimServer } = require('./scrim');
 const { checkProgram } = require('./botapi');
 const { replayMatch } = require('./runner');
-const { BOTS, HOUSE } = require('./samplebots/bots');
+const { HOUSE, THE_SCAFFOLD } = require('./samplebots/bots');
 
 const store = new Store(dataDir);
 const scrim = new ScrimServer(store);
 
 const ADMIN_PASS = process.env.ADMIN_PASS || 'dynamit';
-const STUDENT_PASS = 'coup123';
 
-// ------------------------------------------------------------ users + bots
+// ------------------------------------------------------------ users
 function ensureUser(username, pass, displayName, isAdmin) {
   if (!store.users[username]) {
     const r = store.createUser(username, pass, displayName, isAdmin);
@@ -38,37 +41,40 @@ function ensureUser(username, pass, displayName, isAdmin) {
 
 const admin = ensureUser('admin', ADMIN_PASS, 'Organizer', true);
 // the kid scaffold template lives in the organizer's last slot
-{
-  const { THE_SCAFFOLD } = require('./samplebots/bots');
-  store.saveSlot(admin, 99, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
+store.saveSlot(admin, 99, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
+
+// real camp logins — generated from the camp spreadsheet
+const rosterPath = path.join(__dirname, 'roster.csv');
+let rosterCount = 0;
+if (fs.existsSync(rosterPath)) {
+  const rows = fs.readFileSync(rosterPath, 'utf8').trim().split('\n').slice(1);
+  for (const row of rows) {
+    if (!row.trim()) continue;
+    const [username, password, displayName, role] = row.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+    if (!username || !password) continue;
+    ensureUser(username, password, displayName || username, false);
+    rosterCount++;
+    void role;
+  }
+  console.log(`\n  ✓ ${rosterCount} camp logins from roster.csv`);
+} else {
+  console.log('\n  (no roster.csv — only the admin login exists; see server/roster.csv)');
 }
 
-console.log('\nSeeding students + bots…');
-const roster = [];
-for (const b of BOTS) {
-  const u = ensureUser(b.username, STUDENT_PASS, b.displayName, false);
-  const check = checkProgram(b.source);
+// ------------------------------------------------------------ house bots
+console.log('\nSeeding house bots…');
+HOUSE.forEach((h, i) => {
+  const check = checkProgram(h.source);
   if (!check.ok) {
-    console.error(`  ✗ ${b.displayName}'s bot has problems:`, check.problems);
+    console.error(`  ✗ ${h.name} has problems:`, check.problems);
     process.exit(1);
   }
-  store.saveSlot(u, 0, { name: b.botName, mode: 'python', python: b.source });
-  if (!store.mySubmissions(u).length) {
-    const r = store.submit(u, 0);
+  store.saveSlot(admin, i, { name: h.name, mode: 'python', python: h.source });
+  if (!store.scrim.submissions.some((s) => s.owner === 'admin' && s.slot === i)) {
+    const r = store.submit(admin, i);
     if (r.error) throw new Error(r.error);
   }
-  roster.push({ login: b.username, password: STUDENT_PASS, name: b.displayName, bot: b.botName });
-  console.log(`  ✓ ${b.displayName} (${b.username}) — ${b.botName}`);
-}
-// the organizer's two ladder bots live in the first two slots
-HOUSE.forEach((h, i) => {
-  const slot = i;
-  store.saveSlot(admin, slot, { name: h.name, mode: 'python', python: h.source });
-  if (!store.scrim.submissions.some((s) => s.owner === 'admin' && s.slot === slot)) {
-    const r = store.submit(admin, slot);
-    if (r.error) throw new Error(r.error);
-  }
-  console.log(`  ✓ organizer bot — ${h.name} (slot ${slot + 1})`);
+  console.log(`  ✓ house bot — ${h.name} (slot ${i + 1})`);
 });
 
 // ------------------------------------------------------------ warm the ladder
@@ -102,7 +108,9 @@ console.log(`\n  bot runtime errors across all games: ${errTotal}`);
 
 console.log('\n=== LOGINS ===');
 console.log(`  admin / ${ADMIN_PASS}   (organizer console)`);
-for (const r of roster) console.log(`  ${r.login.padEnd(10)} / ${r.password}   ${r.name}`);
+console.log(rosterCount
+  ? `  + ${rosterCount} camp logins — usernames and passwords in server/roster.csv`
+  : '  (no camp logins yet)');
 console.log('');
 
 store.flush();

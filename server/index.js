@@ -212,6 +212,8 @@ app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
     leaderboard: store.leaderboard(),
     totalGames: store.scrim.totalGames,
     running: !!store.scrim.running,
+    // ladder health: the longest the scrim loop has held the event loop
+    perf: { lastChunkMs: scrim.lastChunkMs, maxChunkMs: scrim.maxChunkMs, lastError: scrim.lastError },
     students: Object.values(store.users).filter((u) => u.username !== '__house').map((u) => ({
       username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin,
       slotsUsed: (store.bots[u.username] || []).filter(Boolean).length,

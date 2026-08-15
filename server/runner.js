@@ -143,12 +143,19 @@ function accumulateSeriesStats(log, names, statsByName) {
 }
 
 /**
- * A MATCHUP: `total` games between two bots, seats alternating, with series
- * memory (score + behavioral aggregates) fed to both bots each game.
+ * A MATCHUP, as a generator: `total` games between two bots, seats
+ * alternating, with series memory (score + behavioral aggregates) fed to both
+ * bots each game. Yields every `chunk` games so a caller that shares a thread
+ * with an HTTP server can hand the event loop back between batches; the
+ * return value is the finished series.
+ *
+ * Yielding changes scheduling only — every game is seeded from `seedBase`
+ * alone, so draining this at any chunk size gives bit-identical results.
+ *
  * → { winsByName, statsByName, winStrip (A's perspective), samples, errors,
  *     turnsTotal, adjudicated }
  */
-function playSeries({ botA, botB, total = 100, seedBase = 1, gameOpts, sampleAt = null }) {
+function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, sampleAt = null, chunk = 5 }) {
   const winsByName = { [botA.name]: 0, [botB.name]: 0 };
   const statsByName = {
     [botA.name]: { challenges: 0, claims: 0, caught: 0, proofs: 0, contessaBlocks: 0 },
@@ -177,8 +184,17 @@ function playSeries({ botA, botB, total = 100, seedBase = 1, gameOpts, sampleAt 
     if (sampleIdx.has(g)) {
       samples.push({ g: g + 1, seed, seatNames: r.seatNames, decisions: r.decisions, winnerName: r.winnerName });
     }
+    if (chunk > 0 && (g + 1) % chunk === 0 && g + 1 < total) yield g + 1;
   }
   return { winsByName, statsByName, winStrip, samples, errors, turnsTotal, adjudicated, total };
+}
+
+/** Drain a matchup in one go — for seeding and any offline batch run. */
+function playSeries(opts) {
+  const it = playSeriesIter(opts);
+  let step = it.next();
+  while (!step.done) step = it.next();
+  return step.value;
 }
 
 /**
@@ -218,4 +234,4 @@ function replayMatch({ seed, seatNames, decisions }) {
   return { frames, seatNames, winnerName: game.winner ? seatNames[ids.indexOf(game.winner)] : null };
 }
 
-module.exports = { playBotGame, playSeries, replayMatch, mulberry32 };
+module.exports = { playBotGame, playSeries, playSeriesIter, replayMatch, mulberry32 };

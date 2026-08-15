@@ -2,7 +2,7 @@
  * botapi — the bridge between the heads-up Coup engine and student bots.
  *
  * Student functions (all optional, safe fallbacks everywhere):
- *   your_turn(state)                 → income() | tax() | steal() | exchange()
+ *   your_turn(state)                 → income() | tax() | exchange()
  *                                      | foreign_aid() | coup(role)
  *                                      | assassinate(role, p)
  *                                      (coup/assassinate NAME a character —
@@ -291,7 +291,12 @@ function gameBuiltins(state) {
     nat('foreign_aid', () => ({ __act: 'foreign_aid' })),
     nat('tax', () => ({ __act: 'tax' })),
     nat('exchange', () => ({ __act: 'exchange' })),
-    nat('steal', () => ({ __act: 'steal' })),
+    // no Captain in the dynaMIT rules, so no steal. Kept registered (rather
+    // than simply absent) so calling it explains itself instead of surfacing
+    // as a bare "not defined" — same wording the block decompiler uses.
+    nat('steal', () => {
+      throw new Error('steal() is not a move — there is no Captain in the dynaMIT rules. Try income(), foreign_aid(), tax(), exchange(), coup(role) or assassinate(role, p).');
+    }),
     // coup("duke") — CALL the coup; coup() lets the engine pick best_coup_call
     nat('coup', (call) => ({ __act: 'coup', call: asRole(call, 'coup') })),
     // assassinate("captain", p): name the character; challenge a Contessa
@@ -575,7 +580,7 @@ function checkProgram(source) {
     g1.player('a').coins = 3;
     g1.player('b').coins = 8;
     g1.log.push({ n: g1.log.length, t: 'action', action: 'tax', player: 'b', target: null });
-    g1.log.push({ n: g1.log.length, t: 'action', action: 'steal', player: 'b', target: 'a' });
+    g1.log.push({ n: g1.log.length, t: 'action', action: 'assassinate', player: 'b', target: 'a' });
     if (program.has('your_turn')) {
       const st = buildState(g1, 'a', names, {});
       const r = callRaw('your_turn', st, [], rng);
@@ -587,7 +592,7 @@ function checkProgram(source) {
         if (!v || typeof v !== 'object' || !v.__act) {
           once('your_turn', v === null || v === undefined
             ? 'returned nothing — EVERY path through your_turn must end with "return <an action>" like "return income()". Check each if/else branch!'
-            : `returned ${describeReturn(v)} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), steal(), exchange(), coup(role) or assassinate(role, p).`);
+            : `returned ${describeReturn(v)} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), exchange(), coup(role) or assassinate(role, p).`);
         } else if (!legal.includes(v.__act)) {
           once('your_turn', `tried to ${v.__act}() with only ${g1.player('a').coins} coins — the game would reject it. Check costs (coup 7, assassinate 3) before returning.`);
         }

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "seed": "node server/seed.js",
+    "stress": "node server/stress.js",
     "camp": "node server/index.js & vite"
   },
   "dependencies": {

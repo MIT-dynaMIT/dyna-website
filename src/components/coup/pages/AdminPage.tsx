@@ -7,6 +7,7 @@ interface Overview {
   leaderboard: LeaderRow[];
   totalGames: number;
   running: boolean;
+  perf?: { lastChunkMs: number; maxChunkMs: number; lastError: string | null };
   students: {
     username: string; displayName: string; isAdmin: boolean;
     slotsUsed: number; submitted: string[];
@@ -58,8 +59,14 @@ export default function AdminPage() {
         <h2 className="coup-h">👑 Full leaderboard
           <small>{data.leaderboard.length} bots · {data.totalGames.toLocaleString()} games</small>
         </h2>
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={toggleScrims}>{data.running ? '⏸ Pause scrims' : '▶ Resume scrims'}</button>
+          {data.perf && (
+            <span className="coup-sub" style={{ margin: 0, fontSize: 13 }}>
+              ladder slice {data.perf.lastChunkMs}ms · worst {data.perf.maxChunkMs}ms
+              {data.perf.lastError && <strong style={{ color: 'var(--bad, #c0392b)' }}> · {data.perf.lastError}</strong>}
+            </span>
+          )}
         </div>
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
           <table className="coup-table">

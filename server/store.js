@@ -200,7 +200,10 @@ class Store {
       if (r.errors) sub.errors += r.errors;
     }
     this._save('scrim.json', this.scrim);
-    this._save('matches.json', this.matches, 4000);
+    // matches.json carries sample replays (~10KB/series, ~4.7MB at the cap) and
+    // nothing reads it between writes, so it saves on a lazy debounce; flush()
+    // on SIGINT/SIGTERM covers clean shutdown.
+    this._save('matches.json', this.matches, 30000);
   }
 
   getMatch(id) { return this.matches.list.find((m) => m.id === id) || null; }

@@ -14,17 +14,21 @@
 'use strict';
 
 const { ScriptBot } = require('./botapi');
-const { playSeries } = require('./runner');
+const { playSeriesIter } = require('./runner');
 
 const K = 32;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
+const CHUNK = Number(process.env.COUP_SCRIM_CHUNK || 5);  // games per event-loop slice
 
 class ScrimServer {
   constructor(store) {
     this.store = store;
     this._programs = new Map(); // submissionId → {key, bot}
     this._timer = null;
+    this._inflight = null;      // {sa, sb, seedBase, it} — series being played in slices
     this.lastError = null;
+    this.lastChunkMs = 0;
+    this.maxChunkMs = 0;
   }
 
   _botFor(sub) {
@@ -55,8 +59,11 @@ class ScrimServer {
     return out;
   }
 
-  /** play one full 100-game matchup between two sampled submissions */
-  playOne(seedBase = (Math.random() * 2 ** 31) | 0) {
+  /**
+   * Pick a pairing and return the series generator, unstarted.
+   * → {sa, sb, seedBase, it} or null if there is nothing to play.
+   */
+  _beginSeries(seedBase) {
     const subs = this.store.scrim.submissions;
     if (subs.length < 2) return null;
     const [sa, sb] = this._sample(subs, 2);
@@ -64,12 +71,27 @@ class ScrimServer {
     const botB = this._botFor(sb);
     if (!botA || !botB) return null;
 
-    const r = playSeries({
-      botA: { bot: botA, name: sa.name },
-      botB: { bot: botB, name: sb.name },
-      total: SERIES_GAMES, seedBase,
-    });
+    return {
+      sa, sb, seedBase,
+      it: playSeriesIter({
+        botA: { bot: botA, name: sa.name },
+        botB: { bot: botB, name: sb.name },
+        total: SERIES_GAMES, seedBase, chunk: CHUNK,
+      }),
+    };
+  }
 
+  /** play one full 100-game matchup between two sampled submissions */
+  playOne(seedBase = (Math.random() * 2 ** 31) | 0) {
+    const ctx = this._beginSeries(seedBase);
+    if (!ctx) return null;
+    let step = ctx.it.next();
+    while (!step.done) step = ctx.it.next();
+    return this._finishSeries(ctx, step.value);
+  }
+
+  /** score a finished series: elo, per-bot stats, stored match record */
+  _finishSeries({ sa, sb, seedBase }, r) {
     const winsA = r.winsByName[sa.name];
     const score = winsA / SERIES_GAMES;                       // display only
     const result = winsA * 2 === SERIES_GAMES ? 0.5 : winsA * 2 > SERIES_GAMES ? 1 : 0;
@@ -100,21 +122,62 @@ class ScrimServer {
     return match;
   }
 
+  /**
+   * Run the ladder continuously WITHOUT blocking the HTTP server.
+   *
+   * A 100-game series is 170ms-2s of solid CPU depending on how passive the
+   * two bots are, so playing whole series inside a timer callback froze every
+   * request behind it. Instead one series is spread across `CHUNK`-game
+   * slices, each handed back to the event loop via setImmediate: express gets
+   * to answer between slices and the worst-case stall is one slice.
+   *
+   * Throughput is unchanged — `seriesPerTick` series per `intervalMs` is just
+   * respaced as one series every intervalMs/seriesPerTick. If a series overruns
+   * its slot the next start is skipped, which is the backpressure we want.
+   */
   start(intervalMs = 20000, seriesPerTick = 1) {
     this.stop();
-    this._timer = setInterval(() => {
-      if (!this.store.scrim.running) return;
+    const slotMs = Math.max(1, Math.round(intervalMs / Math.max(1, seriesPerTick)));
+
+    const advance = () => {
+      if (!this._inflight) return;
+      const t0 = Date.now();
       try {
-        for (let i = 0; i < seriesPerTick; i++) this.playOne();
+        const step = this._inflight.it.next();
+        if (step.done) {
+          this._finishSeries(this._inflight, step.value);
+          this._inflight = null;
+        }
         this.lastError = null;
       } catch (err) {
+        this._inflight = null;
         this.lastError = err.message;
         console.error('[scrim]', err);
       }
-    }, intervalMs);
+      this.lastChunkMs = Date.now() - t0;
+      if (this.lastChunkMs > this.maxChunkMs) this.maxChunkMs = this.lastChunkMs;
+      if (this._inflight) setImmediate(advance);
+    };
+
+    this._timer = setInterval(() => {
+      if (!this.store.scrim.running) return;
+      if (this._inflight) return;              // previous series still running
+      try {
+        this._inflight = this._beginSeries((Math.random() * 2 ** 31) | 0);
+      } catch (err) {
+        this.lastError = err.message;
+        console.error('[scrim]', err);
+        return;
+      }
+      if (this._inflight) setImmediate(advance);
+    }, slotMs);
     if (this._timer.unref) this._timer.unref();
   }
-  stop() { if (this._timer) clearInterval(this._timer); this._timer = null; }
+  stop() {
+    if (this._timer) clearInterval(this._timer);
+    this._timer = null;
+    this._inflight = null;
+  }
 
   runMany(n, onProgress) {
     let played = 0;

@@ -61,7 +61,9 @@ class CoupGame {
     this.winner = null;
     this.log = [];
     this.ctx = null;
-    this.loseQueue = [];   // [{playerId, why, forcedRole?}]
+    // challenge penalties wait until the ACTION has fully resolved:
+    // action first, then penalty discards, then everyone refills to 2
+    this.penaltyQueue = [];   // [{playerId, why}]
     this.pending = null;
     this._beginTurn(true);
   }
@@ -173,19 +175,22 @@ class CoupGame {
     const truthful = this.hasRole(claimant, claim.role);
     this._log({ t: 'challenge', by: challengerId, against: claim.player, role: claim.role, truthful });
     if (truthful) {
+      // wrong challenge: the action continues FIRST; the challenger's
+      // penalty discard waits for the end of the sequence
       this._replaceCard(claimant, claim.role);
-      this._queueLose(challengerId, 'lost challenge');
-      this.ctx.afterLoses = blocking ? 'blockStands' : 'afterActionClaim';
-    } else {
-      this._queueLose(claim.player, 'caught bluffing');
-      if (blocking) {
-        this.ctx.afterLoses = 'applyAction';
-      } else {
-        if (this.ctx.type === 'assassinate') this.player(this.ctx.actor).coins += 3; // refund
-        this.ctx.afterLoses = 'endTurn';
-      }
+      this.penaltyQueue.push({ playerId: challengerId, why: 'lost challenge' });
+      return blocking ? this._blockStands() : this._afterActionClaim();
     }
-    this._drainLoses();
+    // caught bluffing
+    this.penaltyQueue.push({ playerId: claim.player, why: 'caught bluffing' });
+    if (blocking) {
+      // the block fails: the original action goes through FIRST (a called
+      // card dies), then the blocker pays the challenge penalty
+      return this._applyAction();
+    }
+    // a bluffed action claim never happens at all
+    if (this.ctx.type === 'assassinate') this.player(this.ctx.actor).coins += 3; // refund
+    this._endTurn();
   }
 
   _afterActionClaim() {
@@ -258,8 +263,8 @@ class CoupGame {
     if (!this.isAlive(tgt)) return this._endTurn();
     if (this.hasRole(tgt, call)) {
       this._log({ t: 'hit', action: type, actor, target, call });
-      this._queueLose(target, type === 'coup' ? 'couped' : 'assassinated', call);
-      return this._drainLoses();
+      this._loseCard(tgt, tgt.cards.indexOf(call), type === 'coup' ? 'couped' : 'assassinated');
+      return this._endTurn();
     }
     // MISS: the defender proves it by revealing — then the whole hand goes
     // back into the deck (shuffled) and a fresh one is dealt at random, so
@@ -290,20 +295,12 @@ class CoupGame {
   }
 
   // ------------------------------------------------------------ influence loss
-  _queueLose(playerId, why, forcedRole = null) {
-    if (this.isAlive(this.player(playerId))) this.loseQueue.push({ playerId, why, forcedRole });
-  }
-
-  _drainLoses() {
-    const next = this.loseQueue.shift();
-    if (!next) return this._continueAfterLoses();
-    const p = this.player(next.playerId);
-    if (next.forcedRole && p.cards.includes(next.forcedRole)) {
-      return this._loseCard(p, p.cards.indexOf(next.forcedRole), next.why);
-    }
-    if (p.cards.length === 1) return this._loseCard(p, 0, next.why);
-    if (p.cards.length === 0) return this._drainLoses();
-    this.pending = { type: 'lose', player: p.id, why: next.why };
+  /** a card dies NOW; replacements wait for the end of the sequence */
+  _loseCard(p, idx, why) {
+    const role = p.cards.splice(idx, 1)[0];
+    p.graveyard.push(role);
+    const deaths = p.graveyard.length;
+    this._log({ t: 'lost', player: p.id, role, why, lives: this.lives - deaths, out: deaths >= this.lives });
   }
 
   /** pending 'lose' → which card index (into .cards) to give up */
@@ -312,29 +309,35 @@ class CoupGame {
     const p = this.player(playerId);
     if (!(cardIdx >= 0 && cardIdx < p.cards.length)) throw new Error('bad card');
     this._loseCard(p, cardIdx, this.pending.why);
-  }
-
-  _loseCard(p, idx, why) {
-    const role = p.cards.splice(idx, 1)[0];
-    p.graveyard.push(role);
-    const deaths = p.graveyard.length;
-    // every death but the last is replaced — the hand stays at two cards
-    if (deaths <= this.replaceUntil && this.deck.length) p.cards.push(this.deck.pop());
-    this._log({ t: 'lost', player: p.id, role, why, lives: this.lives - deaths, out: deaths >= this.lives });
-    this._drainLoses();
-  }
-
-  _continueAfterLoses() {
-    if (this._maybeFinish()) return;
-    const cont = this.ctx && this.ctx.afterLoses;
-    if (this.ctx) this.ctx.afterLoses = null;
-    if (cont === 'afterActionClaim') return this._afterActionClaim();
-    if (cont === 'blockStands') return this._blockStands();
-    if (cont === 'applyAction') return this._applyAction();
+    this.pending = null;
     this._endTurn();
   }
 
+  /** deferred challenge penalties: discard AFTER the action resolved */
+  _drainPenalties() {
+    while (this.penaltyQueue.length) {
+      const next = this.penaltyQueue.shift();
+      const p = this.player(next.playerId);
+      if (p.graveyard.length >= this.lives || p.cards.length === 0) continue;
+      if (p.cards.length === 1) { this._loseCard(p, 0, next.why); continue; }
+      this.pending = { type: 'lose', player: p.id, why: next.why };
+      return false;    // waiting on a discard choice
+    }
+    return true;
+  }
+
+  /** everyone draws back up to two cards — the last step of every sequence */
+  _refillHands() {
+    for (const p of this.players) {
+      while (p.graveyard.length < this.lives && p.cards.length < 2 && this.deck.length) {
+        p.cards.push(this.deck.pop());
+      }
+    }
+  }
+
   _endTurn() {
+    if (!this._drainPenalties()) return;   // a discard choice is pending
+    this._refillHands();
     if (this._maybeFinish()) return;
     this._beginTurn();
   }

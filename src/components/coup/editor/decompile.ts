@@ -62,6 +62,8 @@ const PLAYER_PROPS = new Set([
   // series memory, earned inside the current 100-game matchup
   'series_win_rate', 'series_wins', 'series_challenges_per_game', 'series_claims_per_game',
   'series_caught_bluffing', 'series_honest_proofs', 'series_contessa_rate',
+  // per-game rates — bounded, unlike the cumulative totals above
+  'series_caught_per_game', 'series_proofs_per_game',
 ]);
 
 // ladder scouting is gone: bots only know what this matchup has taught them

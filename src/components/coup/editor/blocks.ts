@@ -314,13 +314,16 @@ const BLOCKS: Record<string, unknown>[] = [
           ['series: challenges per game', 'series_challenges_per_game'],
           ['series: claims per game', 'series_claims_per_game'],
           ['series: times caught bluffing', 'series_caught_bluffing'],
+          ['series: caught bluffing per game', 'series_caught_per_game'],
           ['series: times proved honest', 'series_honest_proofs'],
+          ['series: honest proofs per game', 'series_proofs_per_game'],
           ['series: Contessa blocks per game', 'series_contessa_rate'],
         ],
       },
       { type: 'input_value', name: 'PLAYER' },
     ],
-    output: null, inputsInline: true, colour: C_INFO, tooltip: 'Read a detail about a player (usually your opponent).',
+    output: null, inputsInline: true, colour: C_INFO,
+    tooltip: 'Read a detail about a player (usually your opponent). Use RATES in suspicion math — raw totals grow forever over a 100-game series and will eventually make you challenge everything.',
   },
   {
     type: 'coup_has_role', message0: 'I have a %1',
@@ -733,13 +736,14 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           // do I hold the card they just called?
           { kind: 'block', type: 'coup_i_have', inputs: { ROLE: { block: { type: 'coup_action_call' } } } },
           // read the mover — in heads-up that's always "my opponent"
-          // suspicion now comes from series memory, not from ladder scouting
-          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
+          // suspicion now comes from series memory, not from ladder scouting —
+          // and from RATES, which stay bounded over a 100-game series
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_per_game' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_challenges_per_game' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           { kind: 'block', type: 'coup_player_claimed', fields: { ROLE: 'contessa' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } },
           // how OFTEN they made this claim — the claims list only says whether
           { kind: 'block', type: 'coup_times_claimed', fields: { ROLE: 'duke' } },
-          // challenge more once the series has caught them bluffing 3 times
+          // challenge more against someone the series catches bluffing often
           {
             kind: 'block', type: 'controls_if',
             inputs: {
@@ -747,8 +751,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                 block: {
                   type: 'logic_compare', fields: { OP: 'GTE' },
                   inputs: {
-                    A: { block: { type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } } },
-                    B: { shadow: { type: 'math_number', fields: { NUM: 3 } } },
+                    A: { block: { type: 'coup_player_prop', fields: { PROP: 'series_caught_per_game' }, inputs: { PLAYER: { block: { type: 'coup_opponent' } } } } },
+                    B: { shadow: { type: 'math_number', fields: { NUM: 0.15 } } },
                   },
                 },
               },
@@ -774,6 +778,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'label', text: 'Series memory — game 1 knows nothing. Watch, learn, then exploit!' },
           { kind: 'block', type: 'coup_series_field', fields: { FIELD: 'game' } },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_challenges_per_game' }, inputs: { PLAYER: oppShadow() } },
+          // a rate for suspicion math; the running total is right below it
+          { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_per_game' }, inputs: { PLAYER: oppShadow() } },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: oppShadow() } },
           // read your OWN series stats — are your bluffs still working?
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'series_caught_bluffing' }, inputs: { PLAYER: { block: { type: 'coup_me' } } } },

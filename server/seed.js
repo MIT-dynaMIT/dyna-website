@@ -76,9 +76,10 @@ if (!store.matches.list.length) {
   const series = [];
   let winsA = 0, winsB = 0;
   for (let i = 0; i < SERIES_COUNT; i++) {
-    const r = playSeries({ botA, botB, total: SERIES_GAMES, seedBase: (20260815 + i * 104729) >>> 0, sampleAt: [0, 49, 99] });
+    const sb = (20260815 + i * 104729) >>> 0;
+    const r = playSeries({ botA, botB, total: SERIES_GAMES, seedBase: sb, sampleAt: [0, 49, 99] });
     const wA = r.winsByName[top.name], wB = r.winsByName[mid.name];
-    series.push({ winsA: wA, winsB: wB, winStrip: r.winStrip, samples: r.samples });
+    series.push({ winsA: wA, winsB: wB, winStrip: r.winStrip, seedBase: sb, samples: r.samples });
     if (wA > wB) winsA++; else if (wB > wA) winsB++;
     console.log(`  series ${i + 1}: ${wA}–${wB}`);
   }
@@ -87,7 +88,8 @@ if (!store.matches.list.length) {
     players: [top.name, mid.name], owners: ['house', 'house'], ownerNames: ['The House', 'The House'],
     score: [winsA, winsB],
     winnerName: winsA > winsB ? top.name : winsB > winsA ? mid.name : null,
-    gamesPerSeries: SERIES_GAMES, series, errors: {},
+    gamesPerSeries: SERIES_GAMES, series,
+    sources: [top.source, mid.source], errors: {},
   });
   // sanity: a stored sample must replay to the same winner
   const sample = demo.series[0].samples[0];

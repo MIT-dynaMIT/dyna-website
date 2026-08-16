@@ -49,8 +49,8 @@ export interface ReplayMatchInfo {
   seriesIndex: number;
   seriesScores: [number, number][];
   winStrip: string;                 // this series, from players[0]'s side
-  samples: number[];                // game numbers with stored replays
-  sampleIndex: number;
+  browsable: boolean;               // true → any game can be re-dealt on demand
+  samples: number[];                // game numbers stored verbatim (instant)
   game: number;                     // the game number being watched
 }
 

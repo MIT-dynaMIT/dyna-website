@@ -178,14 +178,17 @@ function LifeRail({ lives, graveyard, innerRef }: {
 }
 
 /** One tick per game of a series, left to right. '1' = a win for whoever the
- *  strip has been oriented to. `highlight` is a 1-based game number. */
-export function WinStrip({ strip, highlight, title }: {
-  strip: string; highlight?: number; title?: string;
+ *  strip has been oriented to. `highlight` is a 1-based game number.
+ *  Pass `onPick` to make each tick clickable (game browser). */
+export function WinStrip({ strip, highlight, title, onPick }: {
+  strip: string; highlight?: number; title?: string; onPick?: (game: number) => void;
 }) {
   return (
-    <div className="ct-strip" title={title}>
+    <div className={`ct-strip ${onPick ? 'pickable' : ''}`} title={title}>
       {Array.from(strip).map((c, i) => (
-        <span key={i} className={`tick ${c === '1' ? 'w' : 'l'} ${highlight === i + 1 ? 'on' : ''}`} />
+        <span key={i} className={`tick ${c === '1' ? 'w' : 'l'} ${highlight === i + 1 ? 'on' : ''}`}
+          onClick={onPick ? () => onPick(i + 1) : undefined}
+          title={onPick ? `watch game ${i + 1}` : undefined} />
       ))}
     </div>
   );

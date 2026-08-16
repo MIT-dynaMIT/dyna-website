@@ -74,6 +74,8 @@ class Arena {
             winnerName: wa > wb ? job.players[0] : wb > wa ? job.players[1] : null,
             gamesPerSeries: SERIES_GAMES,
             series: result.series,
+            // the sources let any of the 100 games be re-dealt deterministically
+            sources: [job._a.source, job._b.source],
             errors: result.errors,
           });
           this.jobs.delete(job.id);

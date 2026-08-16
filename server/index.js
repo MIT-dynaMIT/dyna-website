@@ -25,6 +25,8 @@ const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
 const arena = new Arena(store);
 const plays = new PlayManager();
 const live = new LiveManager(store);
+const { Resim } = require('./resim');
+const resim = new Resim();
 
 // resolve the user's SELECTED BOT into a compiling fighter, or an error
 function fighterFor(user) {
@@ -146,16 +148,27 @@ app.get('/api/coup/matches', auth, (req, res) => {
   res.json({ matches: rows, pending: arena.pendingFor(req.user.username) });
 });
 
-// ?series=i&sample=j → replay sample j of series i (both 0-based)
-app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
+// ?series=i&game=N → replay game N (1-based) of series i (0-based).
+// Stored samples answer instantly; anything else re-deals the series in a
+// worker (deterministic — same seed, same bots) and caches all 100 games.
+app.get('/api/coup/matches/:id/replay', auth, async (req, res) => {
   const m = store.getMatch(req.params.id);
   if (!m) return res.status(404).json({ error: 'match not found (older matches are pruned)' });
   const si = Math.max(0, Math.min(m.series.length - 1, Number(req.query.series) || 0));
   const ser = m.series[si];
   const samples = ser.samples || [];
-  const gi = Math.max(0, Math.min(samples.length - 1, Number(req.query.sample) || 0));
-  const sample = samples[gi];
-  if (!sample) return res.status(404).json({ error: 'no replayable games stored for this series' });
+  const browsable = !!m.sources && ser.seedBase != null;
+  const g = Math.max(1, Math.min(m.gamesPerSeries, Number(req.query.game) || (samples[0] ? samples[0].g : 1)));
+  let sample = samples.find((s) => s.g === g);
+  if (!sample) {
+    if (!browsable) return res.status(404).json({ error: 'only games ' + samples.map((s) => s.g).join(', ') + ' are stored for this match' });
+    try {
+      const all = await resim.seriesGames(m, si);
+      sample = all[g - 1];
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
   const r = replayMatch(sample);
   res.json({
     frames: r.frames, seatNames: sample.seatNames, owners: m.owners,
@@ -165,7 +178,7 @@ app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
       score: m.score, matchWinner: m.winnerName, gamesPerSeries: m.gamesPerSeries,
       seriesIndex: si, seriesScores: m.series.map((s) => [s.winsA, s.winsB]),
       winStrip: ser.winStrip,
-      samples: samples.map((s) => s.g), sampleIndex: gi, game: sample.g,
+      browsable, samples: samples.map((s) => s.g), game: g,
     },
   });
 });

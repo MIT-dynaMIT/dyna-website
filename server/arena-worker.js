@@ -17,10 +17,12 @@ try {
   let winsA = 0, winsB = 0;
   const errors = { [a.name]: 0, [b.name]: 0 };
   for (let i = 0; i < seriesCount; i++) {
-    const r = playSeries({ botA, botB, total: seriesGames, seedBase: (seedBase + i * 104729) >>> 0, sampleAt });
+    const sb = (seedBase + i * 104729) >>> 0;
+    const r = playSeries({ botA, botB, total: seriesGames, seedBase: sb, sampleAt });
     const wA = r.winsByName[a.name] || 0;
     const wB = r.winsByName[b.name] || 0;
-    series.push({ winsA: wA, winsB: wB, winStrip: r.winStrip, samples: r.samples });
+    // seedBase makes the whole series re-simulatable on demand (game browser)
+    series.push({ winsA: wA, winsB: wB, winStrip: r.winStrip, seedBase: sb, samples: r.samples });
     if (wA > wB) winsA++;
     else if (wB > wA) winsB++;
     errors[a.name] += r.errors[a.name] || 0;

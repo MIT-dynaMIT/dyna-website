@@ -336,11 +336,11 @@
 }
 .ct-card.face.role-ambassador {
   background: linear-gradient(rgba(212, 168, 30, 0.62), rgba(212, 168, 30, 0.62)),
-    url('/images_2027s/victor-yin.jpg') center 24% / auto 150%;
+    url('/images_2027s/victor-yin.jpg') 47% 40% / auto 150%;
 }
 .ct-card.face.role-assassin {
   background: linear-gradient(rgba(250, 248, 242, 0.66), rgba(250, 248, 242, 0.66)),
-    url('/images_2027s/andrew-zhang.jpg') center 24% / auto 150%;
+    url('/images_2027s/andrew-zhang.jpg') 48% 34% / auto 150%;
 }
 .ct-card.face.role-assassin .band { color: #3f4a55; text-shadow: none; }
 .ct-card.face.role-contessa {

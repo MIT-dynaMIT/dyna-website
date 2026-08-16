@@ -410,8 +410,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
       {/* sidebar */}
       <aside className="ed-side coup-card">
         <h2 className="coup-h">Your Bots <small>{slots.length || '—'} slots</small></h2>
-        <p className="coup-sub">Each slot is a separate champion. The ★ marks your <b>selected bot</b> —
-          it fights for you in the Gauntlet and in bot battles.</p>
+        <p className="coup-sub">Ten save slots. The ★ marks your <b>selected bot</b> — the one that
+          plays for you in Levels and bot battles.</p>
         <div className="ed-slots">
           {slots.map((s, i) => (
             <button
@@ -474,7 +474,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
             </div>
           </div>
           <p className="ed-hint">
-            🎭 Pick a fun name — it shows on the ladder for everyone to see! You are coding for slot {idx + 1}
+            Other players see this name in matches. You are editing slot {idx + 1}
             {user.isAdmin ? ' (organizer — you have lots of slots)' : ''}.
           </p>
 

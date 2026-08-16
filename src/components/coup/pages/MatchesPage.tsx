@@ -28,17 +28,17 @@ export default function MatchesPage() {
     return () => clearInterval(t);
   }, []);
 
-  if (!data) return <div className="coup-note"><span className="coup-spin" /> Digging through the archives…</div>;
+  if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
   return (
     <div>
       <div className="coup-card" style={{ marginBottom: 16 }}>
         <h2 className="coup-h">📜 Match history
-          <small>every match is a best of 5 — five 100-game series</small>
+          <small>every match is a best of 5 — five rounds of 100 games</small>
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
-          Gauntlet runs and bot battles land here as they finish. Click any match to watch
-          sample games from each series.
+          Level runs and bot battles show up here when they finish. Click a match to
+          watch any of its games.
         </p>
       </div>
 
@@ -50,14 +50,14 @@ export default function MatchesPage() {
             {j.status === 'failed'
               ? <span className="coup-error" style={{ marginLeft: 10 }}>{j.error}</span>
               : <span className="coup-note" style={{ marginLeft: 10 }}>
-                  {j.mode === 'gauntlet' ? 'gauntlet run' : 'bot battle'} {j.status}…
+                  {j.mode === 'gauntlet' ? 'level run' : 'bot battle'} {j.status}…
                 </span>}
           </div>
         </div>
       ))}
 
       {data.matches.length === 0 && data.pending.length === 0 && (
-        <p className="coup-note">Nothing here yet — run the Gauntlet or start a bot battle in Versus.</p>
+        <p className="coup-note">Nothing here yet — play a level or start a bot battle in Versus.</p>
       )}
 
       {data.matches.map((m) => {
@@ -73,7 +73,7 @@ export default function MatchesPage() {
             onKeyDown={(e) => { if (e.key === 'Enter') nav(`/coup/matches/${m.id}`); }}>
             <div className="verdict">
               {spectator ? `${m.score[0]}–${m.score[1]}` : `${drawn ? 'D' : win ? 'W' : 'L'} ${o.my}–${o.their}`}
-              <small>{m.mode === 'gauntlet' ? `gauntlet lvl ${(m.level ?? 0) + 1}` : 'bot battle'}</small>
+              <small>{m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : 'bot battle'}</small>
             </div>
             <div className="lineup">
               {m.players.map((p, i) => (

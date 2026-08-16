@@ -22,12 +22,12 @@ export default function AdminPage() {
     return () => clearInterval(t);
   }, [refresh]);
 
-  if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading the court records…</div>;
+  if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
   const pairDuels = async () => {
     const r = await api.post<{ matches: number; paired: number; benched: string | null }>('/admin/pair-online');
     if (!r.matches && !r.benched) { toast('No students are online right now'); return; }
-    toast(`⚔ ${r.paired} students sent to ${r.matches} live duel${r.matches === 1 ? '' : 's'}`
+    toast(`⚔ ${r.paired} students paired into ${r.matches} live game${r.matches === 1 ? '' : 's'}`
       + (r.benched ? ` — ${r.benched} sits out (odd one out)` : ''));
   };
 
@@ -66,8 +66,8 @@ export default function AdminPage() {
         </h2>
         <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="primary" onClick={pairDuels}
-            title="Every online student is paired into a random live duel and pulled to the Versus page">
-            ⚔ Pair up live duels
+            title="Every online student gets paired into a random live game and pulled to the Versus page">
+            ⚔ Pair up live games
           </button>
           <button className="primary" onClick={pairBots}
             title="Every online student's selected bot fights a random other student's bot — best of 5, results in Match History">

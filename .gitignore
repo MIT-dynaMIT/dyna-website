@@ -27,5 +27,6 @@ dist-ssr
 server/node_modules/
 server/data/
 
-# camp logins with plaintext passwords — never commit
+
+# camp logins with plaintext passwords — never in the public mirror
 server/roster.csv

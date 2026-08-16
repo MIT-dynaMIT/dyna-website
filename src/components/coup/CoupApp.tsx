@@ -5,7 +5,7 @@ import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
 import EditorPage from './pages/EditorPage';
-import GauntletPage from './pages/GauntletPage';
+import LevelsPage from './pages/LevelsPage';
 import PlayPage from './pages/PlayPage';
 import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
@@ -46,7 +46,7 @@ function LoginPage({ onLogin }: { onLogin: (u: CoupUser) => void }) {
   return (
     <div className="coup-login">
       <h1>🎭 dyna<span className="gold">COUP</span></h1>
-      <div className="tag">Five lives. One rival. Call the coup.</div>
+      <div className="tag">Code a bot. Call their bluff.</div>
       <form onSubmit={submit}>
         <label htmlFor="cu">Username</label>
         <input id="cu" type="text" autoComplete="username" value={username}
@@ -55,11 +55,11 @@ function LoginPage({ onLogin }: { onLogin: (u: CoupUser) => void }) {
         <input id="cp" type="password" autoComplete="current-password" value={password}
           onChange={(e) => setPassword(e.target.value)} />
         <button className="primary" disabled={busy || !username || !password}>
-          {busy ? 'Entering the court…' : 'Enter the court'}
+          {busy ? 'Logging in…' : 'Log in'}
         </button>
         <div className="coup-error">{err}</div>
       </form>
-      <div className="coup-note">Logins are handed out by your mentors — no signups here.</div>
+      <div className="coup-note">Your mentors have your username and password — no signups.</div>
     </div>
   );
 }
@@ -95,7 +95,7 @@ export default function CoupApp() {
         if (!d.match) lastMatch.current = null;
         const from = d.invite?.from ?? null;
         if (from && from !== lastInviteFrom.current && !onVersusRef.current) {
-          setToast(`⚔ ${d.invite!.fromName} challenges you — head to Versus!`);
+          setToast(`⚔ ${d.invite!.fromName} challenged you — go to the Versus tab to accept!`);
           clearTimeout(toastTimer.current);
           toastTimer.current = setTimeout(() => setToast(''), 4000);
         }
@@ -132,7 +132,7 @@ export default function CoupApp() {
 
   const tabs = [
     { name: 'Bot Editor', to: '/coup/editor' },
-    { name: 'Gauntlet', to: '/coup/gauntlet' },
+    { name: 'Levels', to: '/coup/levels' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Match History', to: '/coup/matches' },
@@ -162,8 +162,9 @@ export default function CoupApp() {
           <Routes>
             <Route index element={<Navigate to="editor" replace />} />
             <Route path="editor" element={<EditorPage user={user} />} />
-            <Route path="gauntlet" element={<GauntletPage />} />
-            <Route path="scrim" element={<Navigate to="/coup/gauntlet" replace />} />
+            <Route path="levels" element={<LevelsPage />} />
+            <Route path="scrim" element={<Navigate to="/coup/levels" replace />} />
+            <Route path="gauntlet" element={<Navigate to="/coup/levels" replace />} />
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />

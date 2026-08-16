@@ -71,7 +71,7 @@ export default function ReplayPage() {
       </div>
     );
   }
-  if (!data) return <div className="coup-note"><span className="coup-spin" /> Rewinding the tape…</div>;
+  if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
   const frame = data.frames[idx];
   const view = frame.view;
@@ -94,7 +94,7 @@ export default function ReplayPage() {
         <Link to="/coup/matches" className="coup-note" style={{ textDecoration: 'none' }}>← Match history</Link>
         <div style={{ flex: 1 }} />
         <span className="coup-note">
-          {m.mode === 'gauntlet' ? `gauntlet level ${(m.level ?? 0) + 1}` : 'bot battle'} · {dateStr}
+          {m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : 'bot battle'} · {dateStr}
         </span>
       </div>
 
@@ -107,7 +107,7 @@ export default function ReplayPage() {
                 <div className="row" key={i}>
                   <span className={`bn ${win ? 'win' : ''}`}>{win ? '♛ ' : ''}{nm}</span>
                   <span className="ow">{m.ownerNames[i]}</span>
-                  <span className="ed">{i === 0 ? m.score[0] : m.score[1]} series</span>
+                  <span className="ed">{i === 0 ? m.score[0] : m.score[1]} rounds</span>
                 </div>
               );
             })}
@@ -118,9 +118,9 @@ export default function ReplayPage() {
       <div className="ct-serieshead">
         <div className="sline">
           Match {nameA} <b>{m.score[0]}–{m.score[1]}</b> {nameB}
-          {' · series '}<b>{m.seriesIndex + 1}</b> of {m.seriesScores.length}
+          {' · round '}<b>{m.seriesIndex + 1}</b> of {m.seriesScores.length}
           {' · watching game '}<b>{m.game}</b> of {m.gamesPerSeries}
-          {loadingGame && <span style={{ marginLeft: 10 }}><span className="coup-spin" /> dealing…</span>}
+          {loadingGame && <span style={{ marginLeft: 10 }}><span className="coup-spin" /> loading…</span>}
         </div>
         <div className="sbtns">
           {m.seriesScores.map((s, i) => (
@@ -158,7 +158,7 @@ export default function ReplayPage() {
         </div>
         <WinStrip strip={m.winStrip} highlight={m.game}
           onPick={m.browsable && !loadingGame ? (g) => setGame(g) : undefined}
-          title={`series ${m.seriesIndex + 1}: ${m.gamesPerSeries} games — green = ${nameA} won`} />
+          title={`round ${m.seriesIndex + 1}: ${m.gamesPerSeries} games — green = ${nameA} won`} />
         <span className="skey">
           <i>■</i> {nameA} · <s>■</s> {nameB} — seats swap each game;{' '}
           {m.browsable

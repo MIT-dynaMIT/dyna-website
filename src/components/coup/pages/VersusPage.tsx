@@ -111,7 +111,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
       const next = await api.post<LiveSnapshot>(`/live/match/${s.id}/move`, { cursor: s.cursor, ...msg });
       applySnapshot(next, false);
     } catch (ex) {
-      toast(ex instanceof ApiError ? ex.message : 'the court rejected that move');
+      toast(ex instanceof ApiError ? ex.message : 'that move was not allowed');
       setPrompt(pendingPrompt.current);
     } finally {
       setBusy(false);
@@ -121,7 +121,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
   const concede = async () => {
     const s = snapRef.current;
     if (!s) return;
-    if (!window.confirm('Concede this duel?')) return;
+    if (!window.confirm('Give up this game?')) return;
     try {
       const next = await api.post<LiveSnapshot>(`/live/match/${s.id}/forfeit`, { cursor: s.cursor });
       applySnapshot(next, false);
@@ -141,7 +141,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
     try {
       await api.post('/live/challenge', { to, kind });
       toast(kind === 'bots'
-        ? `🤖 Bot battle offered to ${name} — waiting for them to accept.`
+        ? `Bot battle sent to ${name} — waiting for them to accept.`
         : `Challenge sent to ${name} — waiting for them to accept.`);
     } catch (ex) {
       toast(ex instanceof Error ? ex.message : 'challenge failed');
@@ -151,7 +151,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
   const answerInvite = async (accept: boolean) => {
     try {
       const r = await api.post<{ match?: string; bots?: boolean }>('/live/respond', { accept });
-      if (accept && r.bots) toast('🤖 Bot battle started — results land in Match History in ~20s');
+      if (accept && r.bots) toast('Bot battle started — results in Match History in about 20 seconds');
       else if (accept && r.match) setLocalMatch(r.match);
     } catch (ex) {
       toast(ex instanceof Error ? ex.message : 'that challenge expired');
@@ -163,23 +163,23 @@ export default function VersusPage({ user }: { user: CoupUser }) {
     return (
       <div className="coup-grid2" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
         <div className="coup-card">
-          <h2 className="coup-h">🏟 The arena
-            <small>{online.length} other player{online.length === 1 ? '' : 's'} at court</small>
+          <h2 className="coup-h">🏟 Versus
+            <small>{online.length} other player{online.length === 1 ? '' : 's'} online</small>
           </h2>
-          <p className="coup-sub">Two ways to fight: <b>⚔ Duel</b> — play them yourself, live, heads-up.
-            {' '}<b>🤖 Bot battle</b> — your selected bot vs theirs, best of 5 series, straight to Match History.</p>
+          <p className="coup-sub">Two ways to play someone: <b>⚔ Duel</b> — a live game, you against them.
+            {' '}<b>🤖 Bot battle</b> — your selected bot vs theirs, best of 5 rounds, results in Match History.</p>
           {live?.invite && (
             <div className="coup-card" style={{ background: 'var(--panel-2)', marginBottom: 14 }}>
               <p style={{ margin: '0 0 10px' }}>
                 {live.invite.kind === 'bots'
-                  ? <>🤖 <b>{live.invite.fromName}</b> wants their bot to fight your selected bot!</>
-                  : <>⚔ <b>{live.invite.fromName}</b> challenges you to a live duel!</>}
+                  ? <>🤖 <b>{live.invite.fromName}</b> wants a bot battle — their selected bot vs yours!</>
+                  : <>⚔ <b>{live.invite.fromName}</b> wants to play you live!</>}
               </p>
               <button className="primary" onClick={() => answerInvite(true)}>Accept</button>{' '}
               <button className="ghost" onClick={() => answerInvite(false)}>Decline</button>
             </div>
           )}
-          {online.length === 0 && <p className="coup-note">Nobody else is online right now — the court is quiet.</p>}
+          {online.length === 0 && <p className="coup-note">Nobody else is online right now.</p>}
           {online.length > 0 && (
             <table className="coup-table">
               <thead><tr><th>Player</th><th /><th /></tr></thead>
@@ -201,10 +201,10 @@ export default function VersusPage({ user }: { user: CoupUser }) {
         <div className="coup-card">
           <h2 className="coup-h">How it works</h2>
           <p className="coup-sub">
-            Challenges arrive live — the other player gets an Accept button within a few
-            seconds. When the organizers hit the pairing buttons, every online student is
-            thrown into a random duel (pulled straight to this page) or a random bot battle
-            (results in Match History). Leaving a live duel mid-game concedes it.
+            Challenges show up within a few seconds — the other player gets an Accept
+            button. Organizers can also pair everyone up at once: a random live game
+            (you get pulled straight here) or a random bot battle. Leaving a live
+            game counts as giving up.
           </p>
         </div>
       </div>
@@ -223,23 +223,23 @@ export default function VersusPage({ user }: { user: CoupUser }) {
     <>
       <div className="crown">♛</div>
       <div className="rules">
-        {snap.forfeited && <div style={{ marginBottom: 6 }}>The duel was conceded.</div>}
+        {snap.forfeited && <div style={{ marginBottom: 6 }}>The game was conceded.</div>}
         {snap.winnerName === user.displayName
-          ? <><b>You</b> rule the court!</>
-          : <><b>{snap.winnerName}</b> rules the court.</>}
+          ? <><b>You</b> win!</>
+          : <><b>{snap.winnerName}</b> wins.</>}
       </div>
-      <div className="ovbtns"><button className="primary" onClick={backToLobby}>Back to the arena</button></div>
+      <div className="ovbtns"><button className="primary" onClick={backToLobby}>Back to the lobby</button></div>
     </>
   ) : null;
 
   return (
     <div>
       <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <h2 className="coup-h" style={{ margin: 0 }}>🏟 Live duel
+        <h2 className="coup-h" style={{ margin: 0 }}>🏟 Live game
           <small>you vs {oppName} — a real person!</small>
         </h2>
         <div style={{ flex: 1 }} />
-        {!done && <button className="ghost small danger" onClick={concede}>Concede</button>}
+        {!done && <button className="ghost small danger" onClick={concede}>Give up</button>}
       </div>
 
       <CoupTable
@@ -257,7 +257,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
 
       {!done && (
         <div className="ct-actionbar">
-          {animating && <p className="barsub">The tale unfolds…</p>}
+          {animating && <p className="barsub">…</p>}
           {showPrompt && prompt && (
             <ActionBar
               prompt={prompt}

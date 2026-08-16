@@ -55,9 +55,9 @@ const path = require('node:path');
 const py = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 
 const HOUSE = [
-  { name: 'The Apprentice', source: py('level1_apprentice.py') },
-  { name: 'The Strategist', source: py('level2_strategist.py') },
-  { name: 'The Arbiter',    source: py('ultimate.py') },
+  { name: 'Gary the Intern',      source: py('level1_apprentice.py') },
+  { name: 'Greg from Accounting', source: py('level2_strategist.py') },
+  { name: 'Kevin',                source: py('ultimate.py') },
 ];
 
 module.exports = { HOUSE, THE_SCAFFOLD };

@@ -62,7 +62,7 @@ export function describe(log: Log | null | undefined, seatNames: string[]): Talk
     case 'exchanged':
       return {
         lead: nm(log.player),
-        text: log.reason === 'miss' ? ' redraws a fresh hand after the miss.' : ' swaps cards with the court deck.',
+        text: log.reason === 'miss' ? ' redraws a fresh hand after the miss.' : ' swaps cards with the deck.',
         tone: 'info',
       };
     case 'lost': {
@@ -78,7 +78,7 @@ export function describe(log: Log | null | undefined, seatNames: string[]): Talk
       };
     }
     case 'win':
-      return { lead: '♛ ' + nm(log.player), text: ` rules the court!${log.adjudicated ? ' (by the judges)' : ''}`, tone: 'win' };
+      return { lead: '♛ ' + nm(log.player), text: ` wins the game!${log.adjudicated ? ' (by the judges)' : ''}`, tone: 'win' };
     default:
       return null;
   }

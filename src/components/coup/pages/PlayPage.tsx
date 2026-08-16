@@ -8,7 +8,7 @@ import type { TalkLine } from '../CoupTable';
 const STEP_MS = 900;         // cadence while animating bot moves
 const ACTION_COST: Record<string, number> = { coup: 7, assassinate: 3 };
 const ACTION_ROLE: Record<string, string> = { tax: 'duke', exchange: 'ambassador' };
-const DEFAULT_HOUSE = 'Victor bot #1';
+const DEFAULT_HOUSE = 'Gary the Intern';
 
 export default function PlayPage({ user }: { user: CoupUser }) {
   const toast = useToast();
@@ -104,7 +104,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
       const next = await api.post<PlaySnapshot>(`/play/${s.id}/move`, { cursor: s.cursor, ...msg });
       applySnapshot(next, false);
     } catch (ex) {
-      toast(ex instanceof ApiError ? ex.message : 'the court rejected that move');
+      toast(ex instanceof ApiError ? ex.message : 'that move was not allowed');
       setPrompt(pendingPrompt.current); // let them try again
     } finally {
       setBusy(false);
@@ -122,14 +122,14 @@ export default function PlayPage({ user }: { user: CoupUser }) {
   if (phase === 'setup' || !displayView || !snap) {
     return (
       <div className="coup-card" style={{ maxWidth: 520 }}>
-        <h2 className="coup-h">🎭 Choose your rival</h2>
-        <p className="coup-sub">Duel one bot heads-up — four lives each. Last one standing rules the court.</p>
+        <h2 className="coup-h">🎭 Pick an opponent</h2>
+        <p className="coup-sub">Play one bot heads-up — four lives each. You make every decision yourself.</p>
         <label htmlFor="opp">Opponent</label>
         <select id="opp" value={pick} onChange={(e) => setPick(e.target.value)}>
           <optgroup label="House bots">
             {houseBots.map((n) => (
               <option key={n} value={`house:${n}`}>
-                {n}{n === DEFAULT_HOUSE ? ' — house champion' : ''}
+                {n}{n === DEFAULT_HOUSE ? ' — easiest' : ''}
               </option>
             ))}
           </optgroup>
@@ -141,11 +141,11 @@ export default function PlayPage({ user }: { user: CoupUser }) {
         </select>
         <div style={{ marginTop: 20 }}>
           <button className="primary" onClick={startGame} disabled={starting}>
-            {starting ? 'Dealing…' : '⚔ Take your seat'}
+            {starting ? 'Dealing…' : 'Start game'}
           </button>
         </div>
         <p className="coup-note" style={{ marginTop: 12 }}>
-          New here? <b>{DEFAULT_HOUSE}</b> is the reigning champion — a stern first test.
+          New here? Start with <b>{DEFAULT_HOUSE}</b> — he goes easy on you. He can't help it.
         </p>
       </div>
     );
@@ -163,21 +163,21 @@ export default function PlayPage({ user }: { user: CoupUser }) {
       <div className="crown">♛</div>
       <div className="rules">
         {snap.winnerName === user.displayName
-          ? <><b>You</b> rule the court!</>
-          : <><b>{snap.winnerName}</b> rules the court.</>}
+          ? <><b>You</b> win!</>
+          : <><b>{snap.winnerName}</b> wins.</>}
       </div>
-      <div className="ovbtns"><button className="primary" onClick={leaveTable}>New duel</button></div>
+      <div className="ovbtns"><button className="primary" onClick={leaveTable}>Play again</button></div>
     </>
   ) : null;
 
   return (
     <div>
       <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <h2 className="coup-h" style={{ margin: 0 }}>🎭 Your duel
+        <h2 className="coup-h" style={{ margin: 0 }}>🎭 Your game
           <small>heads-up · you are {snap.you}</small>
         </h2>
         <div style={{ flex: 1 }} />
-        <button className="ghost small" onClick={leaveTable}>Leave table</button>
+        <button className="ghost small" onClick={leaveTable}>Leave game</button>
       </div>
 
       <CoupTable
@@ -195,7 +195,7 @@ export default function PlayPage({ user }: { user: CoupUser }) {
 
       {!done && (
         <div className="ct-actionbar">
-          {animating && <p className="barsub">Your rival is deliberating…</p>}
+          {animating && <p className="barsub">Your opponent is thinking…</p>}
           {showPrompt && prompt && (
             <ActionBar
               prompt={prompt}
@@ -233,8 +233,8 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
     if (callFor) {
       return (
         <div>
-          <p className="barhead">{ACTION_LABEL[callFor] || callFor} — name the card you think they hold.</p>
-          <p className="barsub">Name it right and that exact card dies. Name it wrong and your attack misses — they reveal and redraw.</p>
+          <p className="barhead">{ACTION_LABEL[callFor] || callFor} — which card do you think they have?</p>
+          <p className="barsub">Guess right and that exact card dies. Guess wrong and the attack misses — they reveal and redraw.</p>
           <div className="ct-callrow">
             {ROLES_IN_PLAY.map((role) => (
               <button key={role} className={`ct-callbtn role-${role}`}
@@ -252,7 +252,7 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
     return (
       <div>
         <p className="barhead">{mustCoup ? 'Your move' : 'Make your move'}</p>
-        {mustCoup && <p className="ct-mustcoup">You are sitting on 10+ coins — you must launch a Coup.</p>}
+        {mustCoup && <p className="ct-mustcoup">You have 10+ coins, so you must Coup this turn.</p>}
         <div className="ct-btns">
           {(prompt.actions || []).map((a) => {
             const cost = ACTION_COST[a.type];
@@ -299,7 +299,7 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
         <p className="barhead">{head}</p>
         <p className="barsub">
           {assassination
-            ? 'The blade is meant for you. Claim the Contessa to survive — or accept your fate.'
+            ? 'You are being assassinated. Claim the Contessa to block — or take the hit.'
             : 'Do you believe them?'}
         </p>
         <div className="ct-btns">
@@ -307,7 +307,7 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
             if (o === 'pass') {
               return (
                 <button key={o} className="ghost" onClick={() => onMove({ kind: 'respond', what: 'pass' })}>
-                  {assassination ? 'Accept your fate' : prompt.mode === 'block' ? 'Allow it' : 'Let it stand'}
+                  {assassination ? 'Take the hit' : prompt.mode === 'block' ? 'Allow it' : 'Allow it'}
                 </button>
               );
             }
@@ -339,7 +339,7 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
     const cards = prompt.cards || [];
     return (
       <div>
-        <p className="barhead">Choose an influence to give up{prompt.why ? ` (${prompt.why})` : ''}.</p>
+        <p className="barhead">Choose a card to give up{prompt.why ? ` (${prompt.why})` : ''}.</p>
         <div className="ct-pickcards">
           {cards.map((c) => (
             <div key={c.idx} className={`ct-card face role-${c.role}`} role="button"
@@ -364,7 +364,7 @@ export function ActionBar({ prompt, callFor, setCallFor, exchangeSel, setExchang
     };
     return (
       <div>
-        <p className="barhead">Exchange with the court — keep exactly {keep} card{keep === 1 ? '' : 's'}.</p>
+        <p className="barhead">Exchange — keep exactly {keep} card{keep === 1 ? '' : 's'}.</p>
         <p className="barsub">Chosen {exchangeSel.length} / {keep}. The rest return to the deck.</p>
         <div className="ct-pickcards">
           {pool.map((role, i) => (

@@ -5,13 +5,13 @@ import type { GauntletData, MatchesData, MatchRow } from '../api';
 import { useToast } from '../CoupApp';
 
 const LEVEL_FLAVOR = [
-  'Level 1 — learns the rules, forgets the tricks. Beat this one first.',
-  'Level 2 — counts cards and holds grudges. A real test.',
-  'Level 3 — the final boss. Nobody beats it by accident.',
+  'Level 1. Just happy to be here. Knows the rules, mostly.',
+  'Level 2. Counts every card. Keeps a spreadsheet of grudges.',
+  "Level 3. The final boss. We don't talk about Kevin's win rate.",
 ];
 const LEVEL_ICON = ['🥉', '🥈', '🏆'];
 
-export default function GauntletPage() {
+export default function LevelsPage() {
   const toast = useToast();
   const [data, setData] = useState<GauntletData | null>(null);
   const [results, setResults] = useState<MatchRow[]>([]);
@@ -30,29 +30,29 @@ export default function GauntletPage() {
     refresh().catch(() => {});
   }, [refresh]);
 
-  // poll faster while a match is running so results land "live"
+  // poll faster while a match is running so the result shows up on its own
   useEffect(() => {
     const t = setInterval(() => refresh().catch(() => {}),
       data?.pending.length ? 3000 : 20000);
     return () => clearInterval(t);
   }, [refresh, data?.pending.length]);
 
-  if (!data) return <div className="coup-note"><span className="coup-spin" /> Preparing the gauntlet…</div>;
+  if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
   const challenge = async (level: number) => {
     setBusy(level);
     try {
       await api.post('/gauntlet/challenge', { level });
-      toast(`⚔ Your bot marches on ${data.levels[level].name} — results land in ~20s`);
+      toast(`Match started vs ${data.levels[level].name} — results in about 20 seconds`);
       await refresh();
     } catch (ex) {
-      toast(ex instanceof Error ? ex.message : 'challenge failed');
+      toast(ex instanceof Error ? ex.message : 'could not start the match');
     } finally {
       setBusy(null);
     }
   };
 
-  // best result per level, latest first wins the display
+  // best result per level
   const bestByLevel = new Map<number, MatchRow>();
   for (const r of results) {
     if (r.level == null) continue;
@@ -64,16 +64,16 @@ export default function GauntletPage() {
   return (
     <div>
       <div className="coup-card" style={{ marginBottom: 18 }}>
-        <h2 className="coup-h">🛡 The Gauntlet
-          <small>three house bots · best of {data.seriesCount} · each a {data.seriesGames}-game series</small>
+        <h2 className="coup-h">🎯 Levels
+          <small>three bots to beat · best of {data.seriesCount} · each round is a {data.seriesGames}-game series</small>
         </h2>
         <p className="coup-sub">
-          Send your <b>selected bot</b> against the house. Every challenge plays {data.seriesCount} series
-          of {data.seriesGames} games each — win the majority of series to take the match.
-          Results (with replays) land in <Link to="/coup/matches">Match History</Link>.
+          Your <b>selected bot</b> plays a house bot for {data.seriesCount} rounds of {data.seriesGames} games
+          each. Win more rounds than the house and you've beaten the level. Results and replays
+          land in <Link to="/coup/matches">Match History</Link>.
         </p>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
-          Fighting as: {data.selected
+          Playing as: {data.selected
             ? <b>★ {data.selected.name}</b>
             : <em>no bot yet — build one in the Bot Editor and mark it with the ★</em>}
         </p>
@@ -100,19 +100,19 @@ export default function GauntletPage() {
           const beaten = best != null && my! > their!;
           return (
             <div key={l.level} className="coup-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 6 }}>{LEVEL_ICON[l.level] ?? '🎭'}</div>
+              <div style={{ fontSize: 40, marginBottom: 6 }}>{LEVEL_ICON[l.level] ?? '🤖'}</div>
               <h2 className="coup-h" style={{ justifyContent: 'center' }}>{l.name}</h2>
               <p className="coup-sub" style={{ minHeight: 40 }}>{LEVEL_FLAVOR[l.level] ?? ''}</p>
               <button className="primary" disabled={busy != null || !data.selected}
                 onClick={() => challenge(l.level)}>
-                {busy === l.level ? 'Marching…' : '⚔ Challenge'}
+                {busy === l.level ? 'Starting…' : 'Play this level'}
               </button>
               <p className="coup-note" style={{ marginTop: 12 }}>
                 {best
                   ? beaten
                     ? <>✅ <b>Beaten {my}–{their}</b> · {timeAgo(best.ts)}</>
                     : <>best so far: {my}–{their} · {timeAgo(best.ts)}</>
-                  : 'not yet challenged'}
+                  : 'not beaten yet'}
               </p>
             </div>
           );

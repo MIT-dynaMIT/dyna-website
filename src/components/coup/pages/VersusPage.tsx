@@ -35,10 +35,22 @@ export default function VersusPage({ user }: { user: CoupUser }) {
   const pendingPrompt = useRef<Prompt | null>(null);
   viewRef.current = displayView;
 
+  // decision clock: server sends ms remaining; tick it down locally
+  const deadlineRef = useRef<number | null>(null);
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setClockTick((k) => k + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const secondsLeft = deadlineRef.current != null
+    ? Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000))
+    : null;
+
   const applySnapshot = useCallback((s: LiveSnapshot, isStart: boolean) => {
     const prev = snapRef.current;
     snapRef.current = s;
     setSnap(s);
+    deadlineRef.current = s.timerMs != null ? Date.now() + s.timerMs : null;
     pendingPrompt.current = s.prompt;
     // don't wipe a half-picked call/exchange on a quiet poll — only when
     // something actually happened or the ask itself changed
@@ -257,6 +269,11 @@ export default function VersusPage({ user }: { user: CoupUser }) {
 
       {!done && (
         <div className="ct-actionbar">
+          {!animating && secondsLeft != null && (
+            <p className="barsub" style={secondsLeft <= 10 ? { color: 'var(--bad)', fontWeight: 700 } : undefined}>
+              ⏱ {secondsLeft}s{showPrompt ? ' — decide, or the game picks for you' : ''}
+            </p>
+          )}
           {animating && <p className="barsub">…</p>}
           {showPrompt && prompt && (
             <ActionBar

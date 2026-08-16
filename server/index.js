@@ -346,6 +346,12 @@ app.post('/api/coup/admin/pair-bots', auth, adminOnly, (req, res) => {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
+  // odd bot out battles the organizer's selected bot
+  if (pool.length % 2 === 1) {
+    const admin = Object.values(store.users).find((u) => u.isAdmin);
+    const f = admin && fighterFor(admin);
+    if (f && !f.error) pool.push(f);
+  }
   let matches = 0;
   for (let i = 0; i + 1 < pool.length; i += 2) {
     const r = arena.enqueue({ mode: 'botduel', a: pool[i], b: pool[i + 1] });

@@ -114,6 +114,7 @@ export interface LiveSnapshot extends PlaySnapshot {
   youIndex: number;
   waitingFor: string | null;
   forfeited: boolean;
+  timerMs: number | null;   // time left on the current decision; null = game over
 }
 
 export interface CheckResult {

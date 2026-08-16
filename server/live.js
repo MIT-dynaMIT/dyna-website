@@ -15,6 +15,10 @@ const { CoupGame } = require('./coup');
 const ONLINE_MS = 12_000;      // seen a poll this recently = online
 const SESSION_TTL = 3 * 3600 * 1000;
 const INVITE_TTL = 60_000;
+// each live decision gets this long; then the server plays a safe default
+// (income / allow / first card) so one distracted kid can't freeze a game.
+// Enforced lazily on poll, so accuracy is ± the polling interval.
+const MOVE_MS = Number(process.env.COUP_MOVE_MS || 45_000);
 
 class LiveSession {
   /** @param seats [{username, displayName}] — exactly two humans */
@@ -36,6 +40,52 @@ class LiveSession {
     this._logIdx = 0;
     this.forfeitedBy = null;
     this._snap();
+    this._decisionKey = null;
+    this.deadline = 0;
+    this._armTimer();
+  }
+
+  _currentKey() {
+    const pend = this.game.pending;
+    return pend ? `${this.game.log.length}:${pend.type}:${this.decider()}` : null;
+  }
+
+  /** new decision on the table → fresh clock */
+  _armTimer() {
+    const key = this._currentKey();
+    if (key !== this._decisionKey) {
+      this._decisionKey = key;
+      this.deadline = Date.now() + MOVE_MS;
+    }
+  }
+
+  /** expired decisions get a safe default so the game always moves on */
+  enforceTimer() {
+    let guard = 0;
+    while (!this.done && this.deadline && Date.now() > this.deadline && ++guard < 50) {
+      const g = this.game;
+      const pend = g.pending;
+      if (!pend) break;
+      if (pend.type === 'action') {
+        if (pend.mustCoup) {
+          const roles = ['duke', 'assassin', 'ambassador', 'contessa'];
+          g.submitAction(pend.player, { type: 'coup', call: roles[Math.floor(Math.random() * roles.length)] });
+        } else {
+          g.submitAction(pend.player, { type: 'income' });
+        }
+      } else if (pend.type === 'challenge') {
+        g.resolveChallenge(null);
+      } else if (pend.type === 'block') {
+        g.resolveBlock(null, null);
+      } else if (pend.type === 'lose') {
+        g.resolveLose(pend.player, 0);
+      } else if (pend.type === 'exchange') {
+        g.resolveExchange(pend.player, Array.from({ length: pend.keep }, (_, i) => i));
+      }
+      this._snap();
+      this._armTimer();
+    }
+    this._armTimer();
   }
 
   _snap() {
@@ -114,6 +164,7 @@ class LiveSession {
   }
 
   move(username, msg) {
+    this.enforceTimer();   // a timed-out decision was already auto-played
     const seat = this.seatOf[username];
     if (!seat) throw new Error('not at this table');
     if (this.done) throw new Error('game is over');
@@ -140,6 +191,7 @@ class LiveSession {
       throw new Error('unknown move');
     }
     this._snap();
+    this._armTimer();
   }
 
   forfeit(username) {
@@ -149,10 +201,12 @@ class LiveSession {
   }
 
   snapshot(username, cursor = 0) {
+    this.enforceTimer();
     const seat = this.seatOf[username];
     const frames = this.frames[seat];
     const decider = this.decider();
     return {
+      timerMs: !this.done && decider ? Math.max(0, this.deadline - Date.now()) : null,
       id: this.id,
       seatNames: this.ids.map((id) => this.names[id]),
       you: this.names[seat],
@@ -251,6 +305,14 @@ class LiveManager {
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    // an odd student out plays the organizer instead of sitting idle
+    if (pool.length % 2 === 1) {
+      const admin = Object.values(this.store.users).find((u) => u.isAdmin);
+      if (admin) {
+        const cur = this.sessions.get(this.assigned.get(admin.username));
+        if (!cur || cur.done) pool.push({ username: admin.username, displayName: admin.displayName });
+      }
     }
     const matches = [];
     for (let i = 0; i + 1 < pool.length; i += 2) {

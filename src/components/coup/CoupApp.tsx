@@ -49,7 +49,7 @@ function LoginPage({ onLogin }: { onLogin: (u: CoupUser) => void }) {
 
   return (
     <div className="coup-login">
-      <h1>🎭 dyna<span className="gold">COUP</span></h1>
+      <h1>dyna<span className="gold">COUP</span></h1>
       <div className="tag">Code a bot. Call their bluff.</div>
       <form onSubmit={submit}>
         <label htmlFor="cu">Username</label>
@@ -153,7 +153,7 @@ export default function CoupApp() {
       <div className="coup-root">
         <div className="coup-shell">
           <header className="coup-top">
-            <Link to="/coup" className="coup-logo">🎭 dyna<span className="gold">COUP</span></Link>
+            <Link to="/coup" className="coup-logo">dyna<span className="gold">COUP</span></Link>
             <nav className="coup-nav">
               {tabs.map((t) => (
                 <Link key={t.to} to={t.to}

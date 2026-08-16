@@ -309,22 +309,43 @@
   display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
 }
 .ct-card.face .band {
-  height: calc(var(--ct-card-h) * 0.41); display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: calc(var(--ct-card-w) * 0.36); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  height: calc(var(--ct-card-h) * 0.22); display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: calc(var(--ct-card-w) * 0.28); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 .ct-card.mini.face .band { height: 100%; font-size: calc(var(--ct-slot-w) * 0.5); }
 .ct-card.face .rname {
-  flex: 1; display: flex; align-items: center; justify-content: center;
+  flex: none; height: calc(var(--ct-card-h) * 0.24); margin-top: auto;
+  display: flex; align-items: center; justify-content: center;
   font-family: Inter, system-ui, sans-serif;
   font-size: calc(var(--ct-card-w) * 0.155); letter-spacing: 0; text-transform: uppercase;
   color: #4a3f28; text-align: center; padding: 0; line-height: 1.1;
   white-space: nowrap; transform: scaleX(0.85);
 }
-.role-duke .band { background: var(--duke); }
-.role-assassin .band { background: var(--assassin); }
+/* The four characters wear the organizers' faces — the whole card face is the
+   headshot under a translucent wash of the card's color, with the name on a
+   parchment strip. Images live in /public (same files the Board page uses).
+   The glyph band goes transparent so the face shows through. */
+.ct-card.face .band { background: transparent; }
+.ct-card.face.role-duke {
+  background: linear-gradient(color-mix(in srgb, var(--duke) 45%, transparent), color-mix(in srgb, var(--duke) 45%, transparent)),
+    url('/images_2027s/victor-yin.jpg') center 28% / cover;
+}
+.ct-card.face.role-assassin {
+  background: linear-gradient(color-mix(in srgb, var(--assassin) 45%, transparent), color-mix(in srgb, var(--assassin) 45%, transparent)),
+    url('/images_2027s/andrew-zhang.jpg') center 28% / cover;
+}
+.ct-card.face.role-ambassador {
+  background: linear-gradient(color-mix(in srgb, var(--ambassador) 45%, transparent), color-mix(in srgb, var(--ambassador) 45%, transparent)),
+    url('/images_2028s/nishita-bhakar.jpg') center 28% / cover;
+}
+.ct-card.face.role-contessa {
+  background: linear-gradient(color-mix(in srgb, var(--contessa) 45%, transparent), color-mix(in srgb, var(--contessa) 45%, transparent)),
+    url('/images_2029s/jayden-graham.jpg') center 28% / cover;
+}
+.ct-card.face .rname {
+  background: rgba(253, 248, 234, 0.88);
+}
 .role-captain .band { background: var(--captain); }
-.role-ambassador .band { background: var(--ambassador); }
-.role-contessa .band { background: var(--contessa); }
 
 .ct-card.dead { filter: grayscale(0.4) brightness(0.92); }
 .ct-card.dead::before {

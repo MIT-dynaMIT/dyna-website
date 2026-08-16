@@ -317,9 +317,12 @@
   flex: none; height: calc(var(--ct-card-h) * 0.24); margin-top: auto;
   display: flex; align-items: center; justify-content: center;
   font-family: Inter, system-ui, sans-serif;
-  font-size: calc(var(--ct-card-w) * 0.155); letter-spacing: 0; text-transform: uppercase;
+  font-size: calc(var(--ct-card-w) * 0.125); letter-spacing: -0.02em; text-transform: uppercase;
   color: #4a3f28; text-align: center; padding: 0; line-height: 1.1;
-  white-space: nowrap; transform: scaleX(0.85);
+  white-space: nowrap; overflow: hidden;
+  /* squeeze the text, not the strip: pre-widen then scale back so the
+     parchment still covers the full card width on the smallest cards */
+  width: 134%; margin-left: -17%; transform: scaleX(0.75);
 }
 /* The four characters wear the organizers' faces — the whole card face is the
    headshot under a heavy wash of the card's color, name on a parchment strip.
@@ -329,23 +332,23 @@
 .ct-card.face .band { background: transparent; }
 .ct-card.face.role-duke {
   background: linear-gradient(rgba(111, 51, 145, 0.62), rgba(111, 51, 145, 0.62)),
-    url('/images_2029s/jayden-graham.jpg') center 12% / auto 150%;
+    url('/images_2029s/jayden-graham.jpg') center 24% / auto 150%;
 }
 .ct-card.face.role-ambassador {
   background: linear-gradient(rgba(212, 168, 30, 0.62), rgba(212, 168, 30, 0.62)),
-    url('/images_2027s/victor-yin.jpg') center 12% / auto 150%;
+    url('/images_2027s/victor-yin.jpg') center 24% / auto 150%;
 }
 .ct-card.face.role-assassin {
   background: linear-gradient(rgba(250, 248, 242, 0.66), rgba(250, 248, 242, 0.66)),
-    url('/images_2027s/andrew-zhang.jpg') center 12% / auto 150%;
+    url('/images_2027s/andrew-zhang.jpg') center 24% / auto 150%;
 }
 .ct-card.face.role-assassin .band { color: #3f4a55; text-shadow: none; }
 .ct-card.face.role-contessa {
   background: linear-gradient(rgba(161, 43, 32, 0.62), rgba(161, 43, 32, 0.62)),
-    url('/images_2028s/nishita-bhakar.jpg') center 12% / auto 150%;
+    url('/images_2028s/nishita-bhakar.jpg') center 24% / auto 150%;
 }
 .ct-card.face .rname {
-  background: rgba(253, 248, 234, 0.88);
+  background: #fdf8ea;
 }
 .role-captain .band { background: var(--captain); }
 

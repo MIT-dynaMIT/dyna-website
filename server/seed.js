@@ -39,7 +39,8 @@ function ensureUser(username, pass, displayName, isAdmin, role) {
 const admin = ensureUser('admin', ADMIN_PASS, 'Organizer', true);
 store.saveSlot(admin, 99, { name: 'The Scaffold', mode: 'python', python: THE_SCAFFOLD });
 
-const rosterPath = path.join(__dirname, 'roster.csv');
+// local default; on Render this points at the Secret File (/etc/secrets/roster.csv)
+const rosterPath = process.env.ROSTER_PATH || path.join(__dirname, 'roster.csv');
 let rosterCount = 0;
 if (fs.existsSync(rosterPath)) {
   const rows = fs.readFileSync(rosterPath, 'utf8').trim().split(/\r?\n/).slice(1);

@@ -153,7 +153,12 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   const res = await fetch(`/api/coup${path}`, {
     method, headers, body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => null);
+  // a static host with no backend answers API routes with empty/HTML bodies —
+  // surface that clearly instead of pretending the login was wrong
+  if (data === null) {
+    throw new ApiError('Cannot reach the game server from this page — ask a mentor for the right address.', 0);
+  }
   if (!res.ok) {
     // an expired/invalidated session (e.g. after a server reseed) should bounce
     // straight back to the login screen, not strand pages on their spinners —

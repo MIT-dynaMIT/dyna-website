@@ -1,0 +1,36 @@
+# Render blueprint for dynaCOUP — one web service serving both the site and
+# the game API. The repo is public; everything private stays in the dashboard:
+#
+#   1. Environment → Secret Files → add `roster.csv` (paste the camp roster:
+#      username,password,displayName,role). It appears at /etc/secrets/roster.csv.
+#   2. Environment → add ADMIN_PASS (the organizer login's password).
+#   3. Deploy. Boot seeds accounts from the roster, then serves on $PORT.
+#
+# PERSISTENCE: on the free plan the filesystem resets on every deploy/restart —
+# accounts reseed automatically, but saved bots and match history are lost.
+# For real persistence upgrade the instance and uncomment the disk + DATA_DIR.
+#
+# If dynamit.mit.edu stays a separate Static Site, add a rewrite rule there:
+#   /api/*  →  https://<this-service>.onrender.com/api/*
+# (and optionally  /coup*  →  .../coup*  to serve the app itself from here).
+services:
+  - type: web
+    name: dynacoup
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/coup/health
+    envVars:
+      - key: ADMIN_PASS
+        sync: false
+      - key: ROSTER_PATH
+        value: /etc/secrets/roster.csv
+    # --- uncomment on a paid instance for durable bots + match history ---
+    # disk:
+    #   name: dynacoup-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # ...and add:
+    #   - key: DATA_DIR
+    #     value: /var/data

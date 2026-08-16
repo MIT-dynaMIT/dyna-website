@@ -59,6 +59,11 @@ function adminOnly(req, res, next) {
 }
 const pub = (u) => ({ username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin });
 
+// unauthenticated health probe — Render's health check + "is the API here?" pings
+app.get('/api/coup/health', (_req, res) => {
+  res.json({ ok: true, users: Object.keys(store.users).length });
+});
+
 app.post('/api/coup/login', (req, res) => {
   const { username, password } = req.body || {};
   const user = store.checkLogin(username, password);

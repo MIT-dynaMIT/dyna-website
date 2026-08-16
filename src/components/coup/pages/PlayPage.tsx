@@ -8,7 +8,7 @@ import type { TalkLine } from '../CoupTable';
 const STEP_MS = 900;         // cadence while animating bot moves
 const ACTION_COST: Record<string, number> = { coup: 7, assassinate: 3 };
 const ACTION_ROLE: Record<string, string> = { tax: 'duke', exchange: 'ambassador' };
-const DEFAULT_HOUSE = 'Gary the Intern';
+const DEFAULT_HOUSE = 'Victor';
 
 export default function PlayPage({ user }: { user: CoupUser }) {
   const toast = useToast();

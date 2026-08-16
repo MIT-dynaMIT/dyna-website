@@ -64,7 +64,7 @@ class Store {
       displayName: String(displayName || username).slice(0, 24),
       pass: hashPassword(password),
       isAdmin: !!isAdmin,
-      role: isAdmin ? 'organizer' : (role === 'mentor' ? 'mentor' : 'student'),
+      role: isAdmin ? 'organizer' : (['mentor', 'board'].includes(role) ? role : 'student'),
     };
     this._save('users.json', this.users);
     return { user: this.users[uname] };

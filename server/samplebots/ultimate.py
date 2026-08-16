@@ -153,8 +153,8 @@ def choose_exchange(state, pool):
     n = state.my_num_cards
     # armour: two of a kind means only one name in four can ever hit me
     if n == 2:
-        if pool.count("duke") >= 2:
+        if len(cards_in(pool, ["duke"])) >= 2:
             return ["duke", "duke"]
-        if pool.count("assassin") >= 2:
+        if len(cards_in(pool, ["assassin"])) >= 2:
             return ["assassin", "assassin"]
-    return strongest_cards(pool, ["duke", "assassin", "contessa", "ambassador"], n)
+    return strongest_cards(pool, ["duke", "assassin", "contessa", "ambassador"], state.my_num_cards)

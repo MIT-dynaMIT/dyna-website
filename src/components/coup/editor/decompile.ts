@@ -316,7 +316,23 @@ function buildExpr(ctx: Ctx, e: Node): Blockly.Block {
     case 'and': return buildAnd(ctx, e);
     case 'or': return binBool(ctx, 'OR', e.l, e.r, e.line);
     case 'not': { const b = nb(ctx, 'logic_negate'); connectValue(b, 'BOOL', buildExpr(ctx, e.v), e.line); return b; }
-    case 'neg': throw new DecompileError('a negative value here has no block (only [-1] indexing is supported)', e.line);
+    case 'neg': {
+      // a negative number literal is just a number block with a minus sign
+      const v = e.v as { k: string; v?: number; line?: number };
+      if (v.k === 'num') {
+        const b = nb(ctx, 'math_number');
+        b.setFieldValue(String(-(v.v as number)), 'NUM');
+        return b;
+      }
+      // -x in general is 0 - x
+      const b = nb(ctx, 'math_arithmetic');
+      b.setFieldValue('MINUS', 'OP');
+      const zero = nb(ctx, 'math_number');
+      zero.setFieldValue('0', 'NUM');
+      connectValue(b, 'A', zero, e.line);
+      connectValue(b, 'B', buildExpr(ctx, e.v), e.line);
+      return b;
+    }
     case 'ternary': {
       const b = nb(ctx, 'logic_ternary');
       connectValue(b, 'IF', buildExpr(ctx, e.cond), e.line);
@@ -504,7 +520,11 @@ function buildIn(ctx: Ctx, e: Node): Blockly.Block {
     connectValue(b, 'PLAYER', buildExpr(ctx, r.obj), e.line);
     return b;
   }
-  throw new DecompileError('this "in" test has no block yet', e.line);
+  // anything else: the generic membership block
+  const b = nb(ctx, 'coup_in_list');
+  connectValue(b, 'ITEM', buildExpr(ctx, l), e.line);
+  connectValue(b, 'LIST', buildExpr(ctx, r), e.line);
+  return b;
 }
 
 // action.claimed_role != None and state.revealed_roles[action.claimed_role] >= 3

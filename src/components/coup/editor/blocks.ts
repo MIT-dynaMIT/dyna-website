@@ -336,6 +336,12 @@ const BLOCKS: Record<string, unknown>[] = [
     output: 'Boolean', inputsInline: true, colour: C_INFO, tooltip: 'True if that role (from a socket — e.g. the role they called) is in your hand.',
   },
   {
+    type: 'coup_in_list', message0: '%1 is among %2',
+    args0: [{ type: 'input_value', name: 'ITEM' }, { type: 'input_value', name: 'LIST' }],
+    output: 'Boolean', inputsInline: true, colour: C_INFO,
+    tooltip: 'True if the item appears in the list — check claims, graveyards, or an exchange pool.',
+  },
+  {
     type: 'coup_player_claimed', message0: '%1 has claimed %2',
     args0: [
       { type: 'input_value', name: 'PLAYER' },
@@ -530,6 +536,11 @@ function registerGenerators() {
     return [`${player}.${block.getFieldValue('PROP')}`, Order.MEMBER];
   };
   forBlock['coup_has_role'] = (block) => [`("${block.getFieldValue('ROLE')}" in state.my_cards)`, Order.ATOMIC];
+  forBlock['coup_in_list'] = (block, g) => {
+    const item = g.valueToCode(block, 'ITEM', Order.RELATIONAL) || 'None';
+    const list = g.valueToCode(block, 'LIST', Order.RELATIONAL) || '[]';
+    return [`(${item} in ${list})`, Order.ATOMIC];
+  };
   forBlock['coup_i_have'] = (block, gen) =>
     [`(${gen.valueToCode(block, 'ROLE', Order.NONE) || '"duke"'} in state.my_cards)`, Order.ATOMIC];
   forBlock['coup_player_claimed'] = (block, gen) => {
@@ -770,6 +781,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_my_lives' },
           { kind: 'block', type: 'coup_has_role' },
           { kind: 'block', type: 'coup_i_have', inputs: { ROLE: roleShadow('duke') } },
+          { kind: 'block', type: 'coup_in_list' },
           { kind: 'block', type: 'coup_opponent' },
           { kind: 'block', type: 'coup_me' },
           { kind: 'block', type: 'coup_player_prop', fields: { PROP: 'coins' }, inputs: { PLAYER: oppShadow() } },

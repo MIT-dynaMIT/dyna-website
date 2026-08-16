@@ -137,10 +137,12 @@ export default function VersusPage({ user }: { user: CoupUser }) {
   };
 
   // ------------------------------------------------ lobby
-  const challenge = async (to: string, name: string) => {
+  const challenge = async (to: string, name: string, kind: 'duel' | 'bots') => {
     try {
-      await api.post('/live/challenge', { to });
-      toast(`Challenge sent to ${name} — waiting for them to accept.`);
+      await api.post('/live/challenge', { to, kind });
+      toast(kind === 'bots'
+        ? `🤖 Bot battle offered to ${name} — waiting for them to accept.`
+        : `Challenge sent to ${name} — waiting for them to accept.`);
     } catch (ex) {
       toast(ex instanceof Error ? ex.message : 'challenge failed');
     }
@@ -148,8 +150,9 @@ export default function VersusPage({ user }: { user: CoupUser }) {
 
   const answerInvite = async (accept: boolean) => {
     try {
-      const r = await api.post<{ match?: string }>('/live/respond', { accept });
-      if (accept && r.match) setLocalMatch(r.match);
+      const r = await api.post<{ match?: string; bots?: boolean }>('/live/respond', { accept });
+      if (accept && r.bots) toast('🤖 Bot battle started — results land in Match History in ~20s');
+      else if (accept && r.match) setLocalMatch(r.match);
     } catch (ex) {
       toast(ex instanceof Error ? ex.message : 'that challenge expired');
     }
@@ -163,11 +166,15 @@ export default function VersusPage({ user }: { user: CoupUser }) {
           <h2 className="coup-h">🏟 The arena
             <small>{online.length} other player{online.length === 1 ? '' : 's'} at court</small>
           </h2>
-          <p className="coup-sub">Duel a REAL person, heads-up — same rules as the bot tables.
-            Challenge anyone online, or wait for the organizers to throw everyone into the pit at once.</p>
+          <p className="coup-sub">Two ways to fight: <b>⚔ Duel</b> — play them yourself, live, heads-up.
+            {' '}<b>🤖 Bot battle</b> — your selected bot vs theirs, best of 5 series, straight to Match History.</p>
           {live?.invite && (
             <div className="coup-card" style={{ background: 'var(--panel-2)', marginBottom: 14 }}>
-              <p style={{ margin: '0 0 10px' }}>⚔ <b>{live.invite.fromName}</b> challenges you to a duel!</p>
+              <p style={{ margin: '0 0 10px' }}>
+                {live.invite.kind === 'bots'
+                  ? <>🤖 <b>{live.invite.fromName}</b> wants their bot to fight your selected bot!</>
+                  : <>⚔ <b>{live.invite.fromName}</b> challenges you to a live duel!</>}
+              </p>
               <button className="primary" onClick={() => answerInvite(true)}>Accept</button>{' '}
               <button className="ghost" onClick={() => answerInvite(false)}>Decline</button>
             </div>
@@ -181,8 +188,9 @@ export default function VersusPage({ user }: { user: CoupUser }) {
                   <tr key={o.username}>
                     <td>{o.displayName}</td>
                     <td style={{ color: 'var(--ink-mut)', fontSize: 12.5 }}>{o.role === 'mentor' ? 'mentor' : o.role === 'organizer' ? 'organizer' : ''}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="small" onClick={() => challenge(o.username, o.displayName)}>⚔ Challenge</button>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className="small" onClick={() => challenge(o.username, o.displayName, 'duel')}>⚔ Duel</button>{' '}
+                      <button className="small" onClick={() => challenge(o.username, o.displayName, 'bots')}>🤖 Bot battle</button>
                     </td>
                   </tr>
                 ))}
@@ -194,9 +202,9 @@ export default function VersusPage({ user }: { user: CoupUser }) {
           <h2 className="coup-h">How it works</h2>
           <p className="coup-sub">
             Challenges arrive live — the other player gets an Accept button within a few
-            seconds. When the organizers hit the big red button, every online student is
-            paired into a random duel and pulled straight to this page. Leaving a duel
-            mid-game concedes it.
+            seconds. When the organizers hit the pairing buttons, every online student is
+            thrown into a random duel (pulled straight to this page) or a random bot battle
+            (results in Match History). Leaving a live duel mid-game concedes it.
           </p>
         </div>
       </div>

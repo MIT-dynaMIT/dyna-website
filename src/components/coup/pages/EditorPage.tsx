@@ -33,6 +33,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const toast = useToast();
 
   const [slots, setSlots] = useState<(BotSlot | null)[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('blocks');
   const [name, setName] = useState('');
@@ -158,8 +159,9 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     (async () => {
       let loaded: (BotSlot | null)[] = [];
       try {
-        const r = await api.get<{ slots: (BotSlot | null)[]; slotCount: number }>('/bots');
+        const r = await api.get<{ slots: (BotSlot | null)[]; slotCount: number; selectedSlot: number | null }>('/bots');
         loaded = r.slots;
+        setSelectedSlot(r.selectedSlot);
       } catch { /* leave empty */ }
       if (cancelled) return;
       setSlots(loaded);
@@ -170,7 +172,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
         toolbox: makeToolbox(),
         theme: coupTheme(),
         renderer: 'zelos',
-        grid: { spacing: 24, length: 2, colour: '#222c35', snap: true },
+        grid: { spacing: 24, length: 2, colour: '#d8d3c4', snap: true },
         zoom: { controls: true, wheel: true, startScale: 0.85, maxScale: 2, minScale: 0.4 },
         // trashcan without the confusing "recycle bin" flyout — Undo covers recovery
         trashcan: true,
@@ -408,7 +410,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
       {/* sidebar */}
       <aside className="ed-side coup-card">
         <h2 className="coup-h">Your Bots <small>{slots.length || '—'} slots</small></h2>
-        <p className="coup-sub">Each slot is a separate champion. Switch anytime — your work is saved automatically.</p>
+        <p className="coup-sub">Each slot is a separate champion. The ★ marks your <b>selected bot</b> —
+          it fights for you in the Gauntlet and in bot battles.</p>
         <div className="ed-slots">
           {slots.map((s, i) => (
             <button
@@ -425,6 +428,29 @@ export default function EditorPage({ user }: { user: CoupUser }) {
                   {i === idx && dirty && ' · unsaved'}
                 </span>
               </span>
+              {s && s.python && (
+                <span
+                  role="button" tabIndex={-1}
+                  className="ed-slot-star"
+                  style={{
+                    marginLeft: 'auto', fontSize: 17, lineHeight: 1, padding: '2px 4px',
+                    color: i === selectedSlot ? 'var(--accent)' : 'var(--ink-mut)',
+                    opacity: i === selectedSlot ? 1 : 0.45,
+                  }}
+                  title={i === selectedSlot ? 'Your selected bot' : 'Make this your selected bot'}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (i === selectedSlot) return;
+                    try {
+                      await api.put('/bots/selected', { slot: i });
+                      setSelectedSlot(i);
+                      toast(`★ ${s.name} is now your selected bot`);
+                    } catch (ex) {
+                      toast(ex instanceof Error ? ex.message : 'could not select');
+                    }
+                  }}
+                >{i === selectedSlot ? '★' : '☆'}</span>
+              )}
             </button>
           ))}
           {slots.length === 0 && <div className="coup-note">Loading your slots…</div>}

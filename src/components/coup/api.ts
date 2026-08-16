@@ -10,34 +10,48 @@ export interface BotSlot {
   updatedAt: number;
 }
 
-export interface LeaderRow {
-  rank: number; id: string; name: string; owner: string; isHouse: boolean;
-  elo: number; games: number; winRate: number;
-}
-
-export interface MySub {
-  id: string; name: string; slot: number; elo: number; games: number;
-  winRate: number; lastN: number; errors: number; rank: number;
-}
-
-// A ladder pairing is a SERIES of games, scored as a whole; ELO moves once per
-// series on the score fraction. `turns` is the per-game average.
+// A bot match is a BEST OF 5: five 100-game series, the match going to
+// whoever takes more series. Everything is recorded from players[0]'s side.
 export interface MatchRow {
-  id: string; ts: number; myBot: string; win: boolean; winnerName: string;
-  players: string[]; owners: string[]; eloDelta: number; turns: number; adjudicated: boolean;
-  series?: boolean;
-  gamesTotal?: number;
-  score?: Record<string, number>;   // wins per bot name
-  winStrip?: string;                // one char per game, '1' = players[0] won it
-  sampleGames?: number[];           // game numbers that have a stored replay
+  id: string; ts: number;
+  mode: 'gauntlet' | 'botduel';
+  level: number | null;             // gauntlet: which house level (0-based)
+  players: [string, string];        // bot names
+  owners: [string, string];         // usernames ('house' for house bots)
+  ownerNames: [string, string];
+  score: [number, number];          // series won, out of 5 (draws count for neither)
+  winnerName: string | null;        // null = drawn match
+  gamesPerSeries: number;
+  series: { winsA: number; winsB: number }[];
+  mine: number;                     // my index in players/owners (-1 for admin spectating)
 }
 
-export interface SeriesInfo {
-  game: number; gamesTotal: number;
-  score: Record<string, number>;
-  winStrip: string;
-  samples: number[];      // game numbers with replays; index into this is the ?sample= arg
+export interface PendingJob {
+  id: string; mode: 'gauntlet' | 'botduel'; level: number | null;
+  players: [string, string]; owners: [string, string]; ownerNames: [string, string];
+  status: 'queued' | 'running' | 'failed'; ts: number; error: string | null;
+}
+
+export interface MatchesData { matches: MatchRow[]; pending: PendingJob[] }
+
+export interface GauntletData {
+  levels: { level: number; name: string }[];
+  seriesCount: number;
+  seriesGames: number;
+  selected: { slot: number; name: string } | null;
+  pending: PendingJob[];
+}
+
+export interface ReplayMatchInfo {
+  mode: 'gauntlet' | 'botduel'; level: number | null;
+  players: [string, string]; ownerNames: [string, string];
+  score: [number, number]; matchWinner: string | null; gamesPerSeries: number;
+  seriesIndex: number;
+  seriesScores: [number, number][];
+  winStrip: string;                 // this series, from players[0]'s side
+  samples: number[];                // game numbers with stored replays
   sampleIndex: number;
+  game: number;                     // the game number being watched
 }
 
 export interface CardView { revealed: boolean; role: string | null }
@@ -89,11 +103,11 @@ export interface PlaySnapshot {
   prompt: Prompt | null; done: boolean; winnerName: string | null;
 }
 
-// live human-vs-human
+// live human-vs-human (+ bot-battle challenges)
 export interface LiveOnlineUser { username: string; displayName: string; role: string }
 export interface LivePollData {
   online: LiveOnlineUser[];
-  invite: { from: string; fromName: string } | null;
+  invite: { from: string; fromName: string; kind: 'duel' | 'bots' } | null;
   match: string | null;
 }
 export interface LiveSnapshot extends PlaySnapshot {
@@ -174,24 +188,15 @@ export const ACTION_LABEL: Record<string, string> = {
   assassinate: 'Assassinate', steal: 'Steal', exchange: 'Exchange',
 };
 
-// The server default (server/scrim.js, overridable there via COUP_SERIES_GAMES).
-// Only safe for static copy — anything rendering real data must read gamesTotal
-// off the payload, since a series may have been played at another length.
+// The server defaults (server/arena.js). Only safe for static copy — anything
+// rendering real data must read gamesPerSeries off the payload.
 export const SERIES_GAMES = 100;
+export const SERIES_COUNT = 5;
 
 /** Re-cut a win strip so '1' means the bot you're looking at won that game. */
 export function orientStrip(strip: string, flip: boolean): string {
   if (!flip) return strip;
   return strip.replace(/[01]/g, (c) => (c === '1' ? '0' : '1'));
-}
-
-/** Whose wins the '1's are: the bot whose series score equals the number of 1s.
- *  A drawn series is ambiguous, and then either name gives the same tally, so
- *  fall back to the first scored name (the series' seat 0). */
-export function stripOwner(strip: string, score: Record<string, number>): string {
-  const names = Object.keys(score);
-  const ones = (strip.match(/1/g) || []).length;
-  return names.find((n) => score[n] === ones) ?? names[0] ?? '';
 }
 
 export function timeAgo(ts: number): string {

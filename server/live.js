@@ -211,14 +211,15 @@ class LiveManager {
     return s;
   }
 
-  challenge(fromUser, toUsername) {
+  /** kind 'duel' = play each other live; 'bots' = our selected bots fight */
+  challenge(fromUser, toUsername, kind = 'duel') {
     const to = this.store.users[String(toUsername || '').toLowerCase()];
     if (!to) return { error: 'no such player' };
     if (to.username === fromUser.username) return { error: 'you cannot duel yourself' };
     if ((Date.now() - (this.lastSeen.get(to.username) || 0)) > ONLINE_MS) return { error: 'they just went offline' };
     const cur = this.invites.get(to.username);
     if (cur && Date.now() - cur.ts < INVITE_TTL) return { error: 'they already have a challenge pending' };
-    this.invites.set(to.username, { from: fromUser.username, ts: Date.now() });
+    this.invites.set(to.username, { from: fromUser.username, kind, ts: Date.now() });
     return { ok: true };
   }
 
@@ -229,6 +230,8 @@ class LiveManager {
     if (!accept) return { ok: true };
     const from = this.store.users[inv.from];
     if (!from) return { error: 'challenger vanished' };
+    // bot battles don't get a table here — the route queues them in the arena
+    if (inv.kind === 'bots') return { ok: true, bots: true, from: from.username };
     const s = this._startMatch([
       { username: from.username, displayName: from.displayName },
       { username: user.username, displayName: user.displayName },
@@ -265,7 +268,7 @@ class LiveManager {
     this.lastSeen.set(user.username, Date.now());
     const inv = this.invites.get(user.username);
     const invite = inv && Date.now() - inv.ts < INVITE_TTL
-      ? { from: inv.from, fromName: (this.store.users[inv.from] || {}).displayName || inv.from }
+      ? { from: inv.from, fromName: (this.store.users[inv.from] || {}).displayName || inv.from, kind: inv.kind || 'duel' }
       : null;
     const matchId = this.assigned.get(user.username) || null;
     const match = matchId && this.sessions.has(matchId) ? matchId : null;

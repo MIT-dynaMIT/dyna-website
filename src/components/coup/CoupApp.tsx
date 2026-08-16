@@ -5,7 +5,7 @@ import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
 import EditorPage from './pages/EditorPage';
-import ScrimPage from './pages/ScrimPage';
+import GauntletPage from './pages/GauntletPage';
 import PlayPage from './pages/PlayPage';
 import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
@@ -107,10 +107,10 @@ export default function CoupApp() {
     return () => { stop = true; clearInterval(t); };
   }, [user, navigate]);
 
-  // the game world is dark — paint the page itself so overscroll never flashes white
+  // paint the page itself so overscroll matches --bg instead of the site's own backdrop
   useEffect(() => {
     const prev = document.documentElement.style.background;
-    document.documentElement.style.background = '#12161b';
+    document.documentElement.style.background = '#fbfaf6';
     return () => { document.documentElement.style.background = prev; };
   }, []);
 
@@ -132,7 +132,7 @@ export default function CoupApp() {
 
   const tabs = [
     { name: 'Bot Editor', to: '/coup/editor' },
-    { name: 'Scrimmage', to: '/coup/scrim' },
+    { name: 'Gauntlet', to: '/coup/gauntlet' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Match History', to: '/coup/matches' },
@@ -162,7 +162,8 @@ export default function CoupApp() {
           <Routes>
             <Route index element={<Navigate to="editor" replace />} />
             <Route path="editor" element={<EditorPage user={user} />} />
-            <Route path="scrim" element={<ScrimPage user={user} />} />
+            <Route path="gauntlet" element={<GauntletPage />} />
+            <Route path="scrim" element={<Navigate to="/coup/gauntlet" replace />} />
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />

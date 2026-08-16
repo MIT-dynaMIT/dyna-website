@@ -13,7 +13,7 @@ const path = require('node:path');
 const express = require('express');
 
 const { Store } = require('./store');
-const { ScrimServer } = require('./scrim');
+const { Arena, SERIES_COUNT, SERIES_GAMES } = require('./arena');
 const { PlayManager } = require('./play');
 const { LiveManager } = require('./live');
 const { ScriptBot, checkProgram } = require('./botapi');
@@ -22,9 +22,18 @@ const { HOUSE } = require('./samplebots/bots');
 
 const PORT = Number(process.env.PORT || 8787);
 const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
-const scrim = new ScrimServer(store);
+const arena = new Arena(store);
 const plays = new PlayManager();
 const live = new LiveManager(store);
+
+// resolve the user's SELECTED BOT into a compiling fighter, or an error
+function fighterFor(user) {
+  const sel = store.selectedBot(user);
+  if (sel.error) return sel;
+  const check = checkProgram(sel.source);
+  if (!check.ok) return { error: `"${sel.name}" has problems — run Check in the editor first` };
+  return { owner: user.username, ownerName: user.displayName, name: sel.name, source: sel.source };
+}
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -59,7 +68,18 @@ app.get('/api/coup/me', auth, (req, res) => res.json({ user: pub(req.user) }));
 
 // ------------------------------------------------------------ bot slots
 app.get('/api/coup/bots', auth, (req, res) => {
-  res.json({ slots: store.getSlots(req.user), slotCount: store.slotCount(req.user) });
+  res.json({
+    slots: store.getSlots(req.user),
+    slotCount: store.slotCount(req.user),
+    selectedSlot: store.selectedSlot(req.user),
+  });
+});
+
+// NB: registered before /bots/:idx so "selected" isn't parsed as a slot index
+app.put('/api/coup/bots/selected', auth, (req, res) => {
+  const r = store.setSelectedSlot(req.user, Number(req.body.slot));
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
 });
 
 app.put('/api/coup/bots/:idx', auth, (req, res) => {
@@ -84,81 +104,69 @@ app.post('/api/coup/parse', auth, (req, res) => {
   }
 });
 
-// ------------------------------------------------------------ scrimmage
-app.get('/api/coup/scrim', auth, (req, res) => {
-  const board = store.leaderboard();
-  const mine = store.mySubmissions(req.user).map((s) => ({
-    id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), games: s.games,
-    winRate: s.last.length ? s.last.reduce((a, x) => a + x, 0) / s.last.length : 0,
-    lastN: s.last.length, errors: s.errors,
-    rank: board.findIndex((b) => b.id === s.id) + 1,
-  }));
+// ------------------------------------------------------------ the gauntlet
+// challenge one of the three house levels with your selected bot:
+// best of 5, where each of the 5 is a 100-game series
+app.get('/api/coup/gauntlet', auth, (req, res) => {
+  const sel = store.selectedBot(req.user);
   res.json({
-    top: board.slice(0, 10),
-    totalBots: board.length,
-    totalGames: store.scrim.totalGames,
-    running: !!store.scrim.running,
-    mine,
+    levels: HOUSE.map((h, i) => ({ level: i, name: h.name })),
+    seriesCount: SERIES_COUNT,
+    seriesGames: SERIES_GAMES,
+    selected: sel.error ? null : { slot: sel.slot, name: sel.name },
+    pending: arena.pendingFor(req.user.username),
   });
 });
 
-app.post('/api/coup/scrim/submit', auth, (req, res) => {
-  const idx = Number(req.body.slot);
-  const slots = store.getSlots(req.user);
-  const s = slots[idx];
-  if (!s || !s.python) return res.status(400).json({ error: 'that slot is empty' });
-  const check = checkProgram(s.python);
-  if (!check.ok) return res.status(400).json({ error: 'the bot has problems — run "Check my bot" in the editor first', problems: check.problems });
-  const r = store.submit(req.user, idx);
+app.post('/api/coup/gauntlet/challenge', auth, (req, res) => {
+  const level = Number(req.body.level);
+  const house = HOUSE[level];
+  if (!house) return res.status(400).json({ error: 'no such level' });
+  const me = fighterFor(req.user);
+  if (me.error) return res.status(400).json(me);
+  const r = arena.enqueue({
+    mode: 'gauntlet', level,
+    a: me,
+    b: { owner: 'house', ownerName: 'The House', name: house.name, source: house.source },
+  });
   if (r.error) return res.status(400).json(r);
-  res.json({ ok: true, unchanged: !!r.unchanged, submission: { id: r.submission.id, name: r.submission.name } });
-});
-
-app.post('/api/coup/scrim/withdraw', auth, (req, res) => {
-  res.json({ ok: store.withdraw(req.user, String(req.body.id || '')) });
+  res.json({ ok: true, job: r.job });
 });
 
 // ------------------------------------------------------------ match history
 app.get('/api/coup/matches', auth, (req, res) => {
-  const subId = req.query.sub || null;
-  const mine = store.mySubmissions(req.user);
-  const sub = subId ? mine.find((s) => s.id === subId) : mine[0];
-  if (!sub) return res.json({ bot: null, matches: [] });
-  const matches = sub.matchIds.map((id) => store.getMatch(id)).filter(Boolean).reverse().map((m) => ({
-    id: m.id, ts: m.ts,
-    myBot: sub.name,
-    win: m.winnerName === sub.name,
-    winnerName: m.winnerName,
-    players: m.seatNames,
-    owners: m.owners,
-    eloDelta: m.eloDelta[sub.name] ?? 0,
-    turns: m.turns,
-    adjudicated: !!m.adjudicated,
-    series: !!m.series,
-    gamesTotal: m.gamesTotal,
-    score: m.score,
-    winStrip: m.winStrip,
-    sampleGames: (m.samples || []).map((s) => s.g),
+  const rows = store.matchesFor(req.user).map((m) => ({
+    id: m.id, ts: m.ts, mode: m.mode, level: m.level,
+    players: m.players, owners: m.owners, ownerNames: m.ownerNames,
+    score: m.score, winnerName: m.winnerName,
+    gamesPerSeries: m.gamesPerSeries,
+    series: m.series.map((s) => ({ winsA: s.winsA, winsB: s.winsB })),
+    mine: m.owners.indexOf(req.user.username),
   }));
-  res.json({
-    bot: { id: sub.id, name: sub.name, elo: Math.round(sub.elo), games: sub.games },
-    matches,
-  });
+  res.json({ matches: rows, pending: arena.pendingFor(req.user.username) });
 });
 
+// ?series=i&sample=j → replay sample j of series i (both 0-based)
 app.get('/api/coup/matches/:id/replay', auth, (req, res) => {
   const m = store.getMatch(req.params.id);
-  if (!m) return res.status(404).json({ error: 'match not found (older series are pruned)' });
-  // a series stores a few sample games; ?sample=n picks one (default first)
-  const samples = m.samples || [];
-  const si = Math.max(0, Math.min(samples.length - 1, Number(req.query.sample) || 0));
-  const sample = samples[si];
+  if (!m) return res.status(404).json({ error: 'match not found (older matches are pruned)' });
+  const si = Math.max(0, Math.min(m.series.length - 1, Number(req.query.series) || 0));
+  const ser = m.series[si];
+  const samples = ser.samples || [];
+  const gi = Math.max(0, Math.min(samples.length - 1, Number(req.query.sample) || 0));
+  const sample = samples[gi];
   if (!sample) return res.status(404).json({ error: 'no replayable games stored for this series' });
   const r = replayMatch(sample);
   res.json({
     frames: r.frames, seatNames: sample.seatNames, owners: m.owners,
-    winnerName: sample.winnerName, eloDelta: m.eloDelta, ts: m.ts,
-    series: { game: sample.g, gamesTotal: m.gamesTotal, score: m.score, winStrip: m.winStrip, samples: samples.map((s) => s.g), sampleIndex: si },
+    winnerName: sample.winnerName, ts: m.ts,
+    match: {
+      mode: m.mode, level: m.level, players: m.players, ownerNames: m.ownerNames,
+      score: m.score, matchWinner: m.winnerName, gamesPerSeries: m.gamesPerSeries,
+      seriesIndex: si, seriesScores: m.series.map((s) => [s.winsA, s.winsB]),
+      winStrip: ser.winStrip,
+      samples: samples.map((s) => s.g), sampleIndex: gi, game: sample.g,
+    },
   });
 });
 
@@ -215,7 +223,12 @@ app.post('/api/coup/live/poll', auth, (req, res) => {
 });
 
 app.post('/api/coup/live/challenge', auth, (req, res) => {
-  const r = live.challenge(req.user, req.body.to);
+  const kind = req.body.kind === 'bots' ? 'bots' : 'duel';
+  if (kind === 'bots') {
+    const me = fighterFor(req.user);
+    if (me.error) return res.status(400).json(me);
+  }
+  const r = live.challenge(req.user, req.body.to, kind);
   if (r.error) return res.status(400).json(r);
   res.json(r);
 });
@@ -223,6 +236,16 @@ app.post('/api/coup/live/challenge', auth, (req, res) => {
 app.post('/api/coup/live/respond', auth, (req, res) => {
   const r = live.respondInvite(req.user, !!req.body.accept);
   if (r.error) return res.status(400).json(r);
+  if (r.bots && req.body.accept) {
+    // a bot battle: both sides' selected bots into the arena, no live table
+    const me = fighterFor(req.user);
+    const them = fighterFor(store.users[r.from]);
+    if (me.error) return res.status(400).json(me);
+    if (them.error) return res.status(400).json({ error: `${store.users[r.from].displayName}: ${them.error}` });
+    const q = arena.enqueue({ mode: 'botduel', a: them, b: me });
+    if (q.error) return res.status(400).json(q);
+    return res.json({ ok: true, bots: true, job: q.job });
+  }
   res.json(r);
 });
 
@@ -256,23 +279,17 @@ app.post('/api/coup/live/match/:id/forfeit', auth, (req, res) => {
 // ------------------------------------------------------------ admin
 app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
   res.json({
-    leaderboard: store.leaderboard(),
-    totalGames: store.scrim.totalGames,
-    running: !!store.scrim.running,
-    // ladder health: the longest the scrim loop has held the event loop
-    perf: { lastChunkMs: scrim.lastChunkMs, maxChunkMs: scrim.maxChunkMs, lastError: scrim.lastError },
-    students: Object.values(store.users).filter((u) => u.username !== '__house').map((u) => ({
-      username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin,
-      slotsUsed: (store.bots[u.username] || []).filter(Boolean).length,
-      submitted: store.scrim.submissions.filter((s) => s.owner === u.username).map((s) => s.name),
-    })),
+    totalMatches: store.matches.list.length,
+    students: Object.values(store.users).map((u) => {
+      const sel = store.selectedBot(u);
+      return {
+        username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin,
+        role: u.role || 'student',
+        slotsUsed: (store.bots[u.username] || []).filter(Boolean).length,
+        selectedBot: sel.error ? null : sel.name,
+      };
+    }),
   });
-});
-
-app.post('/api/coup/admin/running', auth, adminOnly, (req, res) => {
-  store.scrim.running = !!req.body.running;
-  store._save('scrim.json', store.scrim);
-  res.json({ ok: true, running: store.scrim.running });
 });
 
 app.post('/api/coup/admin/reset-password', auth, adminOnly, (req, res) => {
@@ -291,6 +308,32 @@ app.post('/api/coup/admin/pair-online', auth, adminOnly, (req, res) => {
   res.json(live.pairStudents());
 });
 
+// pair every online student's SELECTED BOT into a random best-of-5 bot battle
+app.post('/api/coup/admin/pair-bots', auth, adminOnly, (req, res) => {
+  const pool = [];
+  const skipped = [];
+  for (const o of live.onlineUsers(null)) {
+    if (o.role !== 'student') continue;
+    const f = fighterFor(store.users[o.username]);
+    if (f.error) skipped.push(o.displayName);
+    else pool.push(f);
+  }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  let matches = 0;
+  for (let i = 0; i + 1 < pool.length; i += 2) {
+    const r = arena.enqueue({ mode: 'botduel', a: pool[i], b: pool[i + 1] });
+    if (!r.error) matches++;
+  }
+  res.json({
+    matches, paired: matches * 2,
+    benched: pool.length % 2 ? pool[pool.length - 1].ownerName : null,
+    skipped,
+  });
+});
+
 // SPA fallback for /coup/* deep links in production mode
 app.get(/^\/(?!api\/).*/, (req, res, next) => {
   res.sendFile(path.join(dist, 'index.html'), (err) => { if (err) next(); });
@@ -298,13 +341,12 @@ app.get(/^\/(?!api\/).*/, (req, res, next) => {
 
 // ------------------------------------------------------------ boot
 if (require.main === module) {
-  scrim.start(4000, 3);
   app.listen(PORT, () => {
     console.log(`\n  🎭 dynaCOUP camp server → http://localhost:${PORT}`);
-    console.log(`     scrims: ${store.scrim.submissions.length} bots in the pool, ${store.scrim.totalGames} games played\n`);
+    console.log(`     ${Object.keys(store.users).length} logins, ${store.matches.list.length} recorded matches\n`);
   });
   process.on('SIGINT', () => { store.flush(); process.exit(0); });
   process.on('SIGTERM', () => { store.flush(); process.exit(0); });
 }
 
-module.exports = { app, store, scrim };
+module.exports = { app, store, arena };

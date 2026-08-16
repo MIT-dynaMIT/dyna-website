@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, stripOwner } from '../api';
-import type { Frame, SeriesInfo } from '../api';
+import { api } from '../api';
+import type { Frame, ReplayMatchInfo } from '../api';
 import CoupTable, { describe, WinStrip } from '../CoupTable';
 import type { TalkLine } from '../CoupTable';
 
@@ -10,9 +10,8 @@ interface ReplayData {
   seatNames: string[];
   owners: string[];
   winnerName: string | null;
-  eloDelta: Record<string, number>;
   ts: number;
-  series?: SeriesInfo;
+  match: ReplayMatchInfo;
 }
 
 export default function ReplayPage() {
@@ -20,8 +19,8 @@ export default function ReplayPage() {
   const [data, setData] = useState<ReplayData | null>(null);
   const [err, setErr] = useState('');
   const [idx, setIdx] = useState(0);
-  // which stored sample game to watch — this is an INDEX into series.samples,
-  // not a game number, and it is what ?sample= expects.
+  // which of the 5 series, and which stored sample game within it (both indexes)
+  const [series, setSeries] = useState(0);
   const [sample, setSample] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -31,10 +30,10 @@ export default function ReplayPage() {
   useEffect(() => {
     if (!id) return;
     setPlaying(false);
-    api.get<ReplayData>(`/matches/${id}/replay?sample=${sample}`)
+    api.get<ReplayData>(`/matches/${id}/replay?series=${series}&sample=${sample}`)
       .then((d) => { setData(d); setIdx(0); setAnimate(false); })
       .catch((ex) => setErr(ex instanceof Error ? ex.message : 'could not load the replay'));
-  }, [id, sample]);
+  }, [id, series, sample]);
 
   const N = data ? data.frames.length : 0;
 
@@ -81,32 +80,29 @@ export default function ReplayPage() {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 
-  // Seats swap between games of a series, so this game's seat 0 is not a stable
-  // thing to orient a series scoreboard to — it would flip the score between
-  // samples. Anchor to the strip's own bot instead and name both sides.
-  const s = data.series;
-  const home = s ? stripOwner(s.winStrip, s.score) : '';
-  const away = s ? (Object.keys(s.score).find((n) => n !== home) ?? '') : '';
+  const m = data.match;
+  const [nameA, nameB] = m.players;   // stable across series; strips are A's side
 
   return (
     <div>
       <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
         <Link to="/coup/matches" className="coup-note" style={{ textDecoration: 'none' }}>← Match history</Link>
         <div style={{ flex: 1 }} />
-        <span className="coup-note">{dateStr}</span>
+        <span className="coup-note">
+          {m.mode === 'gauntlet' ? `gauntlet level ${(m.level ?? 0) + 1}` : 'bot battle'} · {dateStr}
+        </span>
       </div>
 
       <div className="ct-replayhead">
         <div className="coup-card" style={{ flex: '1 1 320px', padding: '12px 16px' }}>
           <div className="ct-seatlist">
-            {data.seatNames.map((nm, i) => {
-              const d = data.eloDelta[nm] ?? 0;
-              const win = nm === data.winnerName;
+            {m.players.map((nm, i) => {
+              const win = nm === m.matchWinner;
               return (
                 <div className="row" key={i}>
                   <span className={`bn ${win ? 'win' : ''}`}>{win ? '♛ ' : ''}{nm}</span>
-                  <span className="ow">{data.owners[i] && data.owners[i] !== 'House' ? data.owners[i] : 'House'}</span>
-                  <span className={`ed ${d >= 0 ? 'pos' : 'neg'}`}>{d >= 0 ? '+' : ''}{d} ELO</span>
+                  <span className="ow">{m.ownerNames[i]}</span>
+                  <span className="ed">{i === 0 ? m.score[0] : m.score[1]} series</span>
                 </div>
               );
             })}
@@ -114,28 +110,34 @@ export default function ReplayPage() {
         </div>
       </div>
 
-      {s && (
-        <div className="ct-serieshead">
-          <div className="sline">
-            Series {home} <b>{s.score[home] ?? 0}–{s.score[away] ?? 0}</b> {away}
-            {' · watching game '}<b>{s.game}</b> of {s.gamesTotal}
-          </div>
-          <div className="sbtns">
-            {s.samples.map((g, i) => (
-              <button key={g} className={`small ${i === s.sampleIndex ? 'primary' : ''}`}
-                onClick={() => setSample(i)} disabled={i === s.sampleIndex}>
-                Game {g}
-              </button>
-            ))}
-          </div>
-          <WinStrip strip={s.winStrip} highlight={s.game}
-            title={`${s.gamesTotal} games — green = ${home} won`} />
-          <span className="skey">
-            <i>■</i> {home} · <s>■</s> {away} — seats swap each game; only games{' '}
-            {s.samples.join(', ')} were recorded
-          </span>
+      <div className="ct-serieshead">
+        <div className="sline">
+          Match {nameA} <b>{m.score[0]}–{m.score[1]}</b> {nameB}
+          {' · series '}<b>{m.seriesIndex + 1}</b> of {m.seriesScores.length}
+          {' · watching game '}<b>{m.game}</b> of {m.gamesPerSeries}
         </div>
-      )}
+        <div className="sbtns">
+          {m.seriesScores.map((s, i) => (
+            <button key={i} className={`small ${i === m.seriesIndex ? 'primary' : ''}`}
+              onClick={() => { setSeries(i); setSample(0); }} disabled={i === m.seriesIndex}>
+              S{i + 1} · {s[0]}-{s[1]}
+            </button>
+          ))}
+          <span style={{ width: 14 }} />
+          {m.samples.map((g, i) => (
+            <button key={g} className={`small ${i === m.sampleIndex ? 'primary' : ''}`}
+              onClick={() => setSample(i)} disabled={i === m.sampleIndex}>
+              Game {g}
+            </button>
+          ))}
+        </div>
+        <WinStrip strip={m.winStrip} highlight={m.game}
+          title={`series ${m.seriesIndex + 1}: ${m.gamesPerSeries} games — green = ${nameA} won`} />
+        <span className="skey">
+          <i>■</i> {nameA} · <s>■</s> {nameB} — seats swap each game; only games{' '}
+          {m.samples.join(', ')} of each series were recorded
+        </span>
+      </div>
 
       <CoupTable
         seatNames={data.seatNames}

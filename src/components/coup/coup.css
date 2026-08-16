@@ -1,32 +1,35 @@
-/* dynaCOUP — court intrigue theme. Scoped under .coup-root so it never
-   fights the main site's Tailwind styles. Dark felt, aged gold, parchment. */
+/* dynaCOUP — court intrigue theme, daylight edition. Scoped under .coup-root
+   so it never fights the main site's Tailwind styles. White marble, deepened
+   gold, green felt, parchment cards. */
 
 .coup-root {
-  --bg: #12161b;
-  --bg-2: #191f26;
-  --panel: #1c242b;
-  --panel-2: #222c35;
-  --line: #2e3a44;
-  --accent: #c9a84c;
-  --accent-dim: #9a7f37;
-  --parch: #f0e6cc;
-  --ink: #e9ddbf;
-  --ink-mut: #9aa5ad;
+  --bg: #fbfaf6;
+  --bg-2: #f3f1ea;
+  --panel: #ffffff;
+  --panel-2: #f5f2ea;
+  --line: #e2ddcf;
+  --accent: #a8842c;
+  --accent-dim: #c2a24f;
+  /* --parch is the strong/primary text ink. Parchment *surfaces* (card faces,
+     banner, toast) carry their own explicit light values. */
+  --parch: #1b2028;
+  --ink: #2a3038;
+  --ink-mut: #6f7a84;
   --ink-dark: #1c242b;
-  --felt-1: #1c2d36;
-  --felt-2: #16232a;
-  --good: #3f9d6b;
-  --bad: #b8503f;
-  --duke: #7d3c98;
-  --assassin: #4a5560;
-  --captain: #2471a3;
-  --ambassador: #1e8449;
-  --contessa: #a93226;
+  --felt-1: #2c7a55;
+  --felt-2: #1f6042;
+  --good: #27754c;
+  --bad: #b4402f;
+  --duke: #6f3391;
+  --assassin: #3f4a55;
+  --captain: #1f6796;
+  --ambassador: #1a7a43;
+  --contessa: #a12b20;
 
   min-height: 100vh;
   display: flow-root; /* contain child margins — no white gap above the app */
   background:
-    radial-gradient(ellipse at 50% -10%, #1e2833 0%, var(--bg) 55%),
+    radial-gradient(ellipse at 50% -10%, #ffffff 0%, var(--bg) 55%),
     var(--bg);
   color: var(--ink);
   font-family: Georgia, 'Times New Roman', serif;
@@ -60,7 +63,7 @@
 .coup-nav a:hover { color: var(--parch); }
 .coup-nav a.active {
   color: var(--accent); border-color: var(--accent-dim);
-  background: rgba(201, 168, 76, 0.07);
+  background: rgba(168, 132, 44, 0.10);
 }
 .coup-top .spacer { flex: 1; }
 .coup-whoami { color: var(--ink-mut); font-size: 13.5px; font-style: italic; }
@@ -71,6 +74,7 @@
 .coup-card {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 10px; padding: 18px 20px;
+  box-shadow: 0 1px 2px rgba(28, 33, 40, 0.05);
 }
 .coup-h { color: var(--parch); font-size: 17px; margin: 0 0 12px; letter-spacing: 0.05em; }
 .coup-h small { color: var(--ink-mut); font-size: 12.5px; letter-spacing: 0.02em; margin-left: 10px; font-style: italic; }
@@ -86,11 +90,11 @@
 .coup-root button:active:not(:disabled) { transform: translateY(1px); }
 .coup-root button:disabled { opacity: 0.45; cursor: default; }
 .coup-root button.primary {
-  background: linear-gradient(180deg, #d8b95e, var(--accent));
-  border-color: var(--accent-dim); color: #221a06; font-weight: 700;
+  background: linear-gradient(180deg, #dfbf5c, #c19e35);
+  border-color: var(--accent); color: #241b04; font-weight: 700;
 }
 .coup-root button.primary:hover:not(:disabled) { filter: brightness(1.06); }
-.coup-root button.danger { border-color: #6e352b; color: #e0a196; }
+.coup-root button.danger { border-color: #dcb3aa; color: #a83a29; background: #fdf6f4; }
 .coup-root button.ghost { background: transparent; }
 .coup-root button.small { padding: 4px 10px; font-size: 12.5px; }
 
@@ -99,10 +103,12 @@
   background: var(--bg-2); border: 1px solid var(--line); border-radius: 7px;
   padding: 9px 12px; width: 100%; outline: none;
 }
-.coup-root input:focus, .coup-root select:focus { border-color: var(--accent-dim); }
+.coup-root input:focus, .coup-root select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(168, 132, 44, 0.16);
+}
 .coup-root label { display: block; font-size: 12.5px; color: var(--ink-mut); margin: 12px 0 5px; letter-spacing: 0.06em; text-transform: uppercase; }
 
-.coup-error { color: #e0a196; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
+.coup-error { color: #a83a29; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
 .coup-note { color: var(--ink-mut); font-size: 13px; font-style: italic; }
 
 /* ------------------------------------------------ login */
@@ -110,7 +116,7 @@
   max-width: 400px; margin: 9vh auto 0; text-align: center;
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 36px 34px 30px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 44px rgba(28, 33, 40, 0.10), 0 2px 6px rgba(28, 33, 40, 0.05);
 }
 .coup-login h1 { color: var(--parch); font-size: 30px; margin: 0 0 4px; }
 .coup-login h1 .gold { color: var(--accent); }
@@ -125,7 +131,7 @@
   text-transform: uppercase; letter-spacing: 0.09em;
   padding: 6px 10px; border-bottom: 1px solid var(--line);
 }
-.coup-table td { padding: 8px 10px; border-bottom: 1px solid rgba(46, 58, 68, 0.5); }
+.coup-table td { padding: 8px 10px; border-bottom: 1px solid rgba(28, 33, 40, 0.08); }
 .coup-table tr:last-child td { border-bottom: none; }
 .coup-table td.num, .coup-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .coup-table .goldrow td { color: var(--accent); }
@@ -178,8 +184,8 @@
 
 .coup-toast {
   position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
-  background: var(--parch); color: var(--ink-dark); border-radius: 8px;
-  padding: 10px 20px; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  background: #232a32; color: #f6f1e4; border-radius: 8px;
+  padding: 10px 20px; font-size: 14px; box-shadow: 0 10px 28px rgba(28, 33, 40, 0.28);
   opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 90;
 }
 .coup-toast.show { opacity: 1; }

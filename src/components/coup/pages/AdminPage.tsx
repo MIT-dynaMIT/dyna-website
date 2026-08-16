@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
-import type { LeaderRow } from '../api';
 import { useToast } from '../CoupApp';
 
 interface Overview {
-  leaderboard: LeaderRow[];
-  totalGames: number;
-  running: boolean;
-  perf?: { lastChunkMs: number; maxChunkMs: number; lastError: string | null };
+  totalMatches: number;
   students: {
-    username: string; displayName: string; isAdmin: boolean;
-    slotsUsed: number; submitted: string[];
+    username: string; displayName: string; isAdmin: boolean; role: string;
+    slotsUsed: number; selectedBot: string | null;
   }[];
 }
 
@@ -28,17 +24,19 @@ export default function AdminPage() {
 
   if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading the court records…</div>;
 
-  const toggleScrims = async () => {
-    await api.post('/admin/running', { running: !data.running });
-    toast(data.running ? 'Scrims paused' : 'Scrims resumed');
-    refresh();
-  };
-
-  const pairUp = async () => {
+  const pairDuels = async () => {
     const r = await api.post<{ matches: number; paired: number; benched: string | null }>('/admin/pair-online');
     if (!r.matches && !r.benched) { toast('No students are online right now'); return; }
-    toast(`⚔ ${r.paired} students sent to ${r.matches} duel${r.matches === 1 ? '' : 's'}`
+    toast(`⚔ ${r.paired} students sent to ${r.matches} live duel${r.matches === 1 ? '' : 's'}`
       + (r.benched ? ` — ${r.benched} sits out (odd one out)` : ''));
+  };
+
+  const pairBots = async () => {
+    const r = await api.post<{ matches: number; paired: number; benched: string | null; skipped: string[] }>('/admin/pair-bots');
+    if (!r.matches && !r.benched && !r.skipped.length) { toast('No students are online right now'); return; }
+    toast(`🤖 ${r.matches} bot battle${r.matches === 1 ? '' : 's'} queued`
+      + (r.benched ? ` — ${r.benched} sits out` : '')
+      + (r.skipped.length ? ` — no bot yet: ${r.skipped.join(', ')}` : ''));
   };
 
   const resetPw = async (username: string) => {
@@ -63,37 +61,32 @@ export default function AdminPage() {
   return (
     <div className="coup-grid2" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
       <div className="coup-card">
-        <h2 className="coup-h">👑 Full leaderboard
-          <small>{data.leaderboard.length} bots · {data.totalGames.toLocaleString()} games</small>
+        <h2 className="coup-h">🎓 Campers
+          <small>{data.students.length} logins · {data.totalMatches} matches recorded</small>
         </h2>
-        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={toggleScrims}>{data.running ? '⏸ Pause scrims' : '▶ Resume scrims'}</button>
-          <button className="primary" onClick={pairUp}
+        <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="primary" onClick={pairDuels}
             title="Every online student is paired into a random live duel and pulled to the Versus page">
-            ⚔ Pair up online students
+            ⚔ Pair up live duels
           </button>
-          {data.perf && (
-            <span className="coup-sub" style={{ margin: 0, fontSize: 13 }}>
-              ladder slice {data.perf.lastChunkMs}ms · worst {data.perf.maxChunkMs}ms
-              {data.perf.lastError && <strong style={{ color: 'var(--bad, #c0392b)' }}> · {data.perf.lastError}</strong>}
-            </span>
-          )}
+          <button className="primary" onClick={pairBots}
+            title="Every online student's selected bot fights a random other student's bot — best of 5, results in Match History">
+            🤖 Pair up bot battles
+          </button>
         </div>
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
           <table className="coup-table">
-            <thead>
-              <tr><th className="rank">#</th><th>Bot</th><th>Coach</th>
-                <th className="num">ELO</th><th className="num">Games</th><th className="num">Win %</th></tr>
-            </thead>
+            <thead><tr><th>Login</th><th>Name</th><th>Role</th>
+              <th className="num">Saved</th><th>Selected bot</th><th /></tr></thead>
             <tbody>
-              {data.leaderboard.map((r) => (
-                <tr key={r.id} className={r.rank === 1 ? 'top1' : ''}>
-                  <td className="rank">{r.rank}</td>
-                  <td>{r.name}{r.isHouse && <span className="house-tag">HOUSE</span>}</td>
-                  <td style={{ color: 'var(--ink-mut)' }}>{r.isHouse ? '—' : r.owner}</td>
-                  <td className="num">{r.elo}</td>
-                  <td className="num">{r.games}</td>
-                  <td className="num">{Math.round(r.winRate * 100)}%</td>
+              {data.students.map((s) => (
+                <tr key={s.username}>
+                  <td className="mono" style={{ fontSize: 13 }}>{s.username}{s.isAdmin ? ' ⭐' : ''}</td>
+                  <td>{s.displayName}</td>
+                  <td style={{ color: 'var(--ink-mut)', fontSize: 13 }}>{s.role}</td>
+                  <td className="num">{s.slotsUsed}</td>
+                  <td style={{ color: 'var(--ink-mut)', fontSize: 13 }}>{s.selectedBot ? `★ ${s.selectedBot}` : '—'}</td>
+                  <td><button className="small ghost" onClick={() => resetPw(s.username)}>reset pw</button></td>
                 </tr>
               ))}
             </tbody>
@@ -102,25 +95,6 @@ export default function AdminPage() {
       </div>
 
       <div>
-        <div className="coup-card" style={{ marginBottom: 18 }}>
-          <h2 className="coup-h">🎓 Students</h2>
-          <p className="coup-sub">Your own bots live in the Bot Editor — organizers get 100 slots and can submit as many to the ladder as they like.</p>
-          <table className="coup-table">
-            <thead><tr><th>Login</th><th>Name</th><th className="num">Saved</th><th>On ladder</th><th /></tr></thead>
-            <tbody>
-              {data.students.map((s) => (
-                <tr key={s.username}>
-                  <td className="mono" style={{ fontSize: 13 }}>{s.username}{s.isAdmin ? ' ⭐' : ''}</td>
-                  <td>{s.displayName}</td>
-                  <td className="num">{s.slotsUsed}</td>
-                  <td style={{ color: 'var(--ink-mut)', fontSize: 13 }}>{s.submitted.join(', ') || '—'}</td>
-                  <td><button className="small ghost" onClick={() => resetPw(s.username)}>reset pw</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
         <div className="coup-card">
           <h2 className="coup-h">➕ Add a login</h2>
           <form onSubmit={createUser}>

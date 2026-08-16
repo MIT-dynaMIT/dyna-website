@@ -57,8 +57,8 @@
   --ct-rail-w: calc(var(--ct-slot-w) * 4 + 33px);
   border-radius: 18px;
   padding: 4px;
-  background: linear-gradient(145deg, #d8b95e, #8a6f2e 40%, #5f4a1e 70%, #d8b95e);
-  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(145deg, #e3c977, #b3903c 40%, #8a6f2e 70%, #e3c977);
+  box-shadow: 0 16px 40px rgba(28, 33, 40, 0.16), 0 2px 6px rgba(28, 33, 40, 0.08);
   overflow: hidden;
 }
 /* once there is room, every piece steps up together and the felt reads as a
@@ -94,13 +94,13 @@
 
 .ct-felt {
   position: absolute; inset: 6px; border-radius: 14px;
-  background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 70%, #101c22 100%);
-  border: 2px solid rgba(0, 0, 0, 0.35);
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.04);
+  background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 70%, #17503a 100%);
+  border: 2px solid rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.26), inset 0 2px 0 rgba(255, 255, 255, 0.10);
 }
 .ct-felt::after {
   content: ''; position: absolute; inset: 9px;
-  border: 1px solid rgba(201, 168, 76, 0.13); border-radius: 11px; pointer-events: none;
+  border: 1px solid rgba(255, 246, 214, 0.22); border-radius: 11px; pointer-events: none;
 }
 
 /* --------------------------- flow layout: banner lane / rival / centre / you */
@@ -127,8 +127,10 @@
   display: flex; align-items: center; justify-content: center;
 }
 /* an empty lane reads as intent, not as a gap */
+/* sits directly on the green felt, so it takes a light gold rather than the
+   page's deepened --accent */
 .ct-lane:empty::after {
-  content: '⚜'; color: var(--accent); opacity: 0.16; font-size: 17px;
+  content: '⚜'; color: #f4e6b8; opacity: 0.30; font-size: 17px;
 }
 
 .ct-center-row {
@@ -143,7 +145,7 @@
 .ct-deck.wiggle { animation: ct-wiggle 0.5s ease; }
 .ct-count {
   position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
-  font-size: 11px; color: var(--ink-mut); white-space: nowrap; font-variant-numeric: tabular-nums;
+  font-size: 11px; color: rgba(246, 242, 230, 0.82); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 /* a hand-tuned pile of coins — scaled as a unit rather than re-tuned per size
    (getBoundingClientRect sees the transform, so the flyer anchor stays true) */
@@ -159,7 +161,7 @@
 .ct-bank .ct-coin:nth-child(5) { left: 26px; top: 34px; }
 .ct-bank-lbl {
   position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
-  font-size: 11px; color: var(--ink-mut); white-space: nowrap; letter-spacing: 0.05em;
+  font-size: 11px; color: rgba(246, 242, 230, 0.82); white-space: nowrap; letter-spacing: 0.05em;
 }
 
 /* ---------------------------------- seats: one horizontal band per player
@@ -174,35 +176,36 @@
   width: 100%; max-width: var(--ct-band);
   padding: 12px 20px;
   border-radius: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.20);
   border-left: 3px solid transparent;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.12));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
   transition: border-color 0.25s, box-shadow 0.25s, filter 0.3s, opacity 0.3s;
 }
-/* whose turn it is reads as a gold edge on the whole band, not a badge */
+/* whose turn it is reads as a gold edge on the whole band, not a badge.
+   Bright gold, not the page's --accent: this edge lies on green felt. */
 .ct-seat.turn {
-  border-color: rgba(201, 168, 76, 0.34);
-  border-left-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.16), inset 0 0 26px rgba(201, 168, 76, 0.07);
+  border-color: rgba(246, 224, 150, 0.55);
+  border-left-color: #edcf72;
+  box-shadow: 0 0 0 1px rgba(246, 224, 150, 0.28), inset 0 0 26px rgba(255, 240, 190, 0.12);
 }
-.ct-seat.you { background: linear-gradient(90deg, rgba(201, 168, 76, 0.11), rgba(0, 0, 0, 0.12)); }
+.ct-seat.you { background: linear-gradient(90deg, rgba(246, 224, 150, 0.26), rgba(255, 255, 255, 0.06)); }
 
 /* a placard of consistent width, not a pill that ragged-edges with the name */
 .ct-plate {
   justify-self: stretch; min-width: 0;
   display: flex; align-items: baseline; gap: 8px;
-  background: rgba(12, 18, 22, 0.72); border: 1px solid var(--line);
+  background: rgba(250, 247, 239, 0.94); border: 1px solid rgba(28, 33, 40, 0.14);
   border-radius: 999px; padding: 5px 15px;
   color: var(--ink); font-size: var(--ct-plate-fs); letter-spacing: 0.02em;
 }
 .ct-plate .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-seat.turn .ct-plate { border-color: var(--accent-dim); color: var(--parch); }
-.ct-seat.you .ct-plate { background: rgba(201, 168, 76, 0.13); border-color: var(--accent-dim); }
+.ct-seat.you .ct-plate { background: rgba(250, 236, 196, 0.96); border-color: var(--accent-dim); }
 .ct-fallen {
   flex: none; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--bad); border: 1px solid var(--bad); border-radius: 4px; padding: 0 5px;
 }
-.ct-seat.dead { filter: grayscale(0.85) brightness(0.66); opacity: 0.85; }
+.ct-seat.dead { filter: grayscale(0.9) brightness(0.9); opacity: 0.85; }
 .ct-seat.dead .ct-plate .nm { text-decoration: line-through; color: var(--ink-mut); }
 
 /* hand + coins travel together as one group; the coin stack is given a fixed
@@ -217,7 +220,7 @@
   justify-self: end; width: var(--ct-rail-w);
   display: flex; gap: 5px; align-items: center; justify-content: center;
   padding: 4px 8px; border-radius: 10px;
-  background: rgba(12, 18, 22, 0.5); border: 1px solid var(--line);
+  background: rgba(250, 248, 242, 0.88); border: 1px solid rgba(28, 33, 40, 0.12);
 }
 .ct-slot {
   width: var(--ct-slot-w); height: var(--ct-slot-h); border-radius: 4px;
@@ -225,7 +228,7 @@
 }
 .ct-slot.life {
   color: var(--accent); font-size: calc(var(--ct-slot-w) * 0.62);
-  border: 1px dashed var(--accent-dim); background: rgba(201, 168, 76, 0.06);
+  border: 1px dashed var(--accent-dim); background: rgba(168, 132, 44, 0.10);
 }
 .ct-slot.lost { animation: ct-slotin 0.4s ease; }
 
@@ -233,7 +236,7 @@
 .ct-strip {
   display: flex; gap: 1px; width: 100%; height: 14px;
   padding: 2px; border-radius: 4px;
-  background: rgba(12, 18, 22, 0.55); border: 1px solid var(--line);
+  background: var(--bg-2); border: 1px solid var(--line);
 }
 .ct-strip .tick { flex: 1 1 0; min-width: 0; border-radius: 1px; background: var(--bad); opacity: 0.5; }
 .ct-strip .tick.w { background: var(--good); }
@@ -263,7 +266,7 @@
 .ct-stackcol .ct-coin:first-child { margin-top: 0; }
 .ct-coinchip {
   align-self: center; margin-left: 3px;
-  background: rgba(12, 18, 22, 0.8); border: 1px solid var(--accent-dim);
+  background: rgba(255, 252, 245, 0.92); border: 1px solid var(--accent-dim);
   color: var(--accent); border-radius: 999px; font-size: 12px;
   padding: 1px 8px; font-variant-numeric: tabular-nums; letter-spacing: 0.03em;
 }
@@ -272,7 +275,7 @@
 .ct-coin {
   width: var(--ct-coin); height: var(--ct-coin); border-radius: 50%;
   background: radial-gradient(circle at 34% 30%, #f4e29a, #d8b95e 45%, #9a7f37 100%);
-  border: 1px solid #7d6526; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); position: relative;
+  border: 1px solid #7d6526; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); position: relative;
 }
 .ct-coin::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid rgba(125, 101, 38, 0.6); }
 
@@ -285,21 +288,23 @@
   width: calc(var(--ct-slot-w) - 2px); height: calc(var(--ct-slot-h) - 2px);
   border-radius: 3px;
 }
+/* the back stays a deep card-stock navy — it is a physical card lying on green
+   felt, not page chrome, so it does not follow the light palette */
 .ct-card.back {
   background:
-    repeating-linear-gradient(45deg, rgba(201,168,76,0.10) 0 4px, transparent 4px 8px),
-    linear-gradient(160deg, #223543, #16232a);
-  border: 1px solid var(--accent-dim); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.25);
+    repeating-linear-gradient(45deg, rgba(240, 220, 150, 0.14) 0 4px, transparent 4px 8px),
+    linear-gradient(160deg, #2b4152, #1b2c36);
+  border: 1px solid var(--accent-dim); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.22);
   display: flex; align-items: center; justify-content: center;
 }
 .ct-card.back::after {
-  content: '♜'; color: rgba(201, 168, 76, 0.55); font-size: calc(var(--ct-card-w) * 0.48);
+  content: '♜'; color: rgba(240, 222, 158, 0.60); font-size: calc(var(--ct-card-w) * 0.48);
 }
 
 .ct-card.face {
-  background: linear-gradient(180deg, #fbf4df, var(--parch));
+  background: linear-gradient(180deg, #fdf8ea, #f1e6c8);
   border: 1px solid #b9a878; color: var(--ink-dark);
-  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
 }
 .ct-card.face .band {
   height: calc(var(--ct-card-h) * 0.41); display: flex; align-items: center; justify-content: center;
@@ -323,7 +328,7 @@
 .ct-card.dead::before {
   content: ''; position: absolute; top: 50%; left: -6%; width: 112%; height: 3px;
   background: var(--bad); transform: rotate(-32deg); transform-origin: center;
-  box-shadow: 0 0 5px rgba(184, 80, 63, 0.7); z-index: 2; border-radius: 2px;
+  box-shadow: 0 0 5px rgba(180, 64, 47, 0.6); z-index: 2; border-radius: 2px;
 }
 .ct-card.mini.dead::before { height: 2px; }
 
@@ -333,9 +338,9 @@
    full wording is always in the table-talk log beside the board. */
 .ct-banner {
   max-width: 100%; text-align: center;
-  background: linear-gradient(180deg, #fbf4df, var(--parch)); color: var(--ink-dark);
+  background: linear-gradient(180deg, #fdf8ea, #f1e6c8); color: var(--ink-dark);
   border: 1px solid #b9a878; border-radius: 8px; padding: 6px 16px;
-  font-size: var(--ct-banner-fs); line-height: 1.28; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  font-size: var(--ct-banner-fs); line-height: 1.28; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.30);
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   animation: ct-lanein 0.3s ease;
 }
@@ -351,7 +356,7 @@
 .ct-banner.t-miss .lead { color: #1a5276; }
 .ct-banner.t-win {
   background: linear-gradient(180deg, #f7e9b8, #e9cf7c); border-color: var(--accent);
-  box-shadow: 0 0 26px rgba(201, 168, 76, 0.5);
+  box-shadow: 0 0 26px rgba(233, 207, 124, 0.75);
 }
 .ct-banner.t-win .lead { color: #7a5c14; }
 
@@ -363,14 +368,14 @@
 }
 .ct-flyer.card {
   width: 30px; height: 42px; border-radius: 4px;
-  background: linear-gradient(160deg, #223543, #16232a); border: 1px solid var(--accent-dim);
+  background: linear-gradient(160deg, #2b4152, #1b2c36); border: 1px solid var(--accent-dim);
 }
 /* centred on the middle zone (banner lane + deck/treasury), clear of bands */
 .ct-missflash {
   position: absolute; top: 50%; left: 50%; z-index: 7;
   transform: translate(-50%, -50%);
-  font-size: 50px; line-height: 1; font-weight: 800; letter-spacing: 0.06em; color: #6fb6d8;
-  text-shadow: 0 0 24px rgba(36, 113, 163, 0.8), 0 3px 0 rgba(0, 0, 0, 0.4);
+  font-size: 50px; line-height: 1; font-weight: 800; letter-spacing: 0.06em; color: #bfe6f7;
+  text-shadow: 0 0 24px rgba(31, 103, 150, 0.85), 0 3px 0 rgba(0, 0, 0, 0.35);
   pointer-events: none; animation: ct-missflash 1.1s ease forwards;
 }
 
@@ -381,7 +386,8 @@
 .ct-overlay {
   position: absolute; inset: 6px; z-index: 8; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at 50% 50%, rgba(18, 22, 27, 0.80), rgba(18, 22, 27, 0.62));
+  /* stays a dark scrim: it dims the green felt, not the page */
+  background: radial-gradient(ellipse at 50% 50%, rgba(10, 30, 22, 0.72), rgba(10, 30, 22, 0.54));
   animation: ct-fadein 0.4s ease;
 }
 .ct-plaque {
@@ -390,12 +396,12 @@
   align-items: center; justify-items: center;
   gap: 8px 12px; text-align: center;
   padding: 12px 30px; border-radius: 14px;
-  background: linear-gradient(180deg, rgba(28, 36, 43, 0.97), rgba(18, 22, 27, 0.97));
+  background: linear-gradient(180deg, #ffffff, #f6f2e8);
   border: 1px solid var(--accent-dim);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(201, 168, 76, 0.06);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35), inset 0 0 30px rgba(168, 132, 44, 0.05);
   animation: ct-plaquein 0.4s ease;
 }
-.ct-plaque .crown { grid-area: crown; font-size: 30px; line-height: 1; color: var(--accent); filter: drop-shadow(0 0 18px rgba(201,168,76,0.6)); }
+.ct-plaque .crown { grid-area: crown; font-size: 30px; line-height: 1; color: var(--accent); filter: drop-shadow(0 1px 2px rgba(28, 33, 40, 0.20)); }
 .ct-plaque .rules { grid-area: rules; font-size: 19px; color: var(--parch); letter-spacing: 0.03em; white-space: nowrap; }
 .ct-plaque .rules b { color: var(--accent); }
 .ct-plaque .ovbtns { grid-area: btns; display: flex; gap: 12px; }
@@ -417,9 +423,9 @@
 .ct-line { font-size: 12.5px; line-height: 1.35; color: var(--ink-mut); border-left: 2px solid var(--line); padding: 2px 0 2px 9px; }
 .ct-line b { color: var(--ink); font-weight: 600; }
 .ct-line.t-action { border-left-color: var(--accent-dim); }
-.ct-line.t-challenge, .ct-line.t-kill { border-left-color: var(--bad); color: #d7b1a8; }
+.ct-line.t-challenge, .ct-line.t-kill { border-left-color: var(--bad); color: #9c4b3a; }
 .ct-line.t-block { border-left-color: var(--accent); }
-.ct-line.t-miss { border-left-color: var(--captain); color: #a8c6d7; }
+.ct-line.t-miss { border-left-color: var(--captain); color: #2c6a8f; }
 .ct-line.t-win { border-left-color: var(--accent); color: var(--accent); }
 
 /* ------------------------------------------------ keyframes */
@@ -450,15 +456,15 @@
 .ct-callbtn { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 74px; padding: 8px 10px; }
 .ct-callbtn .g { font-size: 20px; }
 .ct-callbtn.role-duke .g { color: var(--duke); }
-.ct-callbtn.role-assassin .g { color: #9aa5ad; }
+.ct-callbtn.role-assassin .g { color: #5a6570; }
 .ct-callbtn.role-captain .g { color: var(--captain); }
 .ct-callbtn.role-ambassador .g { color: var(--ambassador); }
 .ct-callbtn.role-contessa .g { color: var(--contessa); }
 .ct-pickcards { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
 .ct-pickcards .ct-card { cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
 .ct-pickcards .ct-card:hover { transform: translateY(-4px); }
-.ct-pickcards .ct-card.sel { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--accent), 0 6px 14px rgba(0,0,0,0.5); }
-.ct-mustcoup { color: #e0a196; font-size: 13px; font-style: italic; margin-bottom: 10px; }
+.ct-pickcards .ct-card.sel { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--accent), 0 6px 14px rgba(28, 33, 40, 0.20); }
+.ct-mustcoup { color: #a83a29; font-size: 13px; font-style: italic; margin-bottom: 10px; }
 
 /* replay transport */
 .ct-transport {

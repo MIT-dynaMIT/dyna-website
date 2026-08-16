@@ -322,25 +322,27 @@
   white-space: nowrap; transform: scaleX(0.85);
 }
 /* The four characters wear the organizers' faces — the whole card face is the
-   headshot under a translucent wash of the card's color, with the name on a
-   parchment strip. Images live in /public (same files the Board page uses).
-   The glyph band goes transparent so the face shows through. */
+   headshot under a heavy wash of the card's color, name on a parchment strip.
+   Mapping: Jayden=Duke(purple), Victor=Ambassador(yellow), Andrew=Assassin
+   (white), Nishita=Contessa(red). Images live in /public (Board page files).
+   backgrounds zoom to ~150% height so the face fills the card. */
 .ct-card.face .band { background: transparent; }
 .ct-card.face.role-duke {
-  background: linear-gradient(color-mix(in srgb, var(--duke) 45%, transparent), color-mix(in srgb, var(--duke) 45%, transparent)),
-    url('/images_2027s/victor-yin.jpg') center 28% / cover;
-}
-.ct-card.face.role-assassin {
-  background: linear-gradient(color-mix(in srgb, var(--assassin) 45%, transparent), color-mix(in srgb, var(--assassin) 45%, transparent)),
-    url('/images_2027s/andrew-zhang.jpg') center 28% / cover;
+  background: linear-gradient(rgba(111, 51, 145, 0.62), rgba(111, 51, 145, 0.62)),
+    url('/images_2029s/jayden-graham.jpg') center 12% / auto 150%;
 }
 .ct-card.face.role-ambassador {
-  background: linear-gradient(color-mix(in srgb, var(--ambassador) 45%, transparent), color-mix(in srgb, var(--ambassador) 45%, transparent)),
-    url('/images_2028s/nishita-bhakar.jpg') center 28% / cover;
+  background: linear-gradient(rgba(212, 168, 30, 0.62), rgba(212, 168, 30, 0.62)),
+    url('/images_2027s/victor-yin.jpg') center 12% / auto 150%;
 }
+.ct-card.face.role-assassin {
+  background: linear-gradient(rgba(250, 248, 242, 0.66), rgba(250, 248, 242, 0.66)),
+    url('/images_2027s/andrew-zhang.jpg') center 12% / auto 150%;
+}
+.ct-card.face.role-assassin .band { color: #3f4a55; text-shadow: none; }
 .ct-card.face.role-contessa {
-  background: linear-gradient(color-mix(in srgb, var(--contessa) 45%, transparent), color-mix(in srgb, var(--contessa) 45%, transparent)),
-    url('/images_2029s/jayden-graham.jpg') center 28% / cover;
+  background: linear-gradient(rgba(161, 43, 32, 0.62), rgba(161, 43, 32, 0.62)),
+    url('/images_2028s/nishita-bhakar.jpg') center 12% / auto 150%;
 }
 .ct-card.face .rname {
   background: rgba(253, 248, 234, 0.88);

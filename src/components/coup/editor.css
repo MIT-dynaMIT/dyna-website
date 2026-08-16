@@ -189,3 +189,22 @@
   height: calc(100vh - 150px);
   min-height: 480px;
 }
+
+
+/* ---------------- compact check row (replaces the big ed-alert card) */
+.coup-root .ed-checkline {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  position: relative;
+  font-size: 12.5px; line-height: 1.35;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--line); border-radius: 8px;
+  padding: 6px 30px 6px 12px; margin-bottom: 4px;
+}
+.coup-root .ed-checkline.ok { border-left-color: var(--good); }
+.coup-root .ed-checkline.bad { border-left-color: var(--bad); }
+.coup-root .ed-checkline .lead { font-weight: 700; }
+.coup-root .ed-checkline.ok .lead { color: var(--good); }
+.coup-root .ed-checkline.bad .lead { color: var(--bad); }
+.coup-root .ed-checkline .prob { color: var(--ink); }
+.coup-root .ed-checkline .prob.dim { color: var(--ink-mut); font-style: italic; }
+.coup-root .ed-checkline .ed-fnchip { font-size: 11px; padding: 1px 7px; }

@@ -539,50 +539,22 @@ export default function EditorPage({ user }: { user: CoupUser }) {
           </div>
         </div>
 
-        {/* check results — floating alert under the toolbar */}
+        {/* check results — one compact small-font row under the toolbar */}
         {check && (
-          <div className={`ed-alert ${check.ok ? 'ok' : 'bad'}`}>
+          <div className={`ed-checkline ${check.ok ? 'ok' : 'bad'}`}>
             <button className="ed-alert-x" onClick={() => setCheck(null)} aria-label="Dismiss">✕</button>
-            <h3 className="ed-alert-h">{check.ok ? '⚔️ Ready for battle!' : '🛠 A few things to fix first'}</h3>
-            {check.ok && <p className="coup-note" style={{ margin: '2px 0 0' }}>Your bot compiled and made legal moves in every test game — send it to the ladder!</p>}
-            {check.functions && check.functions.length > 0 && (
-              <div className="ed-fnchips">
-                {check.functions.map((f) => (
-                  <span key={f.fn} className={`ed-fnchip ${f.status}`}>
-                    <code>{f.fn}</code>{f.status === 'ok' ? ' ✓' : f.status === 'default' ? ' · default' : ' ✗'}
-                  </span>
-                ))}
-              </div>
-            )}
-            {!check.ok && (() => {
-              const groups = new Map<string, { fn?: string; line?: number; message: string }[]>();
-              for (const p of check.problems) { const k = p.fn || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
-              return (
-                <div className="ed-probgroups">
-                  {[...groups.entries()].map(([fn, ps]) => (
-                    <div key={fn || 'general'} className="ed-probgroup">
-                      <span className="ed-fn">{fn || 'overall'}</span>
-                      <ul className="ed-problems">
-                        {ps.map((p, i) => (
-                          <li key={i}>
-                            {p.line != null && <span className="ed-line">line {p.line}</span>}
-                            <span>{p.message}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            {check.notes.length > 0 && (
-              <ul className="ed-notes">
-                {check.notes.map((n, i) => <li key={i}>💡 {n}</li>)}
-              </ul>
-            )}
-            {!check.ok && mode === 'blocks' && (
-              <p className="ed-linehint">Line numbers refer to the <strong>Generated code</strong> panel below.</p>
-            )}
+            <span className="lead">{check.ok ? '✓ Ready — legal moves in every test game.' : '🛠 Fix:'}</span>
+            {check.functions && check.functions.map((f) => (
+              <span key={f.fn} className={`ed-fnchip ${f.status}`}>
+                <code>{f.fn}</code>{f.status === 'ok' ? ' ✓' : f.status === 'default' ? ' · default' : ' ✗'}
+              </span>
+            ))}
+            {!check.ok && check.problems.map((p, i) => (
+              <span key={i} className="prob">
+                {p.fn ? `${p.fn} — ` : ''}{p.line != null ? `line ${p.line}: ` : ''}{p.message}
+              </span>
+            ))}
+            {!check.ok && mode === 'blocks' && <span className="prob dim">(line numbers = Generated code panel)</span>}
           </div>
         )}
 

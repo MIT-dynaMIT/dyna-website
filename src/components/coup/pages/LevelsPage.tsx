@@ -5,7 +5,7 @@ import type { GauntletData, MatchesData, MatchRow } from '../api';
 import { useToast } from '../CoupApp';
 
 const LEVEL_FLAVOR = [
-  'Level 1. Looks suspiciously familiar. It IS your starter bot — beat yourself.',
+  'Level 1. Just happy to be here. Something about him seems… oddly familiar.',
   'Level 2. Never lies, audits everything. Lying to Greg gets expensive.',
   "Level 3. The final boss. We don't talk about Kevin's win rate.",
 ];

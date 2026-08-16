@@ -26,11 +26,10 @@ services:
         sync: false
       - key: ROSTER_PATH
         value: /etc/secrets/roster.csv
-    # --- uncomment on a paid instance for durable bots + match history ---
-    # disk:
-    #   name: dynacoup-data
-    #   mountPath: /var/data
-    #   sizeGB: 1
-    # ...and add:
-    #   - key: DATA_DIR
-    #     value: /var/data
+      # requires the disk below (paid instance) — data survives every deploy
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: dynacoup-data
+      mountPath: /var/data
+      sizeGB: 1

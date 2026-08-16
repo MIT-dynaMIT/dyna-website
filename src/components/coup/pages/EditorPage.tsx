@@ -67,7 +67,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
 
   // turn a python-mode slot into blocks on load; on failure fall back to
   // Advanced. Guards against a stale slot switch landing on the wrong slot.
-  const autoDecompile = useCallback((python: string, token: number) => {
+  // keepDirty: an uploaded file is unsaved work — don't mark it clean.
+  const autoDecompile = useCallback((python: string, token: number, keepDirty = false) => {
     const ws = wsRef.current;
     if (!ws) return;
     api.post<ParseResult>('/parse', { python })
@@ -80,7 +81,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
         loadingRef.current = false;
         setGenerated(generatePython(ws));
         setMode('blocks');
-        setDirty(false);
+        setDirty(keepDirty);
         setTimeout(() => {
           if (loadToken.current !== token || !wsRef.current) return;
           Blockly.svgResize(ws);
@@ -385,6 +386,34 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const handleSave = async () => { setSaving(true); try { await doSave(idxRef.current); } finally { setSaving(false); } };
   const renameCurrent = (v: string) => { setName(v); setDirty(true); };
 
+  // ---------------------------------------------------------------- .py download / upload
+  const downloadPy = () => {
+    const ws = wsRef.current;
+    const python = modeRef.current === 'blocks' && ws ? generatePython(ws) : pyRef.current;
+    const fname = (nameRef.current || 'bot').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'bot';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([python], { type: 'text/x-python' }));
+    a.download = `${fname}.py`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploadPy = async (file: File) => {
+    const text = await file.text();
+    if (!text.trim()) { toast('That file is empty.'); return; }
+    const base = file.name.replace(/\.py$/i, '').replace(/[-_]+/g, ' ').trim().slice(0, 24);
+    if (base) setName(base);
+    setPythonText(text);
+    pyHistory.current = [];
+    setCheck(null);
+    setDirty(true);
+    setMode('python');
+    // same treatment as opening a python slot: show blocks when we can
+    autoDecompile(text, ++loadToken.current, true);
+    toast(`Loaded ${file.name} into slot ${idxRef.current + 1} — hit Save to keep it`);
+  };
+
   // ---------------------------------------------------------------- fullscreen
   const edMainRef = useRef<HTMLElement>(null);
   const [isFull, setIsFull] = useState(false);
@@ -486,6 +515,16 @@ export default function EditorPage({ user }: { user: CoupUser }) {
                 onClick={() => mode === 'blocks' && switchToPython()}>⌨ Advanced (Python)</button>
             </div>
             <div className="ed-actions">
+              <input ref={fileInput} type="file" accept=".py,text/x-python,text/plain" hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void uploadPy(f);
+                }} />
+              <button className="small" onClick={() => fileInput.current?.click()}
+                title="Load a .py bot file into this slot">⬆ Upload .py</button>
+              <button className="small" onClick={downloadPy}
+                title="Save this bot to your computer as a .py file">⬇ Download .py</button>
               <button className="small" onClick={toggleFullscreen} title="Fill the whole screen with the editor">
                 {isFull ? '✕ Exit full screen' : '⛶ Full screen'}
               </button>

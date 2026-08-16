@@ -332,20 +332,20 @@
 .ct-card.face .band { background: transparent; }
 .ct-card.face.role-duke {
   background: linear-gradient(rgba(111, 51, 145, 0.62), rgba(111, 51, 145, 0.62)),
-    url('/images_2029s/jayden-graham.jpg') center 24% / auto 150%;
+    url('/images_2029s/jayden-graham.jpg') 61% 32% / auto 180%;
 }
 .ct-card.face.role-ambassador {
   background: linear-gradient(rgba(212, 168, 30, 0.62), rgba(212, 168, 30, 0.62)),
-    url('/images_2027s/victor-yin.jpg') 47% 40% / auto 150%;
+    url('/images_2027s/victor-yin.jpg') 48% 72% / auto 155%;
 }
 .ct-card.face.role-assassin {
   background: linear-gradient(rgba(250, 248, 242, 0.66), rgba(250, 248, 242, 0.66)),
-    url('/images_2027s/andrew-zhang.jpg') 48% 34% / auto 150%;
+    url('/images_2027s/andrew-zhang.jpg') 49% 55% / auto 170%;
 }
 .ct-card.face.role-assassin .band { color: #3f4a55; text-shadow: none; }
 .ct-card.face.role-contessa {
   background: linear-gradient(rgba(161, 43, 32, 0.62), rgba(161, 43, 32, 0.62)),
-    url('/images_2028s/nishita-bhakar.jpg') center 24% / auto 150%;
+    url('/images_2028s/nishita-bhakar.jpg') 15% 38% / auto 200%;
 }
 .ct-card.face .rname {
   background: #fdf8ea;

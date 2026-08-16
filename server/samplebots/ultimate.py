@@ -138,10 +138,15 @@ def when_assassinated(state, action):
     # do not need
     if not (action.call in state.my_cards):
         return allow()
-    # it would hit: blocking costs nothing I was not already losing. If they
-    # challenge and win, I discard the named card myself and the shot then
-    # misses — the same single card, and often they just let it stand.
-    return block_contessa()
+    # it would hit: with a real Contessa the block is safe. Bluffing one is a
+    # different bet since the ordering rule changed — a challenged bluff now
+    # loses the named card AND a penalty card. Against a passive opponent the
+    # bluff still saves a life, so gamble it sometimes, not always.
+    if "contessa" in state.my_cards:
+        return block_contessa()
+    if random() < 0.35:
+        return block_contessa()
+    return allow()
 
 def choose_card_to_lose(state):
     # keep the story straight: shed a card I have already claimed, so my

@@ -55,8 +55,9 @@ const path = require('node:path');
 const py = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 
 const HOUSE = [
-  { name: 'Gary the Intern',      source: py('level1_apprentice.py') },
-  { name: 'Greg from Accounting', source: py('level2_strategist.py') },
+  // level 1 IS the starter scaffold — beat yourself before anyone else
+  { name: 'Gary the Intern',      source: THE_SCAFFOLD },
+  { name: 'Greg from Accounting', source: py('level2_auditor.py') },
   { name: 'Kevin',                source: py('ultimate.py') },
 ];
 

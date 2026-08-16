@@ -5,8 +5,8 @@ import type { GauntletData, MatchesData, MatchRow } from '../api';
 import { useToast } from '../CoupApp';
 
 const LEVEL_FLAVOR = [
-  'Level 1. Just happy to be here. Knows the rules, mostly.',
-  'Level 2. Counts every card. Keeps a spreadsheet of grudges.',
+  'Level 1. Looks suspiciously familiar. It IS your starter bot — beat yourself.',
+  'Level 2. Never lies, audits everything. Lying to Greg gets expensive.',
   "Level 3. The final boss. We don't talk about Kevin's win rate.",
 ];
 const LEVEL_ICON = ['🥉', '🥈', '🏆'];

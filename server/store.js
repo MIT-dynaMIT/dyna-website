@@ -10,7 +10,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const MATCH_CAP = 250;   // best-of-5 records carry 15 sample replays each
+const MATCH_CAP = 250;             // global backstop
+const MATCHES_PER_ACCOUNT = 5;     // each account keeps only its last 5 matches
 
 function hashPassword(pw) {
   const salt = crypto.randomBytes(12).toString('hex');
@@ -150,6 +151,18 @@ class Store {
     match.id = crypto.randomBytes(6).toString('hex');
     match.ts = Date.now();
     this.matches.list.push(match);
+    // per-account retention: a match survives while it is within SOME owner's
+    // most recent 5 — dropping one player's 6th must not erase another's 2nd
+    const seen = new Map();   // owner -> how many of their matches kept so far
+    const keep = new Set();
+    for (let i = this.matches.list.length - 1; i >= 0; i--) {
+      const m = this.matches.list[i];
+      for (const o of m.owners) {
+        const n = seen.get(o) || 0;
+        if (n < MATCHES_PER_ACCOUNT) { keep.add(m.id); seen.set(o, n + 1); }
+      }
+    }
+    this.matches.list = this.matches.list.filter((m) => keep.has(m.id));
     if (this.matches.list.length > MATCH_CAP) this.matches.list.splice(0, this.matches.list.length - MATCH_CAP);
     // matches.json carries sample replays and nothing reads it between writes,
     // so it saves on a lazy debounce; flush() on SIGINT/SIGTERM covers shutdown.
@@ -160,9 +173,9 @@ class Store {
   getMatch(id) { return this.matches.list.find((m) => m.id === id) || null; }
 
   matchesFor(user) {
-    const all = user.isAdmin ? this.matches.list
-      : this.matches.list.filter((m) => m.owners.includes(user.username));
-    return [...all].reverse();
+    if (user.isAdmin) return [...this.matches.list].reverse();
+    return this.matches.list.filter((m) => m.owners.includes(user.username))
+      .reverse().slice(0, MATCHES_PER_ACCOUNT);
   }
 }
 

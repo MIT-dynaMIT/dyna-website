@@ -34,7 +34,7 @@ export default function MatchesPage() {
     <div>
       <div className="coup-card" style={{ marginBottom: 16 }}>
         <h2 className="coup-h">📜 Match history
-          <small>every match is a best of 5 — five rounds of 100 games</small>
+          <small>every match is a best of 5 — five rounds of 100 games · your last 5 matches are kept</small>
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
           Level runs and bot battles show up here when they finish. Click a match to

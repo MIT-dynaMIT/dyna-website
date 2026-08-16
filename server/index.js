@@ -236,8 +236,14 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
 
 // ------------------------------------------------------------ live (human vs human)
 // presence heartbeat + who's online + your invite/match — clients poll this
+// every few seconds, so quiet ticks answer with a ~20-byte "same" instead of
+// re-sending the whole roster (the client echoes the version it last saw)
+const pollHash = (s) => require('node:crypto').createHash('md5').update(s).digest('hex').slice(0, 10);
 app.post('/api/coup/live/poll', auth, (req, res) => {
-  res.json(live.poll(req.user));
+  const data = live.poll(req.user);
+  const v = pollHash(JSON.stringify(data));
+  if (req.body && req.body.v === v) return res.json({ same: true, v });
+  res.json({ ...data, v });
 });
 
 app.post('/api/coup/live/challenge', auth, (req, res) => {

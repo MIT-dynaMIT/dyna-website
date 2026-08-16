@@ -4,8 +4,12 @@ import { api, clearAuth, getStoredUser, storeAuth } from './api';
 import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
-import EditorPage from './pages/EditorPage';
+import { lazy, Suspense } from 'react';
 import LevelsPage from './pages/LevelsPage';
+
+// the editor drags Blockly along (~most of the app's weight) — load it only
+// when someone actually opens the Bot Editor tab
+const EditorPage = lazy(() => import('./pages/EditorPage'));
 import PlayPage from './pages/PlayPage';
 import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
@@ -80,13 +84,17 @@ export default function CoupApp() {
   const onVersusRef = useRef(onVersus);
   onVersusRef.current = onVersus;
 
+  const lastPollV = useRef<string | null>(null);
   useEffect(() => {
     if (!user) { setLive(null); return; }
     let stop = false;
     const beat = async () => {
       try {
-        const d = await api.post<LivePollData>('/live/poll');
+        const d = await api.post<LivePollData & { v?: string; same?: boolean }>(
+          '/live/poll', lastPollV.current ? { v: lastPollV.current } : undefined);
         if (stop) return;
+        lastPollV.current = d.v ?? null;
+        if (d.same) return;   // nothing changed since last beat
         setLive(d);
         if (d.match && d.match !== lastMatch.current) {
           lastMatch.current = d.match;
@@ -161,7 +169,11 @@ export default function CoupApp() {
           </header>
           <Routes>
             <Route index element={<Navigate to="editor" replace />} />
-            <Route path="editor" element={<EditorPage user={user} />} />
+            <Route path="editor" element={
+              <Suspense fallback={<div className="coup-note"><span className="coup-spin" /> Loading the editor…</div>}>
+                <EditorPage user={user} />
+              </Suspense>
+            } />
             <Route path="levels" element={<LevelsPage />} />
             <Route path="scrim" element={<Navigate to="/coup/levels" replace />} />
             <Route path="gauntlet" element={<Navigate to="/coup/levels" replace />} />

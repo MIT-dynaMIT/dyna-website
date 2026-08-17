@@ -327,6 +327,26 @@ app.post('/api/coup/admin/create-user', auth, adminOnly, (req, res) => {
   res.json({ ok: true, user: pub(r.user) });
 });
 
+// everything the camp produced, one JSON: every account's saved bots (full
+// source), selections, and match records. Backup + "read the students' work".
+app.get('/api/coup/admin/export', auth, adminOnly, (req, res) => {
+  res.json({
+    exportedAt: new Date().toISOString(),
+    users: Object.values(store.users).map((u) => ({
+      username: u.username, displayName: u.displayName, role: u.role || 'student',
+      selectedSlot: store.selectedSlot(u),
+      bots: (store.bots[u.username] || [])
+        .map((s, i) => s && s.python && s.python.trim()
+          ? { slot: i, name: s.name, mode: s.mode, updatedAt: s.updatedAt, python: s.python }
+          : null)
+        .filter(Boolean),
+    })).filter((u) => u.bots.length || u.role !== 'student'),
+    matches: store.matches.list.map(({ series, sources, ...m }) => ({
+      ...m, series: series.map((r) => ({ winsA: r.winsA, winsB: r.winsB })),
+    })),
+  });
+});
+
 // pair every online student into a random live duel
 app.post('/api/coup/admin/pair-online', auth, adminOnly, (req, res) => {
   res.json(live.pairStudents());

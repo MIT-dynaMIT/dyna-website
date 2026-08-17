@@ -15,10 +15,12 @@ const { CoupGame } = require('./coup');
 const ONLINE_MS = 12_000;      // seen a poll this recently = online
 const SESSION_TTL = 3 * 3600 * 1000;
 const INVITE_TTL = 60_000;
-// each live decision gets this long; then the server plays a safe default
+// each live decision is on a clock; then the server plays a safe default
 // (income / allow / first card) so one distracted kid can't freeze a game.
+// Reactions (challenge/block windows) get a shorter fuse than full turns.
 // Enforced lazily on poll, so accuracy is ± the polling interval.
-const MOVE_MS = Number(process.env.COUP_MOVE_MS || 45_000);
+const MOVE_MS = Number(process.env.COUP_MOVE_MS || 10_000);
+const REACT_MS = Number(process.env.COUP_REACT_MS || 6_000);
 
 class LiveSession {
   /** @param seats [{username, displayName}] — exactly two humans */
@@ -50,12 +52,14 @@ class LiveSession {
     return pend ? `${this.game.log.length}:${pend.type}:${this.decider()}` : null;
   }
 
-  /** new decision on the table → fresh clock */
+  /** new decision on the table → fresh clock (reactions run shorter) */
   _armTimer() {
     const key = this._currentKey();
     if (key !== this._decisionKey) {
       this._decisionKey = key;
-      this.deadline = Date.now() + MOVE_MS;
+      const pend = this.game.pending;
+      const isReaction = pend && (pend.type === 'challenge' || pend.type === 'block');
+      this.deadline = Date.now() + (isReaction ? REACT_MS : MOVE_MS);
     }
   }
 

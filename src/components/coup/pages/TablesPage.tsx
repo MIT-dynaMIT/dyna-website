@@ -224,32 +224,38 @@ export default function TablesPage() {
   const prompt = snap.prompt;
   const nmOf = (i: number) => snap.seatNames[i];
   const banner = logs.length ? logs[logs.length - 1] : null;
-  const others = v.players.map((_, i) => i).filter((i) => i !== snap.youIndex);
+  // seats ring the oval clockwise from your left, in turn order after you
+  const n = v.players.length;
+  const others = Array.from({ length: n - 1 }, (_, k) => (snap.youIndex + 1 + k) % n);
+  const SPOTS: Record<number, [number, number][]> = {
+    3: [[9, 48], [50, 11], [91, 48]],
+    4: [[8, 50], [28, 13], [72, 13], [92, 50]],
+    5: [[7, 52], [24, 15], [50, 9], [76, 15], [93, 52]],
+  };
+  const spots = SPOTS[n - 1] || SPOTS[5];
 
-  const renderSeat = (i: number) => {
+  const pod = (i: number, k: number | null) => {
     const p = v.players[i];
     const isTurn = v.turn === p.id && !snap.done;
-    const you = i === snap.youIndex;
+    const isWaited = !snap.done && snap.waitingFor.includes(nmOf(i));
+    const me = i === snap.youIndex;
+    const style = me
+      ? undefined
+      : { left: spots[k!][0] + '%', top: spots[k!][1] + '%' };
     return (
-      <div key={p.id} className={`ct-seat mp-seat ${isTurn ? 'turn' : ''} ${you ? 'you' : ''} ${!p.alive ? 'dead' : ''}`}>
-        <div className="ct-plate" title={nmOf(i)}>
-          <span className="nm">{nmOf(i)}</span>
-          {!p.alive && <span className="ct-fallen">out</span>}
+      <div key={p.id} style={style}
+        className={`pk-pod ${me ? 'me' : ''} ${isTurn ? 'turn' : ''} ${isWaited ? 'waited' : ''} ${!p.alive ? 'dead' : ''}`}>
+        <div className="pk-cards">
+          {p.cards.map((role, ci) => role
+            ? <BufoCard key={ci} role={role} />
+            : <div key={ci} className="ct-card back pk-back" />)}
+          {p.revealed.map((r, rk) => <BufoCard key={'r' + rk} role={r} mini dead />)}
         </div>
-        <div className="ct-res">
-          <div className="ct-hand">
-            {p.cards.map((role, ci) => role
-              ? <BufoCard key={ci} role={role} />
-              : <div key={ci} className="ct-card back" />)}
-          </div>
-          <div className="ct-coinstack" title={`${p.coins} coins`}>
-            <span className="ct-coinchip">{p.coins}</span>
-          </div>
+        <div className="pk-plate">
+          <span className="pk-nm">{nmOf(i)}</span>
+          <span className="pk-coins">🪙 {p.coins}</span>
         </div>
-        <div className="mp-revealed">
-          {p.revealed.map((r, k) => <BufoCard key={k} role={r} mini dead />)}
-          {p.revealed.length === 0 && <span className="mp-norev">—</span>}
-        </div>
+        {!p.alive && <div className="pk-out">OUT</div>}
       </div>
     );
   };
@@ -269,45 +275,40 @@ export default function TablesPage() {
 
       <div className="ct-wrap">
         <div className="ct-main">
-          <div className="ct-board mp-boardfelt">
-            <div className="ct-felt" />
-            <div className="ct-flow">
-              {others.map((i) => renderSeat(i))}
-
-              <div className="ct-mid-zone mp-mid">
-                <div className="ct-lane">
-                  {banner && (
-                    <div className={`ct-banner t-${banner.tone}`}>
-                      {banner.lead && <span className="lead">{banner.lead}</span>}
-                      {banner.text}
-                    </div>
-                  )}
+          <div className="pk-stage">
+            <div className="pk-oval" />
+            <div className="pk-center">
+              {banner && (
+                <div className={`ct-banner t-${banner.tone}`}>
+                  {banner.lead && <span className="lead">{banner.lead}</span>}
+                  {banner.text}
                 </div>
-                <div className="ct-center-row">
-                  <div className="ct-deck">
-                    <div className="ct-card back d1" />
-                    <div className="ct-card back d2" />
-                    <div className="ct-card back" />
-                    <div className="ct-count">{v.deckCount} in deck</div>
-                  </div>
-                  <div className="ct-bank">
-                    {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
-                    <div className="ct-bank-lbl">Treasury</div>
-                  </div>
+              )}
+              <div className="pk-middle">
+                <div className="ct-deck">
+                  <div className="ct-card back d1" />
+                  <div className="ct-card back d2" />
+                  <div className="ct-card back" />
+                  <div className="ct-count">{v.deckCount} in deck</div>
                 </div>
-                <div className="mp-feltstatus">
-                  {snap.done ? null : <>
-                    waiting for {snap.waitingFor.join(', ') || '…'}
-                    {secondsLeft != null && <b className={secondsLeft <= 3 ? 'low' : ''}> · ⏱ {secondsLeft}s</b>}
-                  </>}
+                <div className="ct-bank">
+                  {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
+                  <div className="ct-bank-lbl">Treasury</div>
                 </div>
               </div>
-
-              {renderSeat(snap.youIndex)}
+              {!snap.done && (
+                <div className="pk-status">
+                  waiting for {snap.waitingFor.join(', ') || '…'}
+                  {secondsLeft != null && <b className={secondsLeft <= 3 ? 'low' : ''}> · ⏱ {secondsLeft}s</b>}
+                </div>
+              )}
             </div>
 
+            {others.map((i, k) => pod(i, k))}
+            {pod(snap.youIndex, null)}
+
             {snap.done && (
-              <div className="ct-overlay">
+              <div className="ct-overlay" style={{ borderRadius: 26 }}>
                 <div className="ct-plaque">
                   <div className="crown">👑</div>
                   <div className="rules"><b>{snap.winnerName}</b> wins the table!</div>

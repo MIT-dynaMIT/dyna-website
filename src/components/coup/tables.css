@@ -11,31 +11,66 @@
 }
 .mp-seat-chip.open { color: var(--ink-mut); font-style: italic; border-style: dashed; background: transparent; }
 
-/* ---------------- the felt board (multiplayer flavour) */
-/* many bands must fit, so the pieces run one size smaller than heads-up */
-.mp-boardfelt {
+/* ---------------- the poker stage: an oval felt with seats ringed around */
+.pk-stage {
+  position: relative; width: 100%; min-height: 560px;
   --ct-card-w: 44px; --ct-card-h: 60px;
-  --ct-lane-h: 46px;
-  --ct-name-w: 190px;
-  --ct-band: 880px;
+  --ct-coin: 18px; --ct-bank-scale: 1.15;
 }
-.ct-seat.mp-seat {
-  grid-template-columns: var(--ct-name-w) auto 150px;
-  padding: 8px 18px;
+@media (min-width: 1300px) { .pk-stage { min-height: 620px; } }
+.pk-oval {
+  position: absolute; inset: 6% 3% 10% 3%;
+  background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 72%, #17503a 100%);
+  border: 10px solid #bf9a45;
+  border-radius: 50% / 46%;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.30), 0 16px 40px rgba(28, 33, 40, 0.18);
 }
-.mp-mid { min-height: calc(var(--ct-lane-h) * 2 + var(--ct-card-h) + 26px); }
+.pk-oval::after {
+  content: ''; position: absolute; inset: 26px;
+  border: 1px solid rgba(255, 246, 214, 0.22); border-radius: 50% / 46%; pointer-events: none;
+}
 
-/* revealed (dead) cards rail on the right of each band */
-.mp-revealed { display: flex; gap: 4px; justify-content: flex-end; align-items: center; min-height: 34px; }
-.mp-norev { color: rgba(246, 242, 230, 0.35); }
-
-/* status line on the felt under the deck */
-.mp-feltstatus {
-  position: absolute; bottom: -2px; left: 0; right: 0; text-align: center;
-  font-size: 12.5px; color: rgba(246, 242, 230, 0.85);
+/* center cluster: banner over deck+treasury over status */
+.pk-center {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  width: min(70%, 560px); text-align: center;
 }
-.mp-feltstatus b { font-variant-numeric: tabular-nums; }
-.mp-feltstatus b.low { color: #ffb0a0; }
+.pk-middle { display: flex; align-items: center; gap: 56px; padding-bottom: 12px; }
+.pk-status { font-size: 13px; color: rgba(246, 242, 230, 0.88); }
+.pk-status b { font-variant-numeric: tabular-nums; }
+.pk-status b.low { color: #ffb0a0; }
+
+/* seat pods around the rim */
+.pk-pod {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 128px; z-index: 2;
+}
+.pk-pod.me {
+  left: 50%; top: auto; bottom: 0; transform: translateX(-50%);
+  --ct-card-w: 62px; --ct-card-h: 86px;
+}
+.pk-cards { display: flex; gap: 5px; align-items: flex-end; }
+.pk-back { box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35); }
+.pk-plate {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, #fdf8ea, #efe4c6);
+  border: 1px solid #b9a878; border-radius: 20px;
+  padding: 4px 14px; box-shadow: 0 3px 8px rgba(28, 33, 40, 0.25);
+  max-width: 210px;
+}
+.pk-nm { font-weight: 700; color: #3a3128; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-coins { font-size: 12.5px; color: #6b5a33; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pk-pod.turn .pk-plate { box-shadow: 0 0 0 3px #edcf72, 0 3px 8px rgba(28, 33, 40, 0.3); }
+.pk-pod.waited .pk-plate { box-shadow: 0 0 0 2px rgba(237, 207, 114, 0.55), 0 3px 8px rgba(28, 33, 40, 0.25); }
+.pk-pod.dead { opacity: 0.55; filter: grayscale(0.7); }
+.pk-out {
+  position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
+  font-weight: 900; letter-spacing: 0.12em; color: #b4402f;
+  background: rgba(253, 248, 234, 0.9); border: 2px solid #b4402f; border-radius: 6px;
+  padding: 1px 10px; font-size: 13px;
+}
 
 /* ---------------- bufo card faces — parchment + bufo + role-color wash */
 .mpb {
@@ -62,7 +97,7 @@
   position: relative; z-index: 2; margin-top: auto; width: 100%;
   background: #fdf8ea; text-align: center;
   font-family: Inter, system-ui, sans-serif; text-transform: uppercase;
-  font-size: calc(var(--ct-card-w, 48px) * 0.14); letter-spacing: -0.01em;
+  font-size: calc(var(--ct-card-w, 48px) * 0.12); letter-spacing: -0.02em;
   color: #4a3f28; padding: 2px 0; line-height: 1.15;
 }
 .mpb.mini { width: 26px; height: 34px; border-radius: 3px; }

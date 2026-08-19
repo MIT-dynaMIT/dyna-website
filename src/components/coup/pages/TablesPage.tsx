@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useToast } from '../CoupApp';
+import '../table.css';
 import '../tables.css';
 
 /** Classic multiplayer Coup — 15 cards, five roles, 4-6 players a table. */
@@ -39,25 +40,39 @@ interface MSnap {
   done: boolean; winnerName: string | null;
 }
 
-function describe(log: Record<string, unknown>, nm: (id: unknown) => string): string | null {
+type Tone = 'action' | 'challenge' | 'block' | 'kill' | 'win' | 'info';
+interface Line { lead?: string; text: string; tone: Tone }
+
+function describe(log: Record<string, unknown>, nm: (id: unknown) => string): Line | null {
   const role = (r: unknown) => ROLE_LABEL[String(r)] || String(r);
   switch (log.t) {
     case 'action': {
       const a = String(log.action);
       const t = log.target ? ` on ${nm(log.target)}` : '';
-      return `${nm(log.player)} — ${ACTION_LABEL[a] || a}${t}`;
+      const tone: Tone = a === 'coup' || a === 'assassinate' ? 'kill' : 'action';
+      return { lead: nm(log.player), text: ` — ${ACTION_LABEL[a] || a}${t}`, tone };
     }
-    case 'block': return `${nm(log.player)} claims the ${role(log.role)} to block`;
-    case 'blocked': return `Blocked by ${nm(log.by)}.`;
-    case 'challenge': return `${nm(log.by)} challenges ${nm(log.against)}'s ${role(log.role)} — ${log.truthful ? 'it was real!' : 'a bluff!'}`;
-    case 'proved': return `${nm(log.player)} shows the ${role(log.role)} and draws a new card`;
-    case 'gain': return `${nm(log.player)} collects ${log.amount} coin${Number(log.amount) === 1 ? '' : 's'}`;
-    case 'stole': return `${nm(log.actor)} steals ${log.amount} from ${nm(log.target)}`;
-    case 'exchanged': return `${nm(log.player)} exchanges with the deck`;
-    case 'lost': return `${nm(log.player)} loses the ${role(log.role)} (${log.why})${log.out ? ' — OUT!' : ''}`;
-    case 'win': return `👑 ${nm(log.player)} wins!`;
+    case 'block': return { lead: nm(log.player), text: ` claims the ${role(log.role)} to block`, tone: 'block' };
+    case 'blocked': return { lead: 'BLOCKED.', text: ` ${nm(log.by)} stops it`, tone: 'block' };
+    case 'challenge': return { lead: 'CHALLENGE!', text: ` ${nm(log.by)} doubts ${nm(log.against)}'s ${role(log.role)} — ${log.truthful ? 'it was real!' : 'a bluff!'}`, tone: 'challenge' };
+    case 'proved': return { lead: nm(log.player), text: ` shows the ${role(log.role)} and draws a new card`, tone: 'info' };
+    case 'gain': return { lead: nm(log.player), text: ` collects ${log.amount} coin${Number(log.amount) === 1 ? '' : 's'}`, tone: 'action' };
+    case 'stole': return { lead: nm(log.actor), text: ` steals ${log.amount} from ${nm(log.target)}`, tone: 'action' };
+    case 'exchanged': return { lead: nm(log.player), text: ' exchanges with the deck', tone: 'info' };
+    case 'lost': return { lead: nm(log.player), text: ` loses the ${role(log.role)} (${log.why})${log.out ? ' — OUT!' : ''}`, tone: 'kill' };
+    case 'win': return { lead: '👑 ' + nm(log.player), text: ' wins the table!', tone: 'win' };
     default: return null;
   }
+}
+
+/** a classic card face: parchment + bufo + role-colored wash + name strip */
+function BufoCard({ role, mini, dead }: { role: string; mini?: boolean; dead?: boolean }) {
+  return (
+    <div className={`mpb role-${role} ${mini ? 'mini' : ''} ${dead ? 'dead' : ''}`}>
+      <img src={BUFO(role)} alt={role} />
+      {!mini && <span className="rname">{ROLE_LABEL[role]}</span>}
+    </div>
+  );
 }
 
 export default function TablesPage() {
@@ -65,7 +80,7 @@ export default function TablesPage() {
   const [lobby, setLobby] = useState<LobbyData | null>(null);
   const [size, setSize] = useState(5);
   const [snap, setSnap] = useState<MSnap | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<Line[]>([]);
   const [busy, setBusy] = useState(false);
   const [targetFor, setTargetFor] = useState<string | null>(null);
   const [exchangeSel, setExchangeSel] = useState<number[]>([]);
@@ -91,7 +106,7 @@ export default function TablesPage() {
     deadlineRef.current = s.timerMs != null ? Date.now() + s.timerMs : null;
     if (s.frames.length) {
       const nm = (id: unknown) => s.seatNames[Number(String(id).slice(1))] ?? String(id);
-      setLogs((l) => [...l, ...s.frames.map((f) => describe(f.log, nm)).filter(Boolean) as string[]]);
+      setLogs((l) => [...l, ...s.frames.map((f) => describe(f.log, nm)).filter(Boolean) as Line[]]);
     }
     const promptChanged = JSON.stringify(prev?.prompt ?? null) !== JSON.stringify(s.prompt);
     if (promptChanged) { setTargetFor(null); setExchangeSel([]); }
@@ -206,14 +221,43 @@ export default function TablesPage() {
 
   // ---------------------------------------------------------------- game
   const v = snap.view;
-  const me = v.players[snap.youIndex];
   const prompt = snap.prompt;
   const nmOf = (i: number) => snap.seatNames[i];
+  const banner = logs.length ? logs[logs.length - 1] : null;
+  const others = v.players.map((_, i) => i).filter((i) => i !== snap.youIndex);
+
+  const renderSeat = (i: number) => {
+    const p = v.players[i];
+    const isTurn = v.turn === p.id && !snap.done;
+    const you = i === snap.youIndex;
+    return (
+      <div key={p.id} className={`ct-seat mp-seat ${isTurn ? 'turn' : ''} ${you ? 'you' : ''} ${!p.alive ? 'dead' : ''}`}>
+        <div className="ct-plate" title={nmOf(i)}>
+          <span className="nm">{nmOf(i)}</span>
+          {!p.alive && <span className="ct-fallen">out</span>}
+        </div>
+        <div className="ct-res">
+          <div className="ct-hand">
+            {p.cards.map((role, ci) => role
+              ? <BufoCard key={ci} role={role} />
+              : <div key={ci} className="ct-card back" />)}
+          </div>
+          <div className="ct-coinstack" title={`${p.coins} coins`}>
+            <span className="ct-coinchip">{p.coins}</span>
+          </div>
+        </div>
+        <div className="mp-revealed">
+          {p.revealed.map((r, k) => <BufoCard key={k} role={r} mini dead />)}
+          {p.revealed.length === 0 && <span className="mp-norev">—</span>}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
       <div className="ct-shell" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-        <h2 className="coup-h" style={{ margin: 0 }}>🐸 Table
+        <h2 className="coup-h" style={{ margin: 0 }}>🐸 Multiplayer table
           <small>classic coup · you are {snap.you}</small>
         </h2>
         <div style={{ flex: 1 }} />
@@ -223,65 +267,69 @@ export default function TablesPage() {
         </button>
       </div>
 
-      <div className="mp-game">
-        <div className="mp-board coup-card">
-          <div className="mp-opps">
-            {v.players.map((p, i) => {
-              if (i === snap.youIndex) return null;
-              const active = !snap.done && snap.waitingFor.includes(nmOf(i));
-              return (
-                <div key={p.id} className={`mp-opp ${p.alive ? '' : 'dead'} ${active ? 'active' : ''}`}>
-                  <div className="mp-opp-name">{nmOf(i)}{v.turn === p.id ? ' ●' : ''}</div>
-                  <div className="mp-opp-row">
-                    <span className="mp-coins" title="coins">🪙 {p.coins}</span>
-                    <span className="mp-cards">
-                      {Array.from({ length: p.influence }).map((_, k) => (
-                        <span key={k} className="mp-cardback" title="hidden influence">🐸</span>
-                      ))}
-                      {p.revealed.map((r, k) => (
-                        <img key={'r' + k} className="mp-mini dead" src={BUFO(r)} title={`lost ${ROLE_LABEL[r]}`} alt={r} />
-                      ))}
-                    </span>
+      <div className="ct-wrap">
+        <div className="ct-main">
+          <div className="ct-board mp-boardfelt">
+            <div className="ct-felt" />
+            <div className="ct-flow">
+              {others.map((i) => renderSeat(i))}
+
+              <div className="ct-mid-zone mp-mid">
+                <div className="ct-lane">
+                  {banner && (
+                    <div className={`ct-banner t-${banner.tone}`}>
+                      {banner.lead && <span className="lead">{banner.lead}</span>}
+                      {banner.text}
+                    </div>
+                  )}
+                </div>
+                <div className="ct-center-row">
+                  <div className="ct-deck">
+                    <div className="ct-card back d1" />
+                    <div className="ct-card back d2" />
+                    <div className="ct-card back" />
+                    <div className="ct-count">{v.deckCount} in deck</div>
+                  </div>
+                  <div className="ct-bank">
+                    {Array.from({ length: 5 }).map((_, i) => <div key={i} className="ct-coin" />)}
+                    <div className="ct-bank-lbl">Treasury</div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="mp-feltstatus">
+                  {snap.done ? null : <>
+                    waiting for {snap.waitingFor.join(', ') || '…'}
+                    {secondsLeft != null && <b className={secondsLeft <= 3 ? 'low' : ''}> · ⏱ {secondsLeft}s</b>}
+                  </>}
+                </div>
+              </div>
 
-          <div className="mp-center">
-            <span className="coup-note">deck {v.deckCount} · {snap.done
-              ? <b>👑 {snap.winnerName} wins!</b>
-              : snap.waitingFor.length ? `waiting for ${snap.waitingFor.join(', ')}` : '…'}</span>
-            {secondsLeft != null && !snap.done && (
-              <span className={`mp-clock ${secondsLeft <= 3 ? 'low' : ''}`}>⏱ {secondsLeft}s</span>
+              {renderSeat(snap.youIndex)}
+            </div>
+
+            {snap.done && (
+              <div className="ct-overlay">
+                <div className="ct-plaque">
+                  <div className="crown">👑</div>
+                  <div className="rules"><b>{snap.winnerName}</b> wins the table!</div>
+                  <div className="ovbtns">
+                    <span className="coup-note">next hand deals shortly — or</span>{' '}
+                    <button className="primary" onClick={() => act('leave')}>Leave table</button>
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
-
-          <div className="mp-me">
-            <div className="mp-hand">
-              {me.cards.map((role, i) => role && (
-                <div key={i} className="mp-card">
-                  <img src={BUFO(role)} alt={role} />
-                  <span>{ROLE_LABEL[role]}</span>
-                </div>
-              ))}
-              {me.revealed.map((r, k) => (
-                <div key={'r' + k} className="mp-card dead">
-                  <img src={BUFO(r)} alt={r} />
-                  <span>{ROLE_LABEL[r]} ✗</span>
-                </div>
-              ))}
-            </div>
-            <div className="mp-me-meta">
-              <b>{snap.you}</b> · 🪙 {me.coins}{!me.alive && ' · eliminated'}
-            </div>
           </div>
         </div>
 
-        <div className="mp-log coup-card">
-          <h3 className="coup-h" style={{ fontSize: 14 }}>Table talk</h3>
-          <div className="mp-log-lines">
-            {logs.slice(-60).map((l, i) => <div key={i}>{l}</div>)}
+        <div className="ct-talk">
+          <h3>Table talk</h3>
+          <div className="lines">
+            {logs.length === 0 && <div className="ct-line">The game is about to begin…</div>}
+            {logs.slice(-80).map((l, i) => (
+              <div key={i} className={`ct-line t-${l.tone}`}>
+                {l.lead && <b>{l.lead}</b>}{l.text}
+              </div>
+            ))}
             <div ref={logEndRef} />
           </div>
         </div>
@@ -346,10 +394,11 @@ export default function TablesPage() {
             <p className="barhead">Choose a card to give up ({prompt.why}).</p>
             <div className="ct-btns">
               {(prompt.cards || []).map((c) => (
-                <button key={c.idx} className="ct-actbtn" disabled={busy}
-                  onClick={() => sendMove({ kind: 'lose', idx: c.idx })}>
-                  <img className="mp-btn-bufo" src={BUFO(c.role)} alt="" />{ROLE_LABEL[c.role]}
-                </button>
+                <div key={c.idx} className="mpb pick" role="button"
+                  onClick={() => !busy && sendMove({ kind: 'lose', idx: c.idx })}>
+                  <img src={BUFO(c.role)} alt={c.role} />
+                  <span className="rname">{ROLE_LABEL[c.role]}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -358,13 +407,11 @@ export default function TablesPage() {
             <p className="barhead">Exchange — keep exactly {prompt.keep} ({exchangeSel.length}/{prompt.keep} picked).</p>
             <div className="ct-btns">
               {(prompt.pool || []).map((role, i) => (
-                <button key={i}
-                  className={`ct-actbtn ${exchangeSel.includes(i) ? 'sel' : ''}`}
-                  style={exchangeSel.includes(i) ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px var(--accent)' } : undefined}
-                  disabled={busy}
-                  onClick={() => setExchangeSel((s) => s.includes(i) ? s.filter((x) => x !== i) : s.length < (prompt.keep || 0) ? [...s, i] : s)}>
-                  <img className="mp-btn-bufo" src={BUFO(role)} alt="" />{ROLE_LABEL[role]}
-                </button>
+                <div key={i} className={`mpb pick role-${role} ${exchangeSel.includes(i) ? 'sel' : ''}`} role="button"
+                  onClick={() => !busy && setExchangeSel((s) => s.includes(i) ? s.filter((x) => x !== i) : s.length < (prompt.keep || 0) ? [...s, i] : s)}>
+                  <img src={BUFO(role)} alt={role} />
+                  <span className="rname">{ROLE_LABEL[role]}</span>
+                </div>
               ))}
               <button className="primary" disabled={busy || exchangeSel.length !== prompt.keep}
                 onClick={() => sendMove({ kind: 'exchange', keep: exchangeSel })}>Confirm</button>

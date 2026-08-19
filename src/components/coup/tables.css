@@ -1,4 +1,5 @@
-/* Multiplayer classic-Coup tables — lobby + game. Light theme tokens in scope. */
+/* Multiplayer classic-Coup tables — lobby + a felt board in the same visual
+   language as the heads-up table (ct- classes from table.css are in scope). */
 
 .mp-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .mp-table.mine { border-color: var(--accent-dim); box-shadow: 0 0 0 1px var(--accent-dim); }
@@ -10,44 +11,69 @@
 }
 .mp-seat-chip.open { color: var(--ink-mut); font-style: italic; border-style: dashed; background: transparent; }
 
-.mp-game { display: flex; gap: 16px; align-items: stretch; }
-.mp-board { flex: 1 1 auto; display: flex; flex-direction: column; gap: 14px; }
-.mp-log { flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; }
-.mp-log-lines { flex: 1; overflow-y: auto; max-height: 420px; font-size: 12.5px; color: var(--ink); display: flex; flex-direction: column; gap: 4px; }
-
-.mp-opps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.mp-opp {
-  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
-  background: var(--panel-2);
+/* ---------------- the felt board (multiplayer flavour) */
+/* many bands must fit, so the pieces run one size smaller than heads-up */
+.mp-boardfelt {
+  --ct-card-w: 44px; --ct-card-h: 60px;
+  --ct-lane-h: 46px;
+  --ct-name-w: 190px;
+  --ct-band: 880px;
 }
-.mp-opp.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.mp-opp.dead { opacity: 0.45; filter: grayscale(0.8); }
-.mp-opp-name { font-weight: 700; color: var(--parch); font-size: 13.5px; margin-bottom: 4px; }
-.mp-opp-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.mp-cards { display: flex; gap: 3px; align-items: center; }
-.mp-cardback { font-size: 16px; filter: saturate(0.7); }
-.mp-mini { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; }
-.mp-mini.dead { opacity: 0.55; filter: grayscale(1); }
+.ct-seat.mp-seat {
+  grid-template-columns: var(--ct-name-w) auto 150px;
+  padding: 8px 18px;
+}
+.mp-mid { min-height: calc(var(--ct-lane-h) * 2 + var(--ct-card-h) + 26px); }
 
-.mp-center { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 4px 0; }
-.mp-clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
-.mp-clock.low { color: var(--bad); }
+/* revealed (dead) cards rail on the right of each band */
+.mp-revealed { display: flex; gap: 4px; justify-content: flex-end; align-items: center; min-height: 34px; }
+.mp-norev { color: rgba(246, 242, 230, 0.35); }
 
-.mp-me { display: flex; align-items: center; gap: 18px; }
-.mp-hand { display: flex; gap: 10px; }
-.mp-card {
-  width: 92px; border: 1px solid #b9a878; border-radius: 9px; overflow: hidden;
+/* status line on the felt under the deck */
+.mp-feltstatus {
+  position: absolute; bottom: -2px; left: 0; right: 0; text-align: center;
+  font-size: 12.5px; color: rgba(246, 242, 230, 0.85);
+}
+.mp-feltstatus b { font-variant-numeric: tabular-nums; }
+.mp-feltstatus b.low { color: #ffb0a0; }
+
+/* ---------------- bufo card faces — parchment + bufo + role-color wash */
+.mpb {
+  position: relative; width: var(--ct-card-w, 48px); height: var(--ct-card-h, 66px);
+  border-radius: 5px; overflow: hidden; flex: none;
   background: linear-gradient(180deg, #fdf8ea, #f1e6c8);
-  display: flex; flex-direction: column; align-items: center; padding: 8px 6px 6px;
-  box-shadow: 0 2px 5px rgba(28, 33, 40, 0.18);
+  border: 1px solid #b9a878; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  display: flex; flex-direction: column; align-items: center;
 }
-.mp-card img { width: 64px; height: 64px; object-fit: contain; }
-.mp-card span { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; color: #4a3f28; margin-top: 4px; }
-.mp-card.dead { opacity: 0.5; filter: grayscale(1); }
-.mp-me-meta { font-size: 15px; color: var(--ink); }
-.mp-btn-bufo { width: 22px; height: 22px; object-fit: contain; vertical-align: -5px; margin-right: 6px; }
+.mpb img {
+  width: 78%; height: 58%; object-fit: contain; margin-top: 6%;
+  position: relative; z-index: 0;
+}
+/* the wash sits over the bufo, under the name strip */
+.mpb::before {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+}
+.mpb.role-duke::before       { background: rgba(111, 51, 145, 0.42); }
+.mpb.role-assassin::before   { background: rgba(63, 74, 85, 0.40); }
+.mpb.role-captain::before    { background: rgba(31, 103, 150, 0.40); }
+.mpb.role-ambassador::before { background: rgba(212, 168, 30, 0.40); }
+.mpb.role-contessa::before   { background: rgba(161, 43, 32, 0.40); }
+.mpb .rname {
+  position: relative; z-index: 2; margin-top: auto; width: 100%;
+  background: #fdf8ea; text-align: center;
+  font-family: Inter, system-ui, sans-serif; text-transform: uppercase;
+  font-size: calc(var(--ct-card-w, 48px) * 0.14); letter-spacing: -0.01em;
+  color: #4a3f28; padding: 2px 0; line-height: 1.15;
+}
+.mpb.mini { width: 26px; height: 34px; border-radius: 3px; }
+.mpb.mini img { width: 88%; height: 88%; margin-top: 4%; }
+.mpb.dead { opacity: 0.55; filter: grayscale(0.85); }
+/* pickers in the action bar */
+.mpb.pick { width: 84px; height: 112px; cursor: pointer; }
+.mpb.pick:hover { box-shadow: 0 0 0 2px var(--accent-dim), 0 2px 5px rgba(0,0,0,0.28); }
+.mpb.pick.sel { box-shadow: 0 0 0 3px var(--accent), 0 2px 5px rgba(0,0,0,0.28); }
 
 @media (max-width: 900px) {
-  .mp-game { flex-direction: column; }
-  .mp-log { flex: none; }
+  .ct-seat.mp-seat { grid-template-columns: 1fr auto; }
+  .mp-revealed { display: none; }
 }

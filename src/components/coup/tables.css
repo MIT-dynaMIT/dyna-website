@@ -13,11 +13,17 @@
 
 /* ---------------- the poker stage: an oval felt with seats ringed around */
 .pk-stage {
-  position: relative; width: 100%; min-height: 560px;
+  position: relative; width: 100%;
+  /* fit the whole page — header, title row and action bar included — in one
+     viewport: the felt takes whatever height is left, within sane bounds */
+  height: clamp(400px, calc(100vh - 350px), 640px);
   --ct-card-w: 44px; --ct-card-h: 60px;
   --ct-coin: 18px; --ct-bank-scale: 1.15;
 }
-@media (min-width: 1300px) { .pk-stage { min-height: 620px; } }
+@media (max-height: 780px) {
+  .pk-stage { --ct-card-w: 38px; --ct-card-h: 52px; }
+  .pk-pod.me { --ct-card-w: 52px; --ct-card-h: 72px; }
+}
 .pk-oval {
   position: absolute; inset: 6% 3% 10% 3%;
   background: radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 72%, #17503a 100%);
@@ -112,3 +118,6 @@
   .ct-seat.mp-seat { grid-template-columns: 1fr auto; }
   .mp-revealed { display: none; }
 }
+
+/* keep the whole multiplayer view inside one screen */
+.pk-stage ~ * {}

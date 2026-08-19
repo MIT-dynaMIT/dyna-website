@@ -181,9 +181,6 @@ export default function TablesPage() {
             </select>
             <button className="primary" disabled={busy || !!lobby?.mine}
               onClick={() => act('create', { size })}>+ Add a table &amp; sit down</button>
-            <button disabled={busy || !!lobby?.mine}
-              title="A private table where bufo bots fill the other seats — get a feel for the game"
-              onClick={() => act('create', { size, practice: true })}>🤖 Practice vs bots</button>
             {lobby?.mine && !lobby.mine.playing && (
               <button className="ghost" disabled={busy} onClick={() => act('leave')}>Stand up</button>
             )}

@@ -307,7 +307,7 @@ app.get('/api/coup/multi/lobby', auth, (req, res) => {
   res.json(multi.lobby(req.user));
 });
 app.post('/api/coup/multi/create', auth, (req, res) => {
-  const r = multi.create(req.user, req.body.size);
+  const r = multi.create(req.user, req.body.size, !!req.body.practice);
   if (r.error) return res.status(400).json(r);
   res.json(r);
 });

@@ -14,7 +14,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 const BUFO = (role: string) => `/bufo/${role}.png`;
 
-interface LobbyTable { id: string; size: number; seated: string[]; open: number; playing: boolean }
+interface LobbyTable { id: string; size: number; seated: string[]; open: number; playing: boolean; practice?: boolean }
 interface LobbyData { tables: LobbyTable[]; mine: { id: string; playing: boolean; over: boolean } | null }
 
 interface MPlayer { id: string; coins: number; alive: boolean; influence: number; revealed: string[]; cards: (string | null)[] }
@@ -166,6 +166,9 @@ export default function TablesPage() {
             </select>
             <button className="primary" disabled={busy || !!lobby?.mine}
               onClick={() => act('create', { size })}>+ Add a table &amp; sit down</button>
+            <button disabled={busy || !!lobby?.mine}
+              title="A private table where bufo bots fill the other seats — get a feel for the game"
+              onClick={() => act('create', { size, practice: true })}>🤖 Practice vs bots</button>
             {lobby?.mine && !lobby.mine.playing && (
               <button className="ghost" disabled={busy} onClick={() => act('leave')}>Stand up</button>
             )}
@@ -182,13 +185,13 @@ export default function TablesPage() {
             return (
               <div key={t.id} className={`coup-card mp-table ${mine ? 'mine' : ''}`}>
                 <div className="mp-table-head">
-                  <b>{t.seated.length}/{t.size}</b> seated {t.playing ? '· 🎮 playing' : '· waiting'}
+                  <b>{t.seated.length}/{t.size}</b> seated {t.playing ? '· 🎮 playing' : '· waiting'}{t.practice ? ' · 🤖 practice' : ''}
                 </div>
                 <div className="mp-seats">
                   {t.seated.map((n) => <span key={n} className="mp-seat-chip">{n}</span>)}
                   {Array.from({ length: t.open }).map((_, i) => <span key={'o' + i} className="mp-seat-chip open">empty</span>)}
                 </div>
-                {!t.playing && !mine && t.open > 0 && (
+                {!t.playing && !mine && t.open > 0 && !t.practice && (
                   <button className="primary small" disabled={busy || !!lobby.mine}
                     onClick={() => act('sit', { id: t.id })}>Sit down</button>
                 )}

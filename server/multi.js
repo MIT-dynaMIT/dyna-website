@@ -26,6 +26,7 @@ class ClassicSession {
     this.frames = Object.fromEntries(this.ids.map((id) => [id, []]));
     this._logIdx = 0;
     this.quitters = new Set();
+    this.bots = new Set(seats.map((u, i) => u.bot ? 'p' + i : null).filter(Boolean));
     this._snap();
     this._decisionKey = null;
     this.deadline = 0;
@@ -58,6 +59,69 @@ class ClassicSession {
       const isReaction = pend && (pend.type === 'challenge' || pend.type === 'block');
       this.deadline = Date.now() + (isReaction ? REACT_MS : MOVE_MS);
     }
+    // bots ponder once per WINDOW (not per response), so a table of bots
+    // answers together after a beat instead of one pass per poll
+    const pend = this.game.pending;
+    const botKey = pend ? this.game.log.length + ':' + pend.type : null;
+    if (botKey !== this._botKey) {
+      this._botKey = botKey;
+      this._botAt = Date.now() + 700 + Math.floor(Math.random() * 800);
+    }
+  }
+
+  /** simple honest-leaning policy for practice-table bots */
+  _botDecide(seat) {
+    const g = this.game;
+    const pend = g.pending;
+    const me = g.p(seat);
+    const R = Math.random;
+    if (pend.type === 'action') {
+      const legal = g.legalActions(seat);
+      const pick = (t) => legal.find((a) => a.type === t);
+      const richest = (ts) => ts.reduce((b, t) => g.p(t).coins > g.p(b).coins ? t : b, ts[0]);
+      const coup = pick('coup');
+      if (coup && (pend.mustCoup || me.coins >= 7)) return { kind: 'action', type: 'coup', target: richest(coup.targets) };
+      const kill = pick('assassinate');
+      if (kill && me.cards.includes('assassin') && R() < 0.6) return { kind: 'action', type: 'assassinate', target: richest(kill.targets) };
+      if (me.cards.includes('duke')) return { kind: 'action', type: 'tax' };
+      const steal = pick('steal');
+      if (steal && me.cards.includes('captain')) {
+        const t = richest(steal.targets);
+        if (g.p(t).coins >= 2) return { kind: 'action', type: 'steal', target: t };
+      }
+      if (me.cards.includes('ambassador') && R() < 0.3) return { kind: 'action', type: 'exchange' };
+      if (R() < 0.25) return { kind: 'action', type: 'tax' };   // the occasional bluff
+      return { kind: 'action', type: R() < 0.5 ? 'foreign_aid' : 'income' };
+    }
+    if (pend.type === 'challenge') {
+      return { kind: 'respond', what: R() < 0.12 ? 'challenge' : 'pass' };
+    }
+    if (pend.type === 'block') {
+      for (const r of pend.roles) if (me.cards.includes(r)) return { kind: 'respond', what: 'block', role: r };
+      if (pend.roles.includes('contessa') && R() < 0.35) return { kind: 'respond', what: 'block', role: 'contessa' };
+      if (pend.roles.includes('duke') && R() < 0.1) return { kind: 'respond', what: 'block', role: 'duke' };
+      return { kind: 'respond', what: 'pass' };
+    }
+    if (pend.type === 'lose') {
+      const order = ['ambassador', 'captain', 'assassin', 'contessa', 'duke'];
+      let idx = 0;
+      for (const r of order) { const i = me.cards.indexOf(r); if (i >= 0) { idx = i; break; } }
+      return { kind: 'lose', idx };
+    }
+    if (pend.type === 'exchange') {
+      const order = ['duke', 'contessa', 'assassin', 'captain', 'ambassador'];
+      const ranked = pend.pool.map((r, i) => ({ r, i })).sort((a, b) => order.indexOf(a.r) - order.indexOf(b.r));
+      return { kind: 'exchange', keep: ranked.slice(0, pend.keep).map((x) => x.i) };
+    }
+    return null;
+  }
+
+  _applyBotMove(seat, mv) {
+    const g = this.game;
+    if (mv.kind === 'action') g.submitAction(seat, { type: mv.type, target: mv.target });
+    else if (mv.kind === 'respond') g.respond(seat, { what: mv.what, role: mv.role });
+    else if (mv.kind === 'lose') g.resolveLose(seat, mv.idx);
+    else if (mv.kind === 'exchange') g.resolveExchange(seat, mv.keep);
   }
 
   /** expired clocks play safe defaults; quitters always auto-play instantly */
@@ -70,6 +134,27 @@ class ClassicSession {
       const actorId = pend.who ? null : pend.player;
       const isQuitter = actorId && this.quitters.has(actorId);
       const expired = this.deadline && Date.now() > this.deadline;
+      const botReady = Date.now() >= (this._botAt || 0);
+      // bot inside a reaction window
+      if ((pend.type === 'challenge' || pend.type === 'block') && botReady) {
+        // every silent bot answers in this one pass; stop if the window resolves
+        let acted = false;
+        for (const w of [...pend.who]) {
+          if (this.game.pending !== pend) break;
+          if (!pend.passed.includes(w) && this.bots.has(w) && !this.quitters.has(w)) {
+            try { this._applyBotMove(w, this._botDecide(w)); }
+            catch { this.game.respond(w, { what: 'pass' }); }
+            acted = true;
+          }
+        }
+        if (acted) { this._snap(); this._armTimer(); continue; }
+      }
+      // bot holding a solo decision
+      if (actorId && this.bots.has(actorId) && !this.quitters.has(actorId) && botReady) {
+        try { this._applyBotMove(actorId, this._botDecide(actorId)); }
+        catch { /* fall through to defaults on its real deadline */ }
+        this._snap(); this._armTimer(); continue;
+      }
       if (pend.type === 'challenge' || pend.type === 'block') {
         // quitters inside a window pass immediately
         let acted = false;
@@ -211,16 +296,23 @@ class MultiManager {
     return null;
   }
 
-  create(user, size) {
+  create(user, size, practice = false) {
     this._gc();
     const n = Math.max(4, Math.min(6, Number(size) || 5));
     if (this._tableOf(user.username)) return { error: 'you are already at a table — leave it first' };
     const t = {
       id: crypto.randomBytes(6).toString('hex'),
-      size: n, createdAt: Date.now(),
+      size: n, createdAt: Date.now(), practice,
       seats: [{ username: user.username, displayName: user.displayName }],
       session: null,
     };
+    if (practice) {
+      const NAMES = ['Bufo Verde', 'Sir Bufo', 'Baron Bufo', 'Bufo the Bold', 'Bufo Prime'];
+      for (let i = 0; t.seats.length < n; i++) {
+        t.seats.push({ username: '__bufo' + i + '_' + t.id, displayName: NAMES[i % NAMES.length], bot: true });
+      }
+      t.session = new ClassicSession(t.seats);
+    }
     this.tables.set(t.id, t);
     return { table: this._pub(t) };
   }
@@ -230,6 +322,7 @@ class MultiManager {
     if (this._tableOf(user.username)) return { error: 'you are already at a table — leave it first' };
     const t = this.tables.get(tableId);
     if (!t) return { error: 'that table is gone' };
+    if (t.practice) return { error: 'that is a practice table' };
     if (t.session && !t.session.done) return { error: 'that game already started' };
     if (t.seats.length >= t.size) return { error: 'that table is full' };
     t.seats.push({ username: user.username, displayName: user.displayName });
@@ -246,7 +339,7 @@ class MultiManager {
       t.session.quit(user.username);   // mid-game: seat plays itself out
     }
     t.seats = t.seats.filter((s) => s.username !== user.username);
-    if (!t.seats.length) this.tables.delete(t.id);
+    if (!t.seats.length || t.seats.every((s) => s.bot)) this.tables.delete(t.id);
     else if (t.session && t.session.done) t.session = null;   // back to waiting
     return { ok: true };
   }
@@ -270,7 +363,7 @@ class MultiManager {
 
   _pub(t) {
     return {
-      id: t.id, size: t.size,
+      id: t.id, size: t.size, practice: !!t.practice,
       seated: t.seats.map((s) => s.displayName),
       open: t.size - t.seats.length,
       playing: !!(t.session && !t.session.done),

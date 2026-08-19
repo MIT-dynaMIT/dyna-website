@@ -1,0 +1,53 @@
+/* Multiplayer classic-Coup tables — lobby + game. Light theme tokens in scope. */
+
+.mp-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.mp-table.mine { border-color: var(--accent-dim); box-shadow: 0 0 0 1px var(--accent-dim); }
+.mp-table-head { color: var(--ink); margin-bottom: 10px; }
+.mp-seats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.mp-seat-chip {
+  font-size: 12.5px; padding: 3px 10px; border-radius: 20px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+}
+.mp-seat-chip.open { color: var(--ink-mut); font-style: italic; border-style: dashed; background: transparent; }
+
+.mp-game { display: flex; gap: 16px; align-items: stretch; }
+.mp-board { flex: 1 1 auto; display: flex; flex-direction: column; gap: 14px; }
+.mp-log { flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; }
+.mp-log-lines { flex: 1; overflow-y: auto; max-height: 420px; font-size: 12.5px; color: var(--ink); display: flex; flex-direction: column; gap: 4px; }
+
+.mp-opps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mp-opp {
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+  background: var(--panel-2);
+}
+.mp-opp.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mp-opp.dead { opacity: 0.45; filter: grayscale(0.8); }
+.mp-opp-name { font-weight: 700; color: var(--parch); font-size: 13.5px; margin-bottom: 4px; }
+.mp-opp-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.mp-cards { display: flex; gap: 3px; align-items: center; }
+.mp-cardback { font-size: 16px; filter: saturate(0.7); }
+.mp-mini { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; }
+.mp-mini.dead { opacity: 0.55; filter: grayscale(1); }
+
+.mp-center { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 4px 0; }
+.mp-clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+.mp-clock.low { color: var(--bad); }
+
+.mp-me { display: flex; align-items: center; gap: 18px; }
+.mp-hand { display: flex; gap: 10px; }
+.mp-card {
+  width: 92px; border: 1px solid #b9a878; border-radius: 9px; overflow: hidden;
+  background: linear-gradient(180deg, #fdf8ea, #f1e6c8);
+  display: flex; flex-direction: column; align-items: center; padding: 8px 6px 6px;
+  box-shadow: 0 2px 5px rgba(28, 33, 40, 0.18);
+}
+.mp-card img { width: 64px; height: 64px; object-fit: contain; }
+.mp-card span { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; color: #4a3f28; margin-top: 4px; }
+.mp-card.dead { opacity: 0.5; filter: grayscale(1); }
+.mp-me-meta { font-size: 15px; color: var(--ink); }
+.mp-btn-bufo { width: 22px; height: 22px; object-fit: contain; vertical-align: -5px; margin-right: 6px; }
+
+@media (max-width: 900px) {
+  .mp-game { flex-direction: column; }
+  .mp-log { flex: none; }
+}

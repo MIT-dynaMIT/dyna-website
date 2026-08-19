@@ -27,6 +27,8 @@ const plays = new PlayManager();
 const live = new LiveManager(store);
 const { Resim } = require('./resim');
 const resim = new Resim();
+const { MultiManager } = require('./multi');
+const multi = new MultiManager(store);
 
 // resolve the user's SELECTED BOT into a compiling fighter, or an error
 function fighterFor(user) {
@@ -298,6 +300,36 @@ app.post('/api/coup/live/match/:id/forfeit', auth, (req, res) => {
   if (!sess || !sess.seatOf[req.user.username]) return res.status(404).json({ error: 'no such duel' });
   sess.forfeit(req.user.username);
   res.json(sess.snapshot(req.user.username, Number(req.body.cursor) || 0));
+});
+
+// ------------------------------------------------------------ multiplayer (classic Coup tables)
+app.get('/api/coup/multi/lobby', auth, (req, res) => {
+  res.json(multi.lobby(req.user));
+});
+app.post('/api/coup/multi/create', auth, (req, res) => {
+  const r = multi.create(req.user, req.body.size);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+app.post('/api/coup/multi/sit', auth, (req, res) => {
+  const r = multi.sit(req.user, String(req.body.id || ''));
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+app.post('/api/coup/multi/leave', auth, (req, res) => {
+  res.json(multi.leave(req.user));
+});
+app.get('/api/coup/multi/game', auth, (req, res) => {
+  const s = multi.session(req.user);
+  if (!s) return res.status(404).json({ error: 'no game at your table' });
+  res.json(s.snapshot(req.user.username, Number(req.query.cursor) || 0));
+});
+app.post('/api/coup/multi/move', auth, (req, res) => {
+  const s = multi.session(req.user);
+  if (!s) return res.status(404).json({ error: 'no game at your table' });
+  try { s.move(req.user.username, req.body || {}); }
+  catch (err) { return res.status(400).json({ error: err.message }); }
+  res.json(s.snapshot(req.user.username, Number(req.body.cursor) || 0));
 });
 
 // ------------------------------------------------------------ admin

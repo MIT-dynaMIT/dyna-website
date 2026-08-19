@@ -11,6 +11,7 @@ import LevelsPage from './pages/LevelsPage';
 // when someone actually opens the Bot Editor tab
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 import PlayPage from './pages/PlayPage';
+import TablesPage from './pages/TablesPage';
 import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
 import ReplayPage from './pages/ReplayPage';
@@ -143,6 +144,7 @@ export default function CoupApp() {
     { name: 'Levels', to: '/coup/levels' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
+    { name: 'Multiplayer', to: '/coup/tables' },
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
@@ -179,6 +181,7 @@ export default function CoupApp() {
             <Route path="gauntlet" element={<Navigate to="/coup/levels" replace />} />
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
+            <Route path="tables" element={<TablesPage />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />

@@ -588,6 +588,13 @@ function registerGenerators() {
     return [`random_int(${a}, ${b})`, Order.FUNCTION_CALL];
   };
   forBlock['math_random_float'] = () => ['random()', Order.FUNCTION_CALL];
+  // stock generator emits "from numbers import Number" — botlang has no
+  // imports, so "change x by n" becomes plain arithmetic
+  forBlock['math_change'] = (block, gen) => {
+    const name = gen.getVariableName(block.getFieldValue('VAR'));
+    const delta = gen.valueToCode(block, 'DELTA', Order.ADDITIVE) || '0';
+    return `${name} = ${name} + ${delta}\n`;
+  };
   forBlock['math_round'] = (block, gen) => {
     const op = block.getFieldValue('OP');
     const arg = gen.valueToCode(block, 'NUM', Order.NONE) || '0';

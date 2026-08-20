@@ -6,7 +6,7 @@ import { useToast } from '../CoupApp';
 
 const LEVEL_FLAVOR = [
   "Level 1. Victor made this game. That doesn't mean he's good at it.",
-  'Level 2. Victor saw your bots. He took it personally and practiced all weekend.',
+  "Level 2. Victor watched your bots yesterday — now he's trying to dodge your coups and assassinations!",
   'Level 3. Megan is disappointed you even tried.',
   "Level 4. The final boss. We don't talk about Andrew's win rate.",
 ];

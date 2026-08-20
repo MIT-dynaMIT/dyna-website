@@ -6,6 +6,7 @@
 # never a pushover.
 #
 # UPGRADES OVER V1 (the starter):
+#   0. THE DODGE — his own old bot's signature move, remembered.
 #   1. Smarter money: Foreign Aid when a Duke block is unlikely.
 #   2. No blind Contessa bluff: block a would-hit shot only with the real
 #      card (or a rare gamble); never waste a block on a miss.
@@ -20,6 +21,12 @@
 def your_turn(state):
     if state.my_coins >= 7:
         return coup(best_coup_call(state))
+    # THE DODGE (his old bot's trick): they can coup next turn and my
+    # hand still matches my claims — shuffle it out from under their
+    # best guess. Exchanging resets my claims, so he never dodge-locks.
+    if state.opponent.coins >= 7 and "ambassador" in state.my_cards:
+        if len(cards_in(state.my_cards, state.me.claims)) > 0:
+            return exchange()
     if "duke" in state.my_cards:
         return tax()
     if "ambassador" in state.my_cards and chance(0.2):
@@ -49,3 +56,6 @@ def when_assassinated(state, action):
 
 def choose_card_to_lose(state):
     return reveal(claimed_card(state))
+
+def choose_exchange(state, pool):
+    return strongest_cards(pool, ["ambassador", "contessa", "duke", "assassin"], state.my_num_cards)

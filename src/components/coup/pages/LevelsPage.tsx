@@ -6,10 +6,11 @@ import { useToast } from '../CoupApp';
 
 const LEVEL_FLAVOR = [
   "Level 1. Victor made this game. That doesn't mean he's good at it.",
-  'Level 2. Megan is disappointed you even tried.',
-  "Level 3. The final boss. We don't talk about Andrew's win rate.",
+  'Level 2. Victor saw your bots. He took it personally and practiced all weekend.',
+  'Level 3. Megan is disappointed you even tried.',
+  "Level 4. The final boss. We don't talk about Andrew's win rate.",
 ];
-const LEVEL_ICON = ['🥉', '🥈', '🏆'];
+const LEVEL_ICON = ['🥉', '🥈', '🥇', '🏆'];
 
 export default function LevelsPage() {
   const toast = useToast();
@@ -52,20 +53,21 @@ export default function LevelsPage() {
     }
   };
 
-  // best result per level
-  const bestByLevel = new Map<number, MatchRow>();
+  // best result per boss — keyed by the house bot's NAME, so records stay
+  // attached to the right boss even when levels are inserted or reordered
+  const bestByBoss = new Map<string, MatchRow>();
   for (const r of results) {
-    if (r.level == null) continue;
-    const cur = bestByLevel.get(r.level);
+    const boss = r.mine === 1 ? r.players[0] : r.players[1];
+    const cur = bestByBoss.get(boss);
     const myScore = (m: MatchRow) => (m.mine === 1 ? m.score[1] - m.score[0] : m.score[0] - m.score[1]);
-    if (!cur || myScore(r) > myScore(cur)) bestByLevel.set(r.level, r);
+    if (!cur || myScore(r) > myScore(cur)) bestByBoss.set(boss, r);
   }
 
   return (
     <div>
       <div className="coup-card" style={{ marginBottom: 18 }}>
         <h2 className="coup-h">🎯 Levels
-          <small>three bots to beat · best of {data.seriesCount} · each round is a {data.seriesGames}-game series</small>
+          <small>four bots to beat · best of {data.seriesCount} · each round is a {data.seriesGames}-game series</small>
         </h2>
         <p className="coup-sub">
           Your <b>selected bot</b> plays a house bot for {data.seriesCount} rounds of {data.seriesGames} games
@@ -91,9 +93,9 @@ export default function LevelsPage() {
         </div>
       )}
 
-      <div className="coup-grid2" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div className="coup-grid2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
         {data.levels.map((l) => {
-          const best = bestByLevel.get(l.level);
+          const best = bestByBoss.get(l.name);
           const mineFirst = best && best.mine !== 1;
           const my = best ? (mineFirst ? best.score[0] : best.score[1]) : null;
           const their = best ? (mineFirst ? best.score[1] : best.score[0]) : null;

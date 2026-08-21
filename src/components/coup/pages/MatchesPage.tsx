@@ -50,7 +50,7 @@ export default function MatchesPage() {
             {j.status === 'failed'
               ? <span className="coup-error" style={{ marginLeft: 10 }}>{j.error}</span>
               : <span className="coup-note" style={{ marginLeft: 10 }}>
-                  {j.mode === 'gauntlet' ? 'level run' : 'bot battle'} {j.status}…
+                  {j.mode === 'gauntlet' ? 'level run' : j.mode === 'ladder' ? 'leaderboard match' : 'bot battle'} {j.status}…
                 </span>}
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function MatchesPage() {
             onKeyDown={(e) => { if (e.key === 'Enter') nav(`/coup/matches/${m.id}`); }}>
             <div className="verdict">
               {spectator ? `${m.score[0]}–${m.score[1]}` : `${drawn ? 'D' : win ? 'W' : 'L'} ${o.my}–${o.their}`}
-              <small>{m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : 'bot battle'}</small>
+              <small>{m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : m.mode === 'ladder' ? 'leaderboard' : 'bot battle'}</small>
             </div>
             <div className="lineup">
               {m.players.map((p, i) => (

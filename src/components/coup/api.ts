@@ -14,7 +14,7 @@ export interface BotSlot {
 // whoever takes more series. Everything is recorded from players[0]'s side.
 export interface MatchRow {
   id: string; ts: number;
-  mode: 'gauntlet' | 'botduel';
+  mode: 'gauntlet' | 'botduel' | 'ladder';
   level: number | null;             // gauntlet: which house level (0-based)
   players: [string, string];        // bot names
   owners: [string, string];         // usernames ('house' for house bots)
@@ -27,7 +27,7 @@ export interface MatchRow {
 }
 
 export interface PendingJob {
-  id: string; mode: 'gauntlet' | 'botduel'; level: number | null;
+  id: string; mode: 'gauntlet' | 'botduel' | 'ladder'; level: number | null;
   players: [string, string]; owners: [string, string]; ownerNames: [string, string];
   status: 'queued' | 'running' | 'failed'; ts: number; error: string | null;
 }
@@ -43,7 +43,7 @@ export interface GauntletData {
 }
 
 export interface ReplayMatchInfo {
-  mode: 'gauntlet' | 'botduel'; level: number | null;
+  mode: 'gauntlet' | 'botduel' | 'ladder'; level: number | null;
   players: [string, string]; ownerNames: [string, string];
   score: [number, number]; matchWinner: string | null; gamesPerSeries: number;
   seriesIndex: number;

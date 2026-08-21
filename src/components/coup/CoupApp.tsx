@@ -12,6 +12,7 @@ import LevelsPage from './pages/LevelsPage';
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 import PlayPage from './pages/PlayPage';
 import TablesPage from './pages/TablesPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
 import ReplayPage from './pages/ReplayPage';
@@ -145,6 +146,7 @@ export default function CoupApp() {
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Multiplayer', to: '/coup/tables' },
+    { name: 'Leaderboard', to: '/coup/leaderboard' },
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
@@ -182,6 +184,7 @@ export default function CoupApp() {
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="tables" element={<TablesPage />} />
+            <Route path="leaderboard" element={<LeaderboardPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />

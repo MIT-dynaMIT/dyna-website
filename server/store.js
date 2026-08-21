@@ -33,6 +33,7 @@ class Store {
     this.sessions = this._load('sessions.json', {});
     this.bots = this._load('bots.json', {});
     this.matches = this._load('matches.json', { list: [] });
+    this.ladder = this._load('ladder.json', { submissions: [], totalMatches: 0, running: true });
     this._timers = {};
   }
 
@@ -49,7 +50,7 @@ class Store {
   }
   flush() {
     for (const [file, obj] of [['users.json', this.users], ['sessions.json', this.sessions],
-      ['bots.json', this.bots], ['matches.json', this.matches]]) {
+      ['bots.json', this.bots], ['matches.json', this.matches], ['ladder.json', this.ladder]]) {
       clearTimeout(this._timers[file]);
       try { fs.writeFileSync(path.join(this.dir, file), JSON.stringify(obj)); } catch {}
     }

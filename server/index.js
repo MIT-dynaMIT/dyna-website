@@ -29,6 +29,8 @@ const { Resim } = require('./resim');
 const resim = new Resim();
 const { MultiManager } = require('./multi');
 const multi = new MultiManager(store);
+const { LadderServer } = require('./ladder');
+const ladder = new LadderServer(store);
 
 // resolve the user's SELECTED BOT into a compiling fighter, or an error
 function fighterFor(user) {
@@ -302,6 +304,26 @@ app.post('/api/coup/live/match/:id/forfeit', auth, (req, res) => {
   res.json(sess.snapshot(req.user.username, Number(req.body.cursor) || 0));
 });
 
+// ------------------------------------------------------------ the leaderboard (ELO scrimmage)
+app.get('/api/coup/ladder', auth, (req, res) => {
+  res.json(ladder.view(req.user));
+});
+
+app.post('/api/coup/ladder/submit', auth, (req, res) => {
+  const idx = Number(req.body.slot);
+  const slots = store.getSlots(req.user);
+  const s = slots[idx];
+  if (!s || !s.python || !s.python.trim()) return res.status(400).json({ error: 'that slot is empty' });
+  const check = checkProgram(s.python);
+  if (!check.ok) return res.status(400).json({ error: 'that bot has problems — run "Check my bot" in the editor first' });
+  const r = ladder.submit(req.user, idx, s);
+  res.json({ ok: true, unchanged: !!r.unchanged, submission: { id: r.submission.id, name: r.submission.name } });
+});
+
+app.post('/api/coup/ladder/withdraw', auth, (req, res) => {
+  res.json({ ok: ladder.withdraw(req.user, String(req.body.id || '')) });
+});
+
 // ------------------------------------------------------------ multiplayer (classic Coup tables)
 app.get('/api/coup/multi/lobby', auth, (req, res) => {
   res.json(multi.lobby(req.user));
@@ -425,6 +447,7 @@ app.get(/^\/(?!api\/).*/, (req, res, next) => {
 
 // ------------------------------------------------------------ boot
 if (require.main === module) {
+  ladder.start();
   app.listen(PORT, () => {
     console.log(`\n  🎭 dynaCOUP camp server → http://localhost:${PORT}`);
     console.log(`     ${Object.keys(store.users).length} logins, ${store.matches.list.length} recorded matches\n`);

@@ -94,7 +94,7 @@ export default function ReplayPage() {
         <Link to="/coup/matches" className="coup-note" style={{ textDecoration: 'none' }}>← Match history</Link>
         <div style={{ flex: 1 }} />
         <span className="coup-note">
-          {m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : 'bot battle'} · {dateStr}
+          {m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : m.mode === 'ladder' ? 'leaderboard match' : 'bot battle'} · {dateStr}
         </span>
       </div>
 

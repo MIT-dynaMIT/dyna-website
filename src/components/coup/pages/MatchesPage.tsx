@@ -31,15 +31,25 @@ export default function MatchesPage() {
 
   if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
+  const inLadderTab = tab === 'ladder';
+  const shown = data.matches.filter((m) => inLadderTab === (m.mode === 'ladder'));
+  const pendingShown = data.pending.filter((j) => inLadderTab === (j.mode === 'ladder'));
+
   return (
     <div>
       <div className="coup-card" style={{ marginBottom: 16 }}>
-        <h2 className="coup-h">📜 Match history
-          <small>every match is a best of 5 — five rounds of 100 games · your last 5 matches are kept</small>
+        <h2 className="coup-h" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>📜 Match history
+          <span style={{ display: 'inline-flex', gap: 6 }}>
+            <button className={tab === 'games' ? 'primary small' : 'small'}
+              onClick={() => setTab('games')}>Levels &amp; Battles</button>
+            <button className={tab === 'ladder' ? 'primary small' : 'small'}
+              onClick={() => setTab('ladder')}>Leaderboard</button>
+          </span>
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
-          Level runs and bot battles show up here when they finish. Click a match to
-          watch any of its games.
+          {tab === 'games'
+            ? 'Level runs and bot battles, best of 5 — your last 5 are kept. Click a match to watch any of its games.'
+            : 'Leaderboard matches, best of 7 — each of the 7 a 100-game series. Your last 5 are kept.'}
         </p>
       </div>
 

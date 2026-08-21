@@ -106,14 +106,14 @@ class LadderServer {
 
   _pick() {
     if (this.sub.length < 2 || !this.store.ladder.running) return null;
-    // least-played first; opponent = closest ELO among a few random others
+    // least-played first (ties broken randomly)
     const a = [...this.sub].sort((x, y) => x.matches - y.matches || Math.random() - 0.5)[0];
-    const others = this.sub.filter((s) => s !== a);
-    others.sort(() => Math.random() - 0.5);
-    const cand = others.slice(0, 3).sort((x, y) => Math.abs(x.elo - a.elo) - Math.abs(y.elo - a.elo))[0];
-    const key = [a.id, cand.id].sort().join(':');
-    if (key === this._lastPair && this.sub.length > 2) return this._pick();
-    this._lastPair = key;
+    // opponent: closest ELO wins, but never the exact same pairing twice in a
+    // row when any alternative exists (no recursion — pick from a ranked list)
+    const ranked = this.sub.filter((s) => s !== a)
+      .sort((x, y) => Math.abs(x.elo - a.elo) - Math.abs(y.elo - a.elo) || Math.random() - 0.5);
+    let cand = ranked.find((s) => [a.id, s.id].sort().join(':') !== this._lastPair) || ranked[0];
+    this._lastPair = [a.id, cand.id].sort().join(':');
     return [a, cand];
   }
 

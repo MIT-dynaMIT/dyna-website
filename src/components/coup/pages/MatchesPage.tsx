@@ -19,6 +19,7 @@ function orient(m: MatchRow) {
 
 export default function MatchesPage() {
   const [data, setData] = useState<MatchesData | null>(null);
+  const [tab, setTab] = useState<'games' | 'ladder'>('games');
   const nav = useNavigate();
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function MatchesPage() {
         </p>
       </div>
 
-      {data.pending.map((j) => (
+      {pendingShown.map((j) => (
         <div key={j.id} className="match-row" style={{ cursor: 'default' }}>
           <div className="verdict">{j.status === 'failed' ? '💥' : <span className="coup-spin" />}</div>
           <div className="lineup">
@@ -56,11 +57,15 @@ export default function MatchesPage() {
         </div>
       ))}
 
-      {data.matches.length === 0 && data.pending.length === 0 && (
-        <p className="coup-note">Nothing here yet — play a level or start a bot battle in Versus.</p>
+      {shown.length === 0 && pendingShown.length === 0 && (
+        <p className="coup-note">
+          {tab === 'games'
+            ? 'Nothing here yet — play a level or start a bot battle in Versus.'
+            : 'No leaderboard matches yet — submit a bot on the Leaderboard page.'}
+        </p>
       )}
 
-      {data.matches.map((m) => {
+      {shown.map((m) => {
         const o = orient(m);
         const drawn = m.winnerName === null;
         const win = !drawn && m.winnerName === o.myBot;
@@ -76,7 +81,7 @@ export default function MatchesPage() {
               <small>{m.mode === 'gauntlet' ? `level ${(m.level ?? 0) + 1}` : m.mode === 'ladder' ? 'leaderboard' : 'bot battle'}</small>
             </div>
             <div className="lineup">
-              {m.players.map((p, i) => (
+              {m.players.map((p: string, i: number) => (
                 <span key={i}
                   className={`p ${p === m.winnerName ? 'winner' : ''} ${!spectator && p === o.myBot ? 'me' : ''}`}>
                   {p === m.winnerName ? '♛ ' : ''}{p}

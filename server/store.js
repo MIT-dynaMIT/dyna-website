@@ -152,15 +152,19 @@ class Store {
     match.id = crypto.randomBytes(6).toString('hex');
     match.ts = Date.now();
     this.matches.list.push(match);
-    // per-account retention: a match survives while it is within SOME owner's
-    // most recent 5 — dropping one player's 6th must not erase another's 2nd
-    const seen = new Map();   // owner -> how many of their matches kept so far
+    // per-account retention, sectioned: ladder matches and level/battle
+    // matches each keep their own last 5 per owner, so a busy ladder can't
+    // evict someone's gauntlet history. A match survives while it is within
+    // SOME owner's most recent 5 of its section.
+    const seen = new Map();   // owner:section -> kept so far
     const keep = new Set();
     for (let i = this.matches.list.length - 1; i >= 0; i--) {
       const m = this.matches.list[i];
+      const section = m.mode === 'ladder' ? 'ladder' : 'other';
       for (const o of m.owners) {
-        const n = seen.get(o) || 0;
-        if (n < MATCHES_PER_ACCOUNT) { keep.add(m.id); seen.set(o, n + 1); }
+        const k = o + ':' + section;
+        const n = seen.get(k) || 0;
+        if (n < MATCHES_PER_ACCOUNT) { keep.add(m.id); seen.set(k, n + 1); }
       }
     }
     this.matches.list = this.matches.list.filter((m) => keep.has(m.id));
@@ -175,8 +179,16 @@ class Store {
 
   matchesFor(user) {
     if (user.isAdmin) return [...this.matches.list].reverse();
-    return this.matches.list.filter((m) => m.owners.includes(user.username))
-      .reverse().slice(0, MATCHES_PER_ACCOUNT);
+    const mine = this.matches.list.filter((m) => m.owners.includes(user.username)).reverse();
+    // up to 5 of each section (retention already enforces this globally,
+    // but a shared match kept alive by the OTHER owner shouldn't pad mine)
+    const out = [];
+    const count = { ladder: 0, other: 0 };
+    for (const m of mine) {
+      const s = m.mode === 'ladder' ? 'ladder' : 'other';
+      if (count[s] < MATCHES_PER_ACCOUNT) { out.push(m); count[s]++; }
+    }
+    return out;
   }
 }
 

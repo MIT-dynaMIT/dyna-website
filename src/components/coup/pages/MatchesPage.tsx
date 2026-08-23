@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, timeAgo } from '../api';
+import { api, LADDER_ENABLED, timeAgo } from '../api';
 import type { MatchesData, MatchRow } from '../api';
 
 /** Rows are recorded from players[0]'s side — orient scores to "me".
@@ -39,12 +39,12 @@ export default function MatchesPage() {
     <div>
       <div className="coup-card" style={{ marginBottom: 16 }}>
         <h2 className="coup-h" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>📜 Match history
-          <span style={{ display: 'inline-flex', gap: 6 }}>
+          {LADDER_ENABLED && <span style={{ display: 'inline-flex', gap: 6 }}>
             <button className={tab === 'games' ? 'primary small' : 'small'}
               onClick={() => setTab('games')}>Levels &amp; Battles</button>
             <button className={tab === 'ladder' ? 'primary small' : 'small'}
               onClick={() => setTab('ladder')}>Leaderboard</button>
-          </span>
+          </span>}
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
           {tab === 'games'

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { api, clearAuth, getStoredUser, storeAuth } from './api';
+import { api, clearAuth, getStoredUser, LADDER_ENABLED, storeAuth } from './api';
 import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
@@ -146,7 +146,7 @@ export default function CoupApp() {
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Multiplayer', to: '/coup/tables' },
-    { name: 'Leaderboard', to: '/coup/leaderboard' },
+    ...(LADDER_ENABLED ? [{ name: 'Leaderboard', to: '/coup/leaderboard' }] : []),
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
@@ -184,7 +184,7 @@ export default function CoupApp() {
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="tables" element={<TablesPage />} />
-            <Route path="leaderboard" element={<LeaderboardPage user={user} />} />
+            <Route path="leaderboard" element={LADDER_ENABLED ? <LeaderboardPage user={user} /> : <Navigate to="/coup" replace />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />

@@ -463,7 +463,9 @@ app.get(/^\/(?!api\/).*/, (req, res, next) => {
 
 // ------------------------------------------------------------ boot
 if (require.main === module) {
-  ladder.start();
+  // flip LADDER_ENABLED=1 (and the frontend flag in api.ts) to bring the
+  // leaderboard back — submissions and ratings persist in ladder.json
+  if (process.env.LADDER_ENABLED === '1') ladder.start();
   app.listen(PORT, () => {
     console.log(`\n  🎭 dynaCOUP camp server → http://localhost:${PORT}`);
     console.log(`     ${Object.keys(store.users).length} logins, ${store.matches.list.length} recorded matches\n`);

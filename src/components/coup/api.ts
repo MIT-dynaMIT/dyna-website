@@ -194,6 +194,11 @@ export const ACTION_LABEL: Record<string, string> = {
   assassinate: 'Assassinate', steal: 'Steal', exchange: 'Exchange',
 };
 
+// Feature flag: the ELO leaderboard (page, nav tab, history tab). Flip to
+// true and redeploy to bring the whole thing back — everything underneath
+// (server ladder, endpoints, page) stays intact and tested.
+export const LADDER_ENABLED = false;
+
 // The server defaults (server/arena.js). Only safe for static copy — anything
 // rendering real data must read gamesPerSeries off the payload.
 export const SERIES_GAMES = 100;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, LADDER_ENABLED } from '../api';
 import { useToast } from '../CoupApp';
 
 interface Overview {
@@ -79,10 +79,10 @@ export default function AdminPage() {
             title="Every online student's selected bot fights a random other student's bot — best of 5, results in Match History">
             🤖 Pair up bot battles
           </button>
-          <button onClick={resetLadder}
+          {LADDER_ENABLED && <button onClick={resetLadder}
             title="Fresh week: everyone off the leaderboard, ratings wiped, Andrew re-seats at 1000">
             🔄 Reset leaderboard
-          </button>
+          </button>}
         </div>
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
           <table className="coup-table">

@@ -39,6 +39,12 @@ export default function AdminPage() {
       + (r.skipped.length ? ` — no bot yet: ${r.skipped.join(', ')}` : ''));
   };
 
+  const resetLadder = async () => {
+    if (!window.confirm('Reset the leaderboard? Every bot comes off the ladder and all ratings are wiped — Andrew re-seats fresh at 1000. Match history is kept.')) return;
+    await api.post('/admin/ladder-reset');
+    toast('Leaderboard reset — a new season begins');
+  };
+
   const resetPw = async (username: string) => {
     const pw = window.prompt(`New password for ${username}:`, 'coup123');
     if (!pw) return;
@@ -72,6 +78,10 @@ export default function AdminPage() {
           <button className="primary" onClick={pairBots}
             title="Every online student's selected bot fights a random other student's bot — best of 5, results in Match History">
             🤖 Pair up bot battles
+          </button>
+          <button onClick={resetLadder}
+            title="Fresh week: everyone off the leaderboard, ratings wiped, Andrew re-seats at 1000">
+            🔄 Reset leaderboard
           </button>
         </div>
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>

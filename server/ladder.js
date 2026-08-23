@@ -67,6 +67,15 @@ class LadderServer {
     this._save();
     return { submission: e };
   }
+  /** organizer: fresh week — everyone off, Andrew re-seated at 1000 */
+  reset() {
+    this.store.ladder.submissions = [];
+    this.store.ladder.totalMatches = 0;
+    this._lastPair = '';
+    this.ensureHouse();
+    this._save();
+  }
+
   withdraw(user, id) {
     const i = this.sub.findIndex((x) => x.id === id && (x.owner === user.username && x.owner !== 'house'));
     if (i < 0) return false;

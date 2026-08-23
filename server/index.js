@@ -403,6 +403,12 @@ app.get('/api/coup/admin/export', auth, adminOnly, (req, res) => {
   });
 });
 
+// fresh week: clear the leaderboard, Andrew re-seats at 1000
+app.post('/api/coup/admin/ladder-reset', auth, adminOnly, (req, res) => {
+  ladder.reset();
+  res.json({ ok: true });
+});
+
 // pair every online student into a random live duel
 app.post('/api/coup/admin/pair-online', auth, adminOnly, (req, res) => {
   res.json(live.pairStudents());

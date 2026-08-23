@@ -56,11 +56,10 @@ const py = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 
 const HOUSE = [
   // level 1 IS the starter scaffold — beat yourself before anyone else
-  { name: 'Victor',    source: THE_SCAFFOLD },
-  // level 2: Victor saw the campers' bots and spent a weekend practicing
-  { name: 'Victor V2', source: py('level2_victor2.py') },
-  { name: 'Megan',     source: py('level2_auditor.py') },
-  { name: 'Andrew',    source: py('ultimate.py') },
+  // (Victor V2 — the dodge — is retired to ./archive/)
+  { name: 'Victor', source: THE_SCAFFOLD },
+  { name: 'Megan',  source: py('level2_auditor.py') },
+  { name: 'Andrew', source: py('ultimate.py') },
 ];
 
 module.exports = { HOUSE, THE_SCAFFOLD };

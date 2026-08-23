@@ -67,8 +67,18 @@ class LadderServer {
     this._save();
     return { submission: e };
   }
-  /** organizer: fresh week — everyone off, Andrew re-seated at 1000 */
+  /** organizer: fresh week — the old board archives itself, then everyone
+   *  comes off and Andrew re-seats at 1000 */
   reset() {
+    if (this.sub.length) {
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      try {
+        require('node:fs').writeFileSync(
+          require('node:path').join(this.store.dir, `ladder-archive-${stamp}.json`),
+          JSON.stringify({ archivedAt: Date.now(), totalMatches: this.store.ladder.totalMatches,
+            board: this.board(), submissions: this.sub }));
+      } catch { /* archiving must never block the reset */ }
+    }
     this.store.ladder.submissions = [];
     this.store.ladder.totalMatches = 0;
     this._lastPair = '';

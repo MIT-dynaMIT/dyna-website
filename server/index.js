@@ -400,6 +400,10 @@ app.get('/api/coup/admin/export', auth, adminOnly, (req, res) => {
     matches: store.matches.list.map(({ series, sources, ...m }) => ({
       ...m, series: series.map((r) => ({ winsA: r.winsA, winsB: r.winsB })),
     })),
+    ladder: {
+      totalMatches: store.ladder.totalMatches,
+      board: ladder.board(),
+    },
   });
 });
 

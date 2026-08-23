@@ -102,7 +102,16 @@ function parse(src) {
     const fns = {};
     while (!at('EOF')) {
       if (at('NEWLINE')) { next(); continue; }
-      if (at('def')) { const f = parseDef(); fns[f.name] = f; continue; }
+      if (at('def')) {
+        const f = parseDef();
+        if (fns[f.name]) {
+          throw new CompileError(
+            `you have TWO functions named "${f.name}" — the second would silently replace the first. `
+            + `Delete one of them (in blocks: look for two of the same hat block).`, f.line);
+        }
+        fns[f.name] = f;
+        continue;
+      }
       throw new CompileError('only "def" function definitions are allowed at the top level', peek().line);
     }
     return { fns };

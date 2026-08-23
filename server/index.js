@@ -403,6 +403,12 @@ app.get('/api/coup/admin/export', auth, adminOnly, (req, res) => {
   });
 });
 
+// log a list of users out everywhere (archived accounts keep no sessions)
+app.post('/api/coup/admin/revoke-sessions', auth, adminOnly, (req, res) => {
+  const names = Array.isArray(req.body.usernames) ? req.body.usernames.map(String) : [];
+  res.json({ ok: true, revoked: store.revokeSessions(names) });
+});
+
 // fresh week: clear the leaderboard, Andrew re-seats at 1000
 app.post('/api/coup/admin/ladder-reset', auth, adminOnly, (req, res) => {
   ladder.reset();

@@ -92,6 +92,16 @@ class Store {
     const s = token && this.sessions[token];
     return s ? this.users[s.username] || null : null;
   }
+  /** log the given users out everywhere (e.g. archived accounts) */
+  revokeSessions(usernames) {
+    const set = new Set(usernames);
+    let n = 0;
+    for (const [tok, s] of Object.entries(this.sessions)) {
+      if (set.has(s.username)) { delete this.sessions[tok]; n++; }
+    }
+    this._save('sessions.json', this.sessions);
+    return n;
+  }
 
   // ------------------------------------------------------------ bot slots
   slotCount(user) { return user.isAdmin ? 100 : 10; }

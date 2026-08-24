@@ -176,12 +176,13 @@ function parse(src) {
     }
   }
 
-  function parseIf() {
-    const line = eat('if').line;
+  function parseIf(asElif) {
+    // an elif clause re-enters here with 'elif' as the head token
+    const line = (asElif ? eat('elif') : eat('if')).line;
     const cond = parseExpr(); eat(':');
     const body = parseBlock();
     let alt = null;
-    if (at('elif')) alt = [parseIf()];
+    if (at('elif')) alt = [parseIf(true)];
     else if (at('else')) { next(); eat(':'); alt = parseBlock(); }
     return { k: 'if', cond, body, alt, line };
   }

@@ -857,6 +857,8 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
         kind: 'category', name: 'Logic', categorystyle: 'logic_category',
         contents: [
           { kind: 'block', type: 'controls_if' },
+          // ready-made if/else — no hunting for the gear icon
+          { kind: 'block', type: 'controls_if', extraState: { hasElse: true } },
           { kind: 'block', type: 'logic_compare', fields: { OP: 'EQ' } },
           { kind: 'block', type: 'logic_operation', fields: { OP: 'AND' } },
           { kind: 'block', type: 'logic_negate' },

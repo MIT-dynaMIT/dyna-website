@@ -67,6 +67,7 @@ class Arena {
           houseName: job.mode === 'gauntlet' && HOUSE[job.level] ? HOUSE[job.level].name : null,
           won: mine > theirs,
           swept: mine > theirs && theirs === 0 && total > 0,
+          blanked: mine === 0 && theirs > 0,
           flags: (result.flags || {})[job.players[side]],
         });
       } catch (err) {

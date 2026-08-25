@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, timeAgo } from '../api';
 import type { MatchesData, MatchRow } from '../api';
 import { useLive } from '../CoupApp';
+import Bufo from '../Bufo';
 
 /** Rows are recorded from players[0]'s side — orient scores to "me".
  *  Admin rows where I'm not a player stay in recorded order. */
@@ -59,6 +60,8 @@ export default function MatchesPage() {
           {!inLadderTab
             ? 'Level runs and bot battles, best of 5 — your last 5 are kept. Click a match to watch any of its games.'
             : 'Leaderboard matches, best of 7 — each of the 7 a 100-game series. Your last 5 are kept.'}
+          {/* a frog sits at the end of the small print */}
+          <Bufo id="matches" />
         </p>
       </div>
 

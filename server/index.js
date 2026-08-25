@@ -111,8 +111,10 @@ app.put('/api/coup/bots/:idx', auth, (req, res) => {
 
 app.post('/api/coup/check', auth, (req, res) => {
   const result = checkProgram(String(req.body.python || ''));
-  try { book.fromCheck(req.user.username, result); }
-  catch (err) { console.error('[achievements] check failed', err.message); }
+  try {
+    book.fromCheck(req.user.username, result);
+    book.countCheck(req.user.username);
+  } catch (err) { console.error('[achievements] check failed', err.message); }
   res.json(result);
 });
 
@@ -128,6 +130,19 @@ app.get('/api/coup/achievements', auth, (req, res) => {
 // the client has shown these unlock toasts — stop re-sending them
 app.post('/api/coup/achievements/ack', auth, (req, res) => {
   book.ack(req.user.username, Array.isArray(req.body.ids) ? req.body.ids.map(String) : []);
+  res.json({ ok: true });
+});
+
+// a bufo got tickled — three are hidden around the app
+app.post('/api/coup/achievements/bufo', auth, (req, res) => {
+  const r = book.tickleBufo(req.user.username, String(req.body.id || ''));
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+// browser-only moments: scrolled to the bottom, saw every tab, up/downloaded
+app.post('/api/coup/achievements/event', auth, (req, res) => {
+  book.fromEvent(req.user.username, String(req.body.name || ''));
   res.json({ ok: true });
 });
 

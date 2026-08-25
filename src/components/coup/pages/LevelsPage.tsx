@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, timeAgo } from '../api';
 import type { GauntletData, MatchesData, MatchRow } from '../api';
 import { useToast } from '../CoupApp';
+import Bufo from '../Bufo';
 
 const LEVEL_FLAVOR = [
   "Level 1. Victor made this game. That doesn't mean he's good at it.",
@@ -114,6 +115,8 @@ export default function LevelsPage() {
                     ? <>✅ <b>Beaten {my}–{their}</b> · {timeAgo(best.ts)}</>
                     : <>best so far: {my}–{their} · {timeAgo(best.ts)}</>
                   : 'not beaten yet'}
+                {/* one frog hides behind the last boss's record line */}
+                {l.level === data.levels.length - 1 && <Bufo id="levels" />}
               </p>
             </div>
           );

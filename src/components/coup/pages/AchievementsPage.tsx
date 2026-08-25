@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
+import { achievementEvent, api } from '../api';
 import type { AchievementRow, AchievementsData } from '../api';
 
 type Filter = 'all' | 'unlocked' | 'locked';
@@ -68,6 +68,24 @@ export default function AchievementsPage() {
   );
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // "You Read The Whole Thing" — fires once, when they actually reach the end
+  useEffect(() => {
+    if (!data) return;
+    let done = false;
+    const onScroll = () => {
+      if (done) return;
+      const doc = document.documentElement;
+      // there has to be something to scroll — a filter that empties the list
+      // should not hand this out for free
+      if (doc.scrollHeight <= window.innerHeight + 100) return;
+      if (window.innerHeight + window.scrollY < doc.scrollHeight - 40) return;
+      done = true;
+      achievementEvent('scrolled');
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [data]);
   // trophies land from matches running in the background — keep the page honest
   useEffect(() => {
     const t = setInterval(() => refresh(), 20000);
@@ -124,6 +142,13 @@ export default function AchievementsPage() {
           <p className="coup-sub" style={{ margin: 0 }}>
             Most of these are hiding in the Bot Editor. Try something you have not tried yet.
           </p>
+          {/* the frog hunt gets a scoreboard, but never a map */}
+          {data.bufosFound > 0 && data.bufosFound < data.bufosTotal && (
+            <p className="coup-note" style={{ margin: '8px 0 0' }}>
+              🐸 {data.bufosFound} of {data.bufosTotal} bufos tickled. The others are
+              somewhere on this site, and no, we are not telling you where.
+            </p>
+          )}
         </div>
         <div className="ach-score">
           <div className="ach-score-n">

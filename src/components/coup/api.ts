@@ -130,6 +130,8 @@ export interface AchievementsData {
   unlockedCount: number;
   total: number;
   activeCount: number;
+  bufosFound: number;
+  bufosTotal: number;
 }
 
 // live human-vs-human (+ bot-battle challenges)
@@ -215,6 +217,15 @@ export const api = {
   post: <T>(path: string, body?: unknown) => req<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => req<T>('PUT', path, body),
 };
+
+/**
+ * Report a browser-only moment the server cannot witness (scrolled to the
+ * bottom, saw every tab, downloaded a .py). Fire-and-forget by design: an
+ * easter egg must never interrupt what the camper was actually doing.
+ */
+export function achievementEvent(name: 'scrolled' | 'tourist' | 'upload' | 'download') {
+  api.post('/achievements/event', { name }).catch(() => {});
+}
 
 // The four characters of the heads-up variant — no Captain, 3 copies each.
 // Anything that offers a role choice (the call picker) maps over this.

@@ -23,11 +23,11 @@ function freshFlags() {
   return {
     bluffs: { duke: 0, assassin: 0, ambassador: 0, contessa: 0 },
     challengesMade: 0, challengeWins: 0, caught: 0,
-    coupCalls: 0, coupHits: 0, errors: 0, wins: 0,
+    coupCalls: 0, coupHits: 0, contessaKills: 0, errors: 0, wins: 0,
   };
 }
 const FLAG_KEYS = ['challengesMade', 'challengeWins', 'caught',
-  'coupCalls', 'coupHits', 'errors', 'wins'];
+  'coupCalls', 'coupHits', 'contessaKills', 'errors', 'wins'];
 function mergeFlags(into, add) {
   for (const [name, f] of Object.entries(add)) {
     const t = into[name] || (into[name] = freshFlags());
@@ -154,8 +154,11 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
         if (!e.truthful) flags[names[e.by]].challengeWins++;
       }
       if (!e.truthful && flags[names[e.against]]) flags[names[e.against]].caught++;
-    } else if (e.t === 'hit' && e.action === 'coup' && flags[names[e.actor]]) {
-      flags[names[e.actor]].coupHits++;
+    } else if (e.t === 'hit' && flags[names[e.actor]]) {
+      if (e.action === 'coup') flags[names[e.actor]].coupHits++;
+      if (e.action === 'assassinate' && e.call === 'contessa') {
+        flags[names[e.actor]].contessaKills++;
+      }
     }
   }
   for (const [n, errs] of Object.entries(errorsByBot)) {

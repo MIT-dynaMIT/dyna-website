@@ -360,6 +360,36 @@
 .ach-rarity.legendary { color: var(--contessa); font-weight: 600; }
 .ach-when { margin-left: auto; font-size: 11px; color: var(--ink-mut); font-style: italic; }
 
+/* --------------------------- the hidden bufos
+   Invisible until the pointer lands on one. No pointer cursor and no border
+   or background of its own — the ONLY tell is a frog fading in under your
+   mouse. Reserve the space it occupies so revealing it never shifts text. */
+.coup-root .bufo {
+  display: inline-block; padding: 0; border: none; background: none;
+  width: 26px; height: 26px; line-height: 0; vertical-align: middle;
+  /* a big invisible target is far easier to sweep a mouse onto. The negative
+     vertical margin keeps a 26px box from stretching the 13px line it sits in,
+     so nothing shifts when the frog fades in. */
+  margin: -8px 0 -8px 2px;
+  cursor: default; opacity: 0; transition: opacity 0.45s ease, transform 0.2s ease;
+}
+.coup-root .bufo img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+  -webkit-user-select: none; user-select: none;
+}
+.coup-root .bufo:hover { opacity: 1; transform: scale(1.6) rotate(-6deg); }
+.coup-root .bufo:focus-visible { opacity: 1; outline: none; }
+/* caught one — it stays out where you can see it */
+.coup-root .bufo.found { opacity: 0.85; }
+.coup-root .bufo.found:hover { opacity: 1; }
+.coup-root .bufo.wiggle { animation: bufowiggle 0.8s ease-in-out; }
+@keyframes bufowiggle {
+  0%, 100% { transform: scale(1.6) rotate(0deg); }
+  20% { transform: scale(2.1) rotate(-16deg); }
+  45% { transform: scale(2.1) rotate(14deg); }
+  70% { transform: scale(1.85) rotate(-8deg); }
+}
+
 /* --------------------------- the unlock popups */
 .ach-toasts {
   position: fixed; right: 18px; bottom: 18px; z-index: 120;

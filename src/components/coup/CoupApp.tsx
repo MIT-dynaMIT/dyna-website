@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { api, clearAuth, getStoredUser, storeAuth } from './api';
+import { achievementEvent, api, clearAuth, getStoredUser, storeAuth } from './api';
 import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
@@ -125,6 +125,23 @@ export default function CoupApp() {
     document.documentElement.style.background = '#fbfaf6';
     return () => { document.documentElement.style.background = prev; };
   }, []);
+
+  // "Tourist": every tab visited at least once. Tracked locally and reported
+  // the moment the set completes, so it costs one request per camper, ever.
+  useEffect(() => {
+    if (!user) return;
+    const KEY = 'coup_seen_tabs';
+    const NEEDED = ['/coup/editor', '/coup/levels', '/coup/play', '/coup/versus',
+      '/coup/tables', '/coup/leaderboard', '/coup/matches', '/coup/achievements'];
+    let seen: string[] = [];
+    try { seen = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { seen = []; }
+    if (seen.length >= NEEDED.length) return;          // already reported
+    const here = NEEDED.find((t) => location.pathname.startsWith(t));
+    if (!here || seen.includes(here)) return;
+    seen.push(here);
+    try { localStorage.setItem(KEY, JSON.stringify(seen)); } catch { /* private mode */ }
+    if (NEEDED.every((t) => seen.includes(t))) achievementEvent('tourist');
+  }, [user, location.pathname]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);

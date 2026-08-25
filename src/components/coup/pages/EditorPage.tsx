@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Blockly from 'blockly/core';
-import { api, ApiError } from '../api';
+import { achievementEvent, api, ApiError } from '../api';
 import type { BotSlot, CheckResult, CoupUser } from '../api';
 import { timeAgo } from '../api';
 import { useToast } from '../CoupApp';
@@ -9,6 +9,7 @@ import {
   STARTER_PYTHON, starterWorkspaceJson, tidyWorkspace,
 } from '../editor/blocks';
 import { astToWorkspaceJson, DecompileError } from '../editor/decompile';
+import Bufo from '../Bufo';
 import '../editor.css';
 
 type Mode = 'blocks' | 'python';
@@ -396,6 +397,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     a.download = `${fname}.py`;
     a.click();
     URL.revokeObjectURL(a.href);
+    achievementEvent('download');
   };
 
   const fileInput = useRef<HTMLInputElement>(null);
@@ -411,6 +413,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
     setMode('python');
     // same treatment as opening a python slot: show blocks when we can
     autoDecompile(text, ++loadToken.current, true);
+    achievementEvent('upload');
     toast(`Loaded ${file.name} into slot ${idxRef.current + 1} — hit Save to keep it`);
   };
 
@@ -505,6 +508,8 @@ export default function EditorPage({ user }: { user: CoupUser }) {
           <p className="ed-hint">
             Other players see this name in matches. You are editing slot {idx + 1}
             {user.isAdmin ? ' (organizer — you have lots of slots)' : ''}.
+            {/* a frog hides at the end of the editor's hint line */}
+            <Bufo id="editor" />
           </p>
 
           <div className="ed-toolbar">

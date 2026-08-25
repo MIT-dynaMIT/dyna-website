@@ -27,7 +27,24 @@ const CATEGORIES = [
   { id: 'code', name: 'Code Craft', blurb: 'What is actually inside your bot.' },
   { id: 'bugs', name: 'Occupational Hazards', blurb: 'It happens to everyone. Really.' },
   { id: 'table', name: 'At the Table', blurb: 'You, playing with your own two hands.' },
+  { id: 'wall', name: 'The Fourth Wall', blurb: 'Things that are not really about Coup at all.' },
 ];
+
+/**
+ * The three bufos hidden around the app. Ids are the contract between the
+ * <Bufo> components and the server — renaming one orphans anybody's progress,
+ * so add rather than rename. Their locations are deliberately NOT written down
+ * anywhere the campers can read.
+ */
+const BUFOS = ['editor', 'levels', 'matches'];
+
+/** browser-only moments the server cannot see for itself → award id */
+const CLIENT_EVENTS = {
+  scrolled: 'scrolled',
+  tourist: 'tourist',
+  upload: 'byo',
+  download: 'homework',
+};
 
 /**
  * The registry. `hidden: true` keeps name + description secret until unlocked.
@@ -91,8 +108,6 @@ const ACHIEVEMENTS = [
     desc: 'Push a bot past 1150 on the ladder.' },
 
   // ---------------------------------------------------------- code craft
-  { id: 'advanced', cat: 'code', icon: '⌨️', name: 'Off the Rails',
-    desc: 'Save a bot written by hand in Advanced (Python).' },
   { id: 'commented', cat: 'code', icon: '💬', name: 'For Future You',
     desc: 'Leave a comment of your own in your bot.' },
   { id: 'loop', cat: 'code', icon: '🔁', name: 'Round and Round',
@@ -143,6 +158,42 @@ const ACHIEVEMENTS = [
     desc: 'Win a live duel against another camper.' },
   { id: 'multi_win', cat: 'table', icon: '🏝️', name: 'Last One Standing',
     desc: 'Win a multiplayer table.' },
+
+  // ---------------------------------------------------------- the fourth wall
+  { id: 'assassinate_contessa', cat: 'wall', icon: '🤫', name: 'Try to Assassinate the Contessa',
+    hidden: true,
+    desc: 'Land an assassination naming the Contessa.',
+    hint: 'You named the Contessa on an assassination, and it landed.' },
+  { id: 'bufo_first', cat: 'wall', icon: '🐸', name: 'Something Moved', hidden: true,
+    desc: 'Tickle a bufo hiding somewhere in the site.',
+    hint: 'You found a frog. There are two more.' },
+  { id: 'bufo_all', cat: 'wall', icon: '🐸', name: 'Bufo Whisperer',
+    desc: 'Three bufos are hiding around this website. Tickle every one of them.' },
+  { id: 'scrolled', cat: 'wall', icon: '📜', name: 'You Read The Whole Thing', hidden: true,
+    desc: 'Scroll all the way to the bottom of the achievements page.',
+    hint: 'You scrolled to the very bottom of this page. Somebody had to.' },
+  { id: 'tourist', cat: 'wall', icon: '🧭', name: 'Tourist',
+    desc: 'Visit every single tab in dynaCOUP at least once.' },
+  { id: 'night_owl', cat: 'wall', icon: '🦉', name: 'Go To Bed', hidden: true,
+    desc: 'Save a bot between 1am and 5am.',
+    hint: 'You saved a bot in the small hours. Please sleep.' },
+  { id: 'percussive', cat: 'wall', icon: '🔨', name: 'Percussive Maintenance',
+    desc: 'Run "Check my bot" 25 times. It does not get more correct the more you ask.' },
+  { id: 'byo', cat: 'wall', icon: '📎', name: 'Bring Your Own Bot',
+    desc: 'Upload a .py file into a slot.' },
+  { id: 'homework', cat: 'wall', icon: '💾', name: 'Taking Work Home',
+    desc: 'Download one of your bots as a .py file.' },
+  { id: 'identity_theft', cat: 'wall', icon: '🎭', name: 'Identity Theft', hidden: true,
+    desc: 'Name one of your bots after a house bot.',
+    hint: 'You named a bot after one of the house bots. Bold.' },
+  { id: 'emoji_name', cat: 'wall', icon: '🫠', name: 'Emoji Support Was A Mistake', hidden: true,
+    desc: 'Put an emoji in a bot name.',
+    hint: 'You put an emoji in a bot name. It rendered. Nobody is happy about it.' },
+  { id: 'slot_machine', cat: 'wall', icon: '🎰', name: 'Slot Machine',
+    desc: 'Fill all ten bot slots at once.' },
+  { id: 'participation', cat: 'wall', icon: '🏳️', name: 'Participation Trophy', hidden: true,
+    desc: 'Lose a match without taking a single round.',
+    hint: 'Swept, nothing on the board. It happens to everyone. Look at the replay.' },
 ];
 
 const BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
@@ -153,6 +204,13 @@ const BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
 // scaffold hands out for free is subtracted before scanning.
 const API_FNS = new Set(['your_turn', 'respond', 'when_assassinated',
   'choose_card_to_lose', 'choose_exchange']);
+
+// naming your bot after a boss, and the emoji every camper eventually tries
+let HOUSE_NAMES = new Set();
+try {
+  HOUSE_NAMES = new Set(require('./samplebots/bots').HOUSE.map((h) => h.name.toLowerCase()));
+} catch { /* no sample bots: the award simply never fires */ }
+const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
 /** comment text, one entry per `#` comment line, trimmed */
 function commentsOf(source) {
@@ -265,7 +323,14 @@ class AchievementBook {
     return fresh;
   }
 
-  count(username) { return Object.keys(this._rec(username).unlocked).length; }
+  /**
+   * Only ids still in the registry count. An award that is retired later (as
+   * "Off the Rails" was) stays on the record but must not inflate anybody's
+   * tally into "12/57 unlocked" when only 11 of them still exist.
+   */
+  count(username) {
+    return Object.keys(this._rec(username).unlocked).filter((id) => BY_ID.has(id)).length;
+  }
   total() { return ACHIEVEMENTS.length; }
 
   /** the unlock toasts this client has not shown yet */
@@ -314,8 +379,10 @@ class AchievementBook {
     return {
       categories: CATEGORIES,
       activeCount,
-      unlockedCount: Object.keys(rec.unlocked).length,
+      unlockedCount: this.count(username),
       total: ACHIEVEMENTS.length,
+      bufosFound: (rec.bufos || []).filter((b) => BUFOS.includes(b)).length,
+      bufosTotal: BUFOS.length,
       achievements: ACHIEVEMENTS.map((a) => {
         const at = rec.unlocked[a.id] || null;
         const secret = !!a.hidden && !at;
@@ -357,14 +424,61 @@ class AchievementBook {
     for (const s of slots || []) {
       if (!s || !s.python || !s.python.trim()) continue;
       filled++;
-      if (s.mode === 'python') ids.add('advanced');
       for (const id of scanSource(s.python, this.scaffoldComments)) ids.add(id);
+      const name = String(s.name || '');
+      if (HOUSE_NAMES.has(name.trim().toLowerCase())) ids.add('identity_theft');
+      if (EMOJI_RE.test(name)) ids.add('emoji_name');
+      // "saved in the small hours" is about when the save happened, so it
+      // reads the slot's own stamp rather than the time of this scan
+      const hour = new Date(s.updatedAt || 0).getHours();
+      if (s.updatedAt && hour >= 1 && hour < 5) ids.add('night_owl');
     }
     if (filled >= 5) ids.add('five_bots');
+    // students have ten slots; the organizer's hundred should not walk into this
+    if (filled >= 10) ids.add('slot_machine');
     const fresh = this.unlock(username, [...ids]);
     rec.scannedAt = newest;
     if (!fresh.length) this.store.saveAchievements();   // remember the watermark
     return fresh;
+  }
+
+  /**
+   * A bufo got tickled. Ids are validated against the known three, so a
+   * curious camper poking the endpoint cannot invent a fourth frog and
+   * shortcut the set.
+   */
+  tickleBufo(username, id) {
+    if (!BUFOS.includes(id)) return { error: 'that is not a bufo' };
+    const rec = this._rec(username);
+    if (!rec.bufos) rec.bufos = [];
+    if (!rec.bufos.includes(id)) {
+      rec.bufos.push(id);
+      this.store.saveAchievements();
+    }
+    const ids = ['bufo_first'];
+    if (BUFOS.every((b) => rec.bufos.includes(b))) ids.push('bufo_all');
+    this.unlock(username, ids);
+    return { found: rec.bufos.length, total: BUFOS.length };
+  }
+
+  /**
+   * Things only the browser can witness: scrolling to the bottom, visiting
+   * every tab, saving a .py to disk. Nothing here is worth defending against
+   * a camper who finds the endpoint — working that out is its own reward.
+   */
+  fromEvent(username, name) {
+    const id = CLIENT_EVENTS[name];
+    if (!id) return [];
+    return this.unlock(username, id);
+  }
+
+  /** they hit "Check my bot" — the counter drives Percussive Maintenance */
+  countCheck(username) {
+    const rec = this._rec(username);
+    rec.checks = (rec.checks || 0) + 1;
+    if (rec.checks >= 25) this.unlock(username, 'percussive');
+    else this.store.saveAchievements();
+    return rec.checks;
   }
 
   /** "Check my bot" came back */
@@ -402,7 +516,10 @@ class AchievementBook {
     // being RIGHT, which is the only way either skill is worth anything
     if ((f.challengesMade || 0) >= 50 && f.challengeWins / f.challengesMade > 0.5) ids.push('catch_many');
     if ((f.coupCalls || 0) >= 100 && f.coupHits / f.coupCalls >= 0.65) ids.push('called_shot');
+    if (f.contessaKills) ids.push('assassinate_contessa');
     if (f.errors) ids.push('first_crash');
+    // swept, nothing on the board — the consolation prize
+    if (!ctx.won && ctx.blanked) ids.push('participation');
 
     if (ctx.won) {
       const totalBluffs = Object.values(bluffs).reduce((a, b) => a + b, 0);

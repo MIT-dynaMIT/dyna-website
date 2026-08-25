@@ -188,6 +188,7 @@ class LadderServer {
           mode: 'ladder', level: null, houseName: null,
           won: mine > theirs,
           swept: mine > theirs && theirs === 0,
+          blanked: mine === 0 && theirs > 0,
           flags: (result.flags || {})[entry.name],
         });
         const row = board.find((x) => x.id === entry.id);

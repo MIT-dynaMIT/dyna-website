@@ -31,16 +31,26 @@ export default function Bufo({ id, style }: { id: string; style?: React.CSSPrope
   const [found, setFound] = useState(false);
   const [wiggle, setWiggle] = useState(false);
 
-  useEffect(() => { setFound(remembered().includes(id)); }, [id]);
+  useEffect(() => {
+    const known = remembered().includes(id);
+    setFound(known);
+    // Self-heal. localStorage can claim a frog the server never recorded — a
+    // click that landed while the API was down, mid-deploy, or simply offline.
+    // The endpoint is idempotent, so re-announcing a known frog once per mount
+    // costs one tiny request and repairs the record without the camper ever
+    // knowing it was broken.
+    if (known) api.post('/achievements/bufo', { id }).catch(() => {});
+  }, [id]);
 
   const tickle = () => {
     setWiggle(true);
     setTimeout(() => setWiggle(false), 800);
-    if (found) return;
     setFound(true);
     try {
       localStorage.setItem(KEY, JSON.stringify(Array.from(new Set([...remembered(), id]))));
     } catch { /* private mode: the server still holds the real record */ }
+    // ALWAYS tell the server, even for a frog we think we already have. Local
+    // state is a visual convenience; it must never gate the record.
     api.post('/achievements/bufo', { id }).catch(() => {});
   };
 

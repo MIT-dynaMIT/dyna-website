@@ -299,6 +299,7 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
     kind: 'play',
     won: !!sess.game.winner && sess.game.winner === sess.humanId,
     bluffed: sess.bluffs.size > 0,
+    triedContessa: sess.triedContessa,
     vsOwnBot: sess.vsOwnBot,
   });
   res.json(sess.snapshot(cursor));

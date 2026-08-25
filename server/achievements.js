@@ -27,7 +27,8 @@ const CATEGORIES = [
   { id: 'code', name: 'Code Craft', blurb: 'What is actually inside your bot.' },
   { id: 'bugs', name: 'Occupational Hazards', blurb: 'It happens to everyone. Really.' },
   { id: 'table', name: 'At the Table', blurb: 'You, playing with your own two hands.' },
-  { id: 'wall', name: 'The Fourth Wall', blurb: 'Things that are not really about Coup at all.' },
+  // every award in here is hidden — the category is the only clue you get
+  { id: 'wall', name: 'The Fourth Wall', blurb: 'Every one of these is a secret. Good luck.' },
 ];
 
 /**
@@ -160,37 +161,47 @@ const ACHIEVEMENTS = [
     desc: 'Win a multiplayer table.' },
 
   // ---------------------------------------------------------- the fourth wall
+  // The joke: naming the Contessa on an assassination can never land. Hold one
+  // and you block with it; hold none and the call misses. The award is for the
+  // attempt, which is why the name says "try".
   { id: 'assassinate_contessa', cat: 'wall', icon: '🤫', name: 'Try to Assassinate the Contessa',
     hidden: true,
-    desc: 'Land an assassination naming the Contessa.',
-    hint: 'You named the Contessa on an assassination, and it landed.' },
+    desc: 'Name the Contessa on an assassination.',
+    hint: 'You named the Contessa on an assassination. It was never going to land — '
+      + 'hold one and they block with it, hold none and the call misses. Respect for trying.' },
   { id: 'bufo_first', cat: 'wall', icon: '🐸', name: 'Something Moved', hidden: true,
     desc: 'Tickle a bufo hiding somewhere in the site.',
     hint: 'You found a frog. There are two more.' },
-  { id: 'bufo_all', cat: 'wall', icon: '🐸', name: 'Bufo Whisperer',
-    desc: 'Three bufos are hiding around this website. Tickle every one of them.' },
+  { id: 'bufo_all', cat: 'wall', icon: '🐸', name: 'Bufo Whisperer', hidden: true,
+    desc: 'Tickle all three hidden bufos.',
+    hint: 'Every bufo on this website has been tickled. All three of them.' },
   { id: 'scrolled', cat: 'wall', icon: '📜', name: 'You Read The Whole Thing', hidden: true,
     desc: 'Scroll all the way to the bottom of the achievements page.',
     hint: 'You scrolled to the very bottom of this page. Somebody had to.' },
-  { id: 'tourist', cat: 'wall', icon: '🧭', name: 'Tourist',
-    desc: 'Visit every single tab in dynaCOUP at least once.' },
+  { id: 'tourist', cat: 'wall', icon: '🧭', name: 'Tourist', hidden: true,
+    desc: 'Visit every single tab in dynaCOUP at least once.',
+    hint: 'You have now been everywhere there is to go.' },
   { id: 'night_owl', cat: 'wall', icon: '🦉', name: 'Go To Bed', hidden: true,
     desc: 'Save a bot between 1am and 5am.',
     hint: 'You saved a bot in the small hours. Please sleep.' },
-  { id: 'percussive', cat: 'wall', icon: '🔨', name: 'Percussive Maintenance',
-    desc: 'Run "Check my bot" 25 times. It does not get more correct the more you ask.' },
-  { id: 'byo', cat: 'wall', icon: '📎', name: 'Bring Your Own Bot',
-    desc: 'Upload a .py file into a slot.' },
-  { id: 'homework', cat: 'wall', icon: '💾', name: 'Taking Work Home',
-    desc: 'Download one of your bots as a .py file.' },
+  { id: 'percussive', cat: 'wall', icon: '🔨', name: 'Percussive Maintenance', hidden: true,
+    desc: 'Run "Check my bot" 25 times.',
+    hint: 'Twenty-five checks. It does not get more correct the more times you ask.' },
+  { id: 'byo', cat: 'wall', icon: '📎', name: 'Bring Your Own Bot', hidden: true,
+    desc: 'Upload a .py file into a slot.',
+    hint: 'You brought a bot in from outside.' },
+  { id: 'homework', cat: 'wall', icon: '💾', name: 'Taking Work Home', hidden: true,
+    desc: 'Download one of your bots as a .py file.',
+    hint: 'You took a bot home with you.' },
   { id: 'identity_theft', cat: 'wall', icon: '🎭', name: 'Identity Theft', hidden: true,
     desc: 'Name one of your bots after a house bot.',
     hint: 'You named a bot after one of the house bots. Bold.' },
   { id: 'emoji_name', cat: 'wall', icon: '🫠', name: 'Emoji Support Was A Mistake', hidden: true,
     desc: 'Put an emoji in a bot name.',
     hint: 'You put an emoji in a bot name. It rendered. Nobody is happy about it.' },
-  { id: 'slot_machine', cat: 'wall', icon: '🎰', name: 'Slot Machine',
-    desc: 'Fill all ten bot slots at once.' },
+  { id: 'slot_machine', cat: 'wall', icon: '🎰', name: 'Slot Machine', hidden: true,
+    desc: 'Fill all ten bot slots at once.',
+    hint: 'All ten slots full. Every one of them a bot you wrote.' },
   { id: 'participation', cat: 'wall', icon: '🏳️', name: 'Participation Trophy', hidden: true,
     desc: 'Lose a match without taking a single round.',
     hint: 'Swept, nothing on the board. It happens to everyone. Look at the replay.' },
@@ -516,7 +527,7 @@ class AchievementBook {
     // being RIGHT, which is the only way either skill is worth anything
     if ((f.challengesMade || 0) >= 50 && f.challengeWins / f.challengesMade > 0.5) ids.push('catch_many');
     if ((f.coupCalls || 0) >= 100 && f.coupHits / f.coupCalls >= 0.65) ids.push('called_shot');
-    if (f.contessaKills) ids.push('assassinate_contessa');
+    if (f.contessaTries) ids.push('assassinate_contessa');
     if (f.errors) ids.push('first_crash');
     // swept, nothing on the board — the consolation prize
     if (!ctx.won && ctx.blanked) ids.push('participation');
@@ -557,6 +568,7 @@ class AchievementBook {
   fromTable(username, ctx) {
     const ids = ['table_first'];
     if (ctx.bluffed) ids.push('human_bluff');
+    if (ctx.triedContessa) ids.push('assassinate_contessa');
     if (ctx.won) {
       if (ctx.vsOwnBot) ids.push('beat_own_bot');
       if (ctx.kind === 'live') ids.push('table_win');

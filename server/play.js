@@ -20,6 +20,7 @@ class PlaySession {
     this.username = opts.username || null;
     this.vsOwnBot = !!opts.vsOwnBot;
     this.bluffs = new Set();      // roles this human claimed without holding
+    this.triedContessa = false;   // named the Contessa on an assassination
     this.humanId = 'p0';
     this.ids = ['p0', 'p1'];
     this.names = { p0: humanName };
@@ -202,6 +203,7 @@ class PlaySession {
     if (msg.kind === 'action') {
       if (pend.type !== 'action' || pend.player !== this.humanId) throw new Error('not your turn');
       this._noteBluff(ACTIONS[msg.type] && ACTIONS[msg.type].role);
+      if (msg.type === 'assassinate' && msg.call === 'contessa') this.triedContessa = true;
       g._assassinP = 0; // humans challenge manually
       g.submitAction(this.humanId, { type: msg.type, call: msg.call });
     } else if (msg.kind === 'respond') {

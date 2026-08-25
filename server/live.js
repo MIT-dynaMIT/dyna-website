@@ -41,6 +41,7 @@ class LiveSession {
     this.frames = { p0: [], p1: [] };
     this._logIdx = 0;
     this.bluffs = { p0: new Set(), p1: new Set() };   // roles claimed unbacked
+    this.triedContessa = { p0: false, p1: false };    // named Contessa on an assassination
     this.forfeitedBy = null;
     this._snap();
     this._decisionKey = null;
@@ -180,6 +181,7 @@ class LiveSession {
     return {
       won: this.done && this.winnerName() === this.names[seat],
       bluffed: this.bluffs[seat].size > 0,
+      triedContessa: this.triedContessa[seat],
     };
   }
 
@@ -194,6 +196,7 @@ class LiveSession {
     if (msg.kind === 'action') {
       if (pend.type !== 'action') throw new Error('no action pending');
       this._noteBluff(seat, ACTIONS[msg.type] && ACTIONS[msg.type].role);
+      if (msg.type === 'assassinate' && msg.call === 'contessa') this.triedContessa[seat] = true;
       g._assassinP = 0; // humans decide their challenges live
       g.submitAction(seat, { type: msg.type, call: msg.call });
     } else if (msg.kind === 'respond') {

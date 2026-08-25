@@ -23,11 +23,11 @@ function freshFlags() {
   return {
     bluffs: { duke: 0, assassin: 0, ambassador: 0, contessa: 0 },
     challengesMade: 0, challengeWins: 0, caught: 0,
-    coupCalls: 0, coupHits: 0, contessaKills: 0, errors: 0, wins: 0,
+    coupCalls: 0, coupHits: 0, contessaTries: 0, errors: 0, wins: 0,
   };
 }
 const FLAG_KEYS = ['challengesMade', 'challengeWins', 'caught',
-  'coupCalls', 'coupHits', 'contessaKills', 'errors', 'wins'];
+  'coupCalls', 'coupHits', 'contessaTries', 'errors', 'wins'];
 function mergeFlags(into, add) {
   for (const [name, f] of Object.entries(add)) {
     const t = into[name] || (into[name] = freshFlags());
@@ -86,6 +86,12 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
       const role = ACTIONS[act.type] && ACTIONS[act.type].role;
       if (role && !game.hasRole(game.player(id), role)) flags[names[id]].bluffs[role]++;
       if (act.type === 'coup') flags[names[id]].coupCalls++;
+      // Naming the Contessa on an assassination can essentially never land:
+      // hold one and you block with it, hold none and the call misses. So the
+      // award is for TRYING — counted here, at the moment of the attempt.
+      if (act.type === 'assassinate' && act.call === 'contessa') {
+        flags[names[id]].contessaTries++;
+      }
       decisions.push(['action', id, { type: act.type, call: act.call }]);
       // remember the assassin's auto-challenge probability for the contessa block
       game._assassinP = act.type === 'assassinate' ? (act.p || 0) : 0;
@@ -154,11 +160,8 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
         if (!e.truthful) flags[names[e.by]].challengeWins++;
       }
       if (!e.truthful && flags[names[e.against]]) flags[names[e.against]].caught++;
-    } else if (e.t === 'hit' && flags[names[e.actor]]) {
-      if (e.action === 'coup') flags[names[e.actor]].coupHits++;
-      if (e.action === 'assassinate' && e.call === 'contessa') {
-        flags[names[e.actor]].contessaKills++;
-      }
+    } else if (e.t === 'hit' && e.action === 'coup' && flags[names[e.actor]]) {
+      flags[names[e.actor]].coupHits++;
     }
   }
   for (const [n, errs] of Object.entries(errorsByBot)) {

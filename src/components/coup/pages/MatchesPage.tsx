@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, LADDER_ENABLED, timeAgo } from '../api';
+import { api, timeAgo } from '../api';
 import type { MatchesData, MatchRow } from '../api';
+import { useLive } from '../CoupApp';
 
 /** Rows are recorded from players[0]'s side — orient scores to "me".
  *  Admin rows where I'm not a player stay in recorded order. */
@@ -21,6 +22,14 @@ export default function MatchesPage() {
   const [data, setData] = useState<MatchesData | null>(null);
   const [tab, setTab] = useState<'games' | 'ladder'>('games');
   const nav = useNavigate();
+  const live = useLive();
+  // the scrimmage sub-tab exists only while the scrimmage does
+  const ladderOn = !!live?.ladderOn;
+
+  // if it gets paused while someone is sitting on that tab, move them back
+  useEffect(() => {
+    if (!ladderOn && tab === 'ladder') setTab('games');
+  }, [ladderOn, tab]);
 
   useEffect(() => {
     const load = () => api.get<MatchesData>('/matches').then(setData).catch(() => {});
@@ -31,7 +40,7 @@ export default function MatchesPage() {
 
   if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading…</div>;
 
-  const inLadderTab = tab === 'ladder';
+  const inLadderTab = tab === 'ladder' && ladderOn;
   const shown = data.matches.filter((m) => inLadderTab === (m.mode === 'ladder'));
   const pendingShown = data.pending.filter((j) => inLadderTab === (j.mode === 'ladder'));
 
@@ -39,7 +48,7 @@ export default function MatchesPage() {
     <div>
       <div className="coup-card" style={{ marginBottom: 16 }}>
         <h2 className="coup-h" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>📜 Match history
-          {LADDER_ENABLED && <span style={{ display: 'inline-flex', gap: 6 }}>
+          {ladderOn && <span style={{ display: 'inline-flex', gap: 6 }}>
             <button className={tab === 'games' ? 'primary small' : 'small'}
               onClick={() => setTab('games')}>Levels &amp; Battles</button>
             <button className={tab === 'ladder' ? 'primary small' : 'small'}
@@ -47,7 +56,7 @@ export default function MatchesPage() {
           </span>}
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
-          {tab === 'games'
+          {!inLadderTab
             ? 'Level runs and bot battles, best of 5 — your last 5 are kept. Click a match to watch any of its games.'
             : 'Leaderboard matches, best of 7 — each of the 7 a 100-game series. Your last 5 are kept.'}
         </p>
@@ -69,7 +78,7 @@ export default function MatchesPage() {
 
       {shown.length === 0 && pendingShown.length === 0 && (
         <p className="coup-note">
-          {tab === 'games'
+          {!inLadderTab
             ? 'Nothing here yet — play a level or start a bot battle in Versus.'
             : 'No leaderboard matches yet — submit a bot on the Leaderboard page.'}
         </p>

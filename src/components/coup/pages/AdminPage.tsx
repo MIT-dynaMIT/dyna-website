@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, LADDER_ENABLED } from '../api';
+import { api } from '../api';
 import { useToast } from '../CoupApp';
 
 interface Overview {
@@ -10,12 +10,18 @@ interface Overview {
   }[];
 }
 
+interface LadderState { running: boolean; totalBots: number; totalMatches: number }
+
 export default function AdminPage() {
   const [data, setData] = useState<Overview | null>(null);
+  const [ladder, setLadder] = useState<LadderState | null>(null);
   const [nu, setNu] = useState({ username: '', displayName: '', password: '' });
   const toast = useToast();
 
-  const refresh = useCallback(() => api.get<Overview>('/admin/overview').then(setData).catch(() => {}), []);
+  const refresh = useCallback(() => Promise.all([
+    api.get<Overview>('/admin/overview').then(setData).catch(() => {}),
+    api.get<LadderState>('/ladder').then(setLadder).catch(() => {}),
+  ]), []);
   useEffect(() => {
     refresh();
     const t = setInterval(refresh, 10000);
@@ -39,10 +45,21 @@ export default function AdminPage() {
       + (r.skipped.length ? ` — no bot yet: ${r.skipped.join(', ')}` : ''));
   };
 
+  const setScrimmage = async (running: boolean) => {
+    if (!running && !window.confirm('Pause the scrimmage? Matches stop, and the Leaderboard disappears for the campers — nobody can see standings or submit a bot until you start it again. Ratings are kept.')) return;
+    const r = await api.post<{ running: boolean }>('/admin/ladder-run', { running });
+    setLadder((l) => (l ? { ...l, running: r.running } : l));
+    toast(r.running
+      ? '▶ Scrimmage started — the Leaderboard is live for everyone'
+      : '⏸ Scrimmage paused — the Leaderboard is hidden from the campers');
+    refresh();
+  };
+
   const resetLadder = async () => {
     if (!window.confirm('Reset the leaderboard? Every bot comes off the ladder and all ratings are wiped — Andrew re-seats fresh at 1000. Match history is kept.')) return;
     await api.post('/admin/ladder-reset');
     toast('Leaderboard reset — a new season begins');
+    refresh();
   };
 
   const resetPw = async (username: string) => {
@@ -79,10 +96,39 @@ export default function AdminPage() {
             title="Every online student's selected bot fights a random other student's bot — best of 5, results in Match History">
             🤖 Pair up bot battles
           </button>
-          {LADDER_ENABLED && <button onClick={resetLadder}
-            title="Fresh week: everyone off the leaderboard, ratings wiped, Andrew re-seats at 1000">
-            🔄 Reset leaderboard
-          </button>}
+        </div>
+
+        <div className="coup-card" style={{ background: 'var(--panel-2)', margin: '0 0 16px' }}>
+          <h2 className="coup-h" style={{ marginTop: 0 }}>🏆 Scrimmage
+            <small>
+              {ladder
+                ? ladder.running
+                  ? `running — ${ladder.totalBots} bots, ${ladder.totalMatches.toLocaleString()} matches played`
+                  : `paused — hidden from campers (${ladder.totalBots} bots still rated)`
+                : 'loading…'}
+            </small>
+          </h2>
+          <p className="coup-sub">
+            While the scrimmage is paused the campers cannot see the Leaderboard tab,
+            the standings, their rating, or scrimmage matches in Match History — and
+            nobody can submit a bot. Ratings are kept, so you can pause and start again
+            without losing a season.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {ladder?.running
+              ? <button className="danger" onClick={() => setScrimmage(false)}
+                  title="Stop pairing and hide the whole leaderboard from the campers">
+                  ⏸ Pause scrimmage
+                </button>
+              : <button className="primary" onClick={() => setScrimmage(true)}
+                  title="Start pairing bots and show the leaderboard to everyone">
+                  ▶ Start scrimmage
+                </button>}
+            <button onClick={resetLadder}
+              title="Fresh week: everyone off the leaderboard, ratings wiped, Andrew re-seats at 1000">
+              🔄 Reset leaderboard
+            </button>
+          </div>
         </div>
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
           <table className="coup-table">

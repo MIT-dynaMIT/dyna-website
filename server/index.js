@@ -146,7 +146,11 @@ app.post('/api/coup/gauntlet/challenge', auth, (req, res) => {
 
 // ------------------------------------------------------------ match history
 app.get('/api/coup/matches', auth, (req, res) => {
-  const rows = store.matchesFor(req.user).map((m) => ({
+  // while the scrimmage is paused its matches are part of what stays hidden
+  const visible = (ladder.running || req.user.isAdmin)
+    ? store.matchesFor(req.user)
+    : store.matchesFor(req.user).filter((m) => m.mode !== 'ladder');
+  const rows = visible.map((m) => ({
     id: m.id, ts: m.ts, mode: m.mode, level: m.level,
     players: m.players, owners: m.owners, ownerNames: m.ownerNames,
     score: m.score, winnerName: m.winnerName,
@@ -163,6 +167,10 @@ app.get('/api/coup/matches', auth, (req, res) => {
 app.get('/api/coup/matches/:id/replay', auth, async (req, res) => {
   const m = store.getMatch(req.params.id);
   if (!m) return res.status(404).json({ error: 'match not found (older matches are pruned)' });
+  // no peeking at scrimmage replays by link while it is paused
+  if (m.mode === 'ladder' && !ladder.running && !req.user.isAdmin) {
+    return res.status(404).json({ error: 'match not found (older matches are pruned)' });
+  }
   const si = Math.max(0, Math.min(m.series.length - 1, Number(req.query.series) || 0));
   const ser = m.series[si];
   const samples = ser.samples || [];
@@ -244,7 +252,9 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
 // re-sending the whole roster (the client echoes the version it last saw)
 const pollHash = (s) => require('node:crypto').createHash('md5').update(s).digest('hex').slice(0, 10);
 app.post('/api/coup/live/poll', auth, (req, res) => {
-  const data = live.poll(req.user);
+  // the app-wide heartbeat also carries the scrimmage switch, so the
+  // Leaderboard tab appears and disappears without a poll of its own
+  const data = { ...live.poll(req.user), ladderOn: ladder.running };
   const v = pollHash(JSON.stringify(data));
   if (req.body && req.body.v === v) return res.json({ same: true, v });
   res.json({ ...data, v });
@@ -309,7 +319,13 @@ app.get('/api/coup/ladder', auth, (req, res) => {
   res.json(ladder.view(req.user));
 });
 
-app.post('/api/coup/ladder/submit', auth, (req, res) => {
+// a paused scrimmage takes no entries and gives nothing away
+function ladderOpen(req, res, next) {
+  if (!ladder.running) return res.status(403).json({ error: 'The scrimmage is paused right now — check back when an organizer starts it.' });
+  next();
+}
+
+app.post('/api/coup/ladder/submit', auth, ladderOpen, (req, res) => {
   const idx = Number(req.body.slot);
   const slots = store.getSlots(req.user);
   const s = slots[idx];
@@ -320,7 +336,7 @@ app.post('/api/coup/ladder/submit', auth, (req, res) => {
   res.json({ ok: true, unchanged: !!r.unchanged, submission: { id: r.submission.id, name: r.submission.name } });
 });
 
-app.post('/api/coup/ladder/withdraw', auth, (req, res) => {
+app.post('/api/coup/ladder/withdraw', auth, ladderOpen, (req, res) => {
   res.json({ ok: ladder.withdraw(req.user, String(req.body.id || '')) });
 });
 
@@ -414,6 +430,13 @@ app.post('/api/coup/admin/revoke-sessions', auth, adminOnly, (req, res) => {
 });
 
 // fresh week: clear the leaderboard, Andrew re-seats at 1000
+/** the scrimmage switch: {running:true} starts pairing, {running:false}
+ *  stops it and hides the leaderboard from everyone but organizers */
+app.post('/api/coup/admin/ladder-run', auth, adminOnly, (req, res) => {
+  const running = ladder.setRunning(!!(req.body && req.body.running));
+  res.json({ ok: true, running });
+});
+
 app.post('/api/coup/admin/ladder-reset', auth, adminOnly, (req, res) => {
   ladder.reset();
   res.json({ ok: true });
@@ -463,9 +486,9 @@ app.get(/^\/(?!api\/).*/, (req, res, next) => {
 
 // ------------------------------------------------------------ boot
 if (require.main === module) {
-  // flip LADDER_ENABLED=1 (and the frontend flag in api.ts) to bring the
-  // leaderboard back — submissions and ratings persist in ladder.json
-  if (process.env.LADDER_ENABLED === '1') ladder.start();
+  // the scrimmage is organizer-controlled from the Organizer tab; if it was
+  // running when the server went down, it picks up where it left off
+  ladder.start();
   app.listen(PORT, () => {
     console.log(`\n  🎭 dynaCOUP camp server → http://localhost:${PORT}`);
     console.log(`     ${Object.keys(store.users).length} logins, ${store.matches.list.length} recorded matches\n`);

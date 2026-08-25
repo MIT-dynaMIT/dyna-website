@@ -10,6 +10,7 @@ interface LadderRow {
 interface MineRow { id: string; name: string; slot: number; elo: number; matches: number; errors: number; rank: number }
 interface LadderData {
   top: LadderRow[]; totalBots: number; totalMatches: number; running: boolean;
+  hidden?: boolean;
   seriesCount: number; seriesGames: number; mine: MineRow[];
 }
 
@@ -36,6 +37,22 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
   }, [refresh]);
 
   if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading the leaderboard…</div>;
+
+  // paused: campers never get here (the tab and the route are gone), so this
+  // is the organizer's view of their own switch
+  if (!data.running) {
+    return (
+      <div className="coup-card">
+        <h2 className="coup-h">🏆 Scrimmage paused<small>hidden from the campers</small></h2>
+        <p className="coup-sub">
+          Nobody else can see the Leaderboard tab, the standings, their rating, or
+          scrimmage matches in Match History right now, and no bot can be submitted.
+          {data.totalBots > 0 && <> The {data.totalBots} bots already rated keep their ELO.</>}
+        </p>
+        <p className="coup-note">Start it again from the <b>Organizer</b> tab.</p>
+      </div>
+    );
+  }
 
   const filled = slots.map((s, i) => ({ s, i })).filter((x) => x.s && x.s.python && x.s.python.trim());
 

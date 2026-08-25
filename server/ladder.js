@@ -23,8 +23,18 @@ class LadderServer {
     this.busy = false;
     this._timer = null;
     this._lastPair = '';
+    // The scrimmage is organizer-controlled: it runs only while an organizer
+    // has started it, and that choice survives restarts. Stores written
+    // before the switch defaulted to on, so retire that once.
+    if (this.store.ladder.control !== 2) {
+      this.store.ladder.running = false;
+      this.store.ladder.control = 2;
+      this._save();
+    }
     this.ensureHouse();
   }
+
+  get running() { return !!this.store.ladder.running; }
 
   get sub() { return this.store.ladder.submissions; }
   _save() { this.store._save('ladder.json', this.store.ladder); }
@@ -102,12 +112,21 @@ class LadderServer {
     }));
   }
   view(user) {
+    // Paused means invisible: while the scrimmage is stopped, nobody but an
+    // organizer learns anything about it — no board, no ratings, no counts.
+    if (!this.running && !user.isAdmin) {
+      return {
+        top: [], totalBots: 0, totalMatches: 0, running: false, hidden: true,
+        seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES, mine: [],
+      };
+    }
     const board = this.board();
     return {
       top: board.slice(0, 10),
       totalBots: board.length,
       totalMatches: this.store.ladder.totalMatches,
-      running: !!this.store.ladder.running,
+      running: this.running,
+      hidden: false,
       seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES,
       mine: this.sub.filter((s) => s.owner === user.username).map((s) => ({
         id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
@@ -116,11 +135,30 @@ class LadderServer {
     };
   }
 
+  /** organizer switch. Starting resumes pairing; pausing stops it dead and
+   *  hides the whole leaderboard from everyone but organizers. */
+  setRunning(on) {
+    const next = !!on;
+    if (next === this.running) return next;
+    this.store.ladder.running = next;
+    this._save();
+    if (next) this.start();
+    else this.stop();
+    return next;
+  }
+
+  /** resume pairing — no-op unless an organizer has started the scrimmage */
   start() {
-    if (this._timer) return;
+    if (this._timer || !this.running) return;
     const tick = () => { this._playOne(); };
     this._timer = setInterval(tick, INTERVAL_MS);
-    setTimeout(tick, 5_000);   // first match soon after boot
+    setTimeout(tick, 5_000);   // first match soon after starting
+  }
+
+  stop() {
+    if (!this._timer) return;
+    clearInterval(this._timer);
+    this._timer = null;
   }
 
   _pick() {

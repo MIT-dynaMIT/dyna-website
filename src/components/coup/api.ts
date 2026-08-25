@@ -109,6 +109,8 @@ export interface LivePollData {
   online: LiveOnlineUser[];
   invite: { from: string; fromName: string; kind: 'duel' | 'bots' } | null;
   match: string | null;
+  /** is the ELO scrimmage running? organizers flip this live */
+  ladderOn: boolean;
 }
 export interface LiveSnapshot extends PlaySnapshot {
   youIndex: number;
@@ -194,10 +196,9 @@ export const ACTION_LABEL: Record<string, string> = {
   assassinate: 'Assassinate', steal: 'Steal', exchange: 'Exchange',
 };
 
-// Feature flag: the ELO leaderboard (page, nav tab, history tab). Flip to
-// true and redeploy to bring the whole thing back — everything underneath
-// (server ladder, endpoints, page) stays intact and tested.
-export const LADDER_ENABLED = false;
+// The ELO leaderboard is no longer a build-time flag: organizers start and
+// pause the scrimmage live from the Organizer tab, and every client learns
+// the current state from the heartbeat (`ladderOn` on LivePollData).
 
 // The server defaults (server/arena.js). Only safe for static copy — anything
 // rendering real data must read gamesPerSeries off the payload.

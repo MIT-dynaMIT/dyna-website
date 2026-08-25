@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { api, clearAuth, getStoredUser, LADDER_ENABLED, storeAuth } from './api';
+import { api, clearAuth, getStoredUser, storeAuth } from './api';
 import type { CoupUser, LivePollData } from './api';
 import './coup.css';
 
@@ -140,13 +140,18 @@ export default function CoupApp() {
     );
   }
 
+  // organizers can always reach the leaderboard (that is where they start it);
+  // for everyone else it exists only while the scrimmage is running
+  const ladderOn = !!live?.ladderOn;
+  const showLadder = ladderOn || user.isAdmin;
+
   const tabs = [
     { name: 'Bot Editor', to: '/coup/editor' },
     { name: 'Levels', to: '/coup/levels' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Multiplayer', to: '/coup/tables' },
-    ...(LADDER_ENABLED ? [{ name: 'Leaderboard', to: '/coup/leaderboard' }] : []),
+    ...(showLadder ? [{ name: 'Leaderboard', to: '/coup/leaderboard' }] : []),
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
@@ -184,7 +189,13 @@ export default function CoupApp() {
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="tables" element={<TablesPage />} />
-            <Route path="leaderboard" element={LADDER_ENABLED ? <LeaderboardPage user={user} /> : <Navigate to="/coup" replace />} />
+            {/* wait for the first heartbeat before judging — otherwise a
+                direct visit bounces off a leaderboard that is in fact live */}
+            <Route path="leaderboard" element={
+              live == null ? <div className="coup-note"><span className="coup-spin" /> Loading…</div>
+                : showLadder ? <LeaderboardPage user={user} />
+                  : <Navigate to="/coup" replace />
+            } />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />

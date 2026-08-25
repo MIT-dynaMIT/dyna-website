@@ -121,3 +121,16 @@
 
 /* keep the whole multiplayer view inside one screen */
 .pk-stage ~ * {}
+
+
+@media (max-width: 640px) {
+  .pk-stage { height: clamp(360px, calc(100vh - 300px), 520px);
+    --ct-card-w: 30px; --ct-card-h: 42px; }
+  .pk-pod { min-width: 84px; }
+  .pk-pod.me { --ct-card-w: 44px; --ct-card-h: 60px; }
+  .pk-plate { padding: 3px 8px; gap: 6px; max-width: 130px; }
+  .pk-nm { font-size: 11px; }
+  .pk-coins { font-size: 10.5px; }
+  .pk-middle { gap: 24px; }
+  .mpb.pick { width: 62px; height: 84px; }
+}

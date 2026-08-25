@@ -193,3 +193,17 @@
 @media (prefers-reduced-motion: reduce) {
   .coup-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+
+/* ------------------------------------------------ mobile */
+@media (max-width: 640px) {
+  .coup-shell { padding: 0 10px 40px; }
+  .coup-top { flex-wrap: wrap; gap: 8px; padding-bottom: 8px; }
+  .coup-nav { order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .coup-nav a { padding: 6px 9px; font-size: 13px; white-space: nowrap; }
+  .coup-whoami { display: none; }
+  .coup-grid2 { grid-template-columns: 1fr !important; }
+  .coup-card { padding: 14px; }
+  .coup-table { font-size: 12.5px; }
+  .coup-table th, .coup-table td { padding: 5px 6px; }
+}

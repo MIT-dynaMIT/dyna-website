@@ -530,3 +530,26 @@
 @media (prefers-reduced-motion: reduce) {
   .ct-flyer, .ct-missflash { display: none; }
 }
+
+
+/* ---------------- pickers (lose / exchange) live OUTSIDE the board, where
+   the --ct-card vars never resolve — without these the label text sets the
+   width and every card comes out a different size */
+.ct-actionbar .ct-pickcards .ct-card {
+  width: 84px; height: 116px; flex: none;
+}
+.ct-actionbar .ct-pickcards { display: flex; flex-wrap: wrap; gap: 10px; }
+.ct-actionbar .ct-pickcards .ct-card.face .rname { font-size: 11px; }
+
+
+@media (max-width: 640px) {
+  .ct-board { --ct-card-w: 34px; --ct-card-h: 47px; --ct-coin: 14px;
+    --ct-slot-w: 19px; --ct-slot-h: 26px; --ct-plate-fs: 12px; --ct-banner-fs: 11.5px;
+    --ct-bank-scale: 0.8; --ct-flow-gap: 12px; --ct-lane-h: 40px;
+    --ct-name-w: 108px; --ct-band: 640px; }
+  .ct-seat { padding: 8px 10px; gap: 8px; }
+  .ct-actionbar .ct-btns { flex-wrap: wrap; }
+  .ct-actionbar .ct-actbtn { padding: 8px 10px; font-size: 13px; }
+  .ct-actionbar .ct-pickcards .ct-card { width: 64px; height: 88px; }
+  .ct-transport input[type='range'] { min-width: 80px; }
+}

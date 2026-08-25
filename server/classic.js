@@ -12,8 +12,8 @@ const crypto = require('node:crypto');
 
 const ROLES = ['duke', 'assassin', 'captain', 'ambassador', 'contessa'];
 const COPIES = 3;
-const MOVE_MS = Number(process.env.COUP_MOVE_MS || 10_000);
-const REACT_MS = Number(process.env.COUP_MULTI_REACT_MS || 5_000);
+const MOVE_MS = Number(process.env.COUP_MOVE_MS || 12_000);
+const REACT_MS = Number(process.env.COUP_MULTI_REACT_MS || 7_000);
 
 function shuffled(arr) {
   const a = [...arr];

@@ -149,6 +149,7 @@ export default function TablesPage() {
   const sendMove = async (msg: Record<string, unknown>) => {
     const cur = snapRef.current;
     if (!cur || busy) return;
+    if (deadlineRef.current != null && Date.now() > deadlineRef.current) return;  // clock ran out
     setBusy(true);
     try {
       const s = await api.post<MSnap>('/multi/move', { cursor: cur.cursor, ...msg });
@@ -170,7 +171,7 @@ export default function TablesPage() {
           </h2>
           <p className="coup-sub">
             Real Coup, everyone for themselves. Sit at a table — the game deals the moment
-            the last seat fills. 10 seconds a turn, 5 to react. Last player standing wins.
+            the last seat fills. 12 seconds a turn, 7 to react. Last player standing wins.
           </p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <label style={{ margin: 0 }}>Table size</label>
@@ -336,6 +337,8 @@ export default function TablesPage() {
       <div className="ct-actionbar">
         {snap.done ? (
           <p className="barhead">👑 {snap.winnerName} wins! Next game starts shortly — or leave the table.</p>
+        ) : prompt && secondsLeft === 0 ? (
+          <p className="barhead" style={{ color: 'var(--bad)' }}>⏱ Time's up — the game chose for you.</p>
         ) : !prompt ? (
           <p className="barsub">Waiting for {snap.waitingFor.join(', ') || '…'}…</p>
         ) : prompt.kind === 'action' ? (

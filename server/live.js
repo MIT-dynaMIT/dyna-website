@@ -19,8 +19,8 @@ const INVITE_TTL = 60_000;
 // (income / allow / first card) so one distracted kid can't freeze a game.
 // Reactions (challenge/block windows) get a shorter fuse than full turns.
 // Enforced lazily on poll, so accuracy is ± the polling interval.
-const MOVE_MS = Number(process.env.COUP_MOVE_MS || 10_000);
-const REACT_MS = Number(process.env.COUP_REACT_MS || 6_000);
+const MOVE_MS = Number(process.env.COUP_MOVE_MS || 12_000);
+const REACT_MS = Number(process.env.COUP_REACT_MS || 7_000);
 
 class LiveSession {
   /** @param seats [{username, displayName}] — exactly two humans */

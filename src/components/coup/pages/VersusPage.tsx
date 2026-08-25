@@ -117,6 +117,7 @@ export default function VersusPage({ user }: { user: CoupUser }) {
   const sendMove = async (msg: Record<string, unknown>) => {
     const s = snapRef.current;
     if (!s || busy) return;
+    if (deadlineRef.current != null && Date.now() > deadlineRef.current) return;  // clock ran out
     setBusy(true);
     setPrompt(null);
     try {
@@ -269,13 +270,18 @@ export default function VersusPage({ user }: { user: CoupUser }) {
 
       {!done && (
         <div className="ct-actionbar">
-          {!animating && secondsLeft != null && (
-            <p className="barsub" style={secondsLeft <= 10 ? { color: 'var(--bad)', fontWeight: 700 } : undefined}>
+          {!animating && secondsLeft === 0 && (
+            <p className="barhead" style={{ color: 'var(--bad)' }}>
+              ⏱ Time's up — the game chose for you.
+            </p>
+          )}
+          {!animating && secondsLeft != null && secondsLeft > 0 && (
+            <p className="barsub" style={secondsLeft <= 4 ? { color: 'var(--bad)', fontWeight: 700 } : undefined}>
               ⏱ {secondsLeft}s{showPrompt ? ' — decide, or the game picks for you' : ''}
             </p>
           )}
           {animating && <p className="barsub">…</p>}
-          {showPrompt && prompt && (
+          {showPrompt && prompt && secondsLeft !== 0 && (
             <ActionBar
               prompt={prompt}
               callFor={callFor}

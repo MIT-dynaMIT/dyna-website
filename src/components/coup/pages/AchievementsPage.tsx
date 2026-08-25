@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { achievementEvent, api } from '../api';
 import type { AchievementRow, AchievementsData } from '../api';
+import { useLive } from '../CoupApp';
 
 type Filter = 'all' | 'unlocked' | 'locked';
 
@@ -57,6 +58,8 @@ export default function AchievementsPage() {
   const [data, setData] = useState<AchievementsData | null>(null);
   const [err, setErr] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const live = useLive();
+  const lastCount = useRef<number | null>(null);
 
   // A swallowed error here is indistinguishable from a slow load: the page
   // would sit on its spinner forever. Say what went wrong instead.
@@ -68,6 +71,17 @@ export default function AchievementsPage() {
   );
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // The unlock arrives on the app-wide heartbeat (3s), but this page used to
+  // wait for its own 20s poll — so the toast popped and the badge ticked while
+  // the plaque behind them sat locked. Re-fetch the moment the count moves.
+  const achCount = live?.achCount;
+  useEffect(() => {
+    if (achCount == null || achCount === lastCount.current) return;
+    const first = lastCount.current === null;
+    lastCount.current = achCount;
+    if (!first) refresh();   // the mount fetch already covers the first sighting
+  }, [achCount, refresh]);
 
   // "You Read The Whole Thing" — fires once, when they actually reach the end
   useEffect(() => {

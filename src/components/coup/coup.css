@@ -195,8 +195,45 @@
 }
 
 
+/* --------------------------- leaderboard: paused (campers' view) */
+.ld-construction {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 64px 24px 72px;
+  text-align: center;
+}
+.ld-construction .ld-cone { font-size: 68px; line-height: 1; margin-bottom: 14px; }
+.ld-construction h2 {
+  margin: 0; font-size: 27px; letter-spacing: 0.2px; color: var(--parch);
+}
+.ld-construction .ld-heh {
+  margin: 10px 0 0; font-size: 19px; color: var(--ink-mut); font-style: italic;
+}
+/* hazard tape across the bottom */
+.ld-construction .ld-tape {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 16px;
+  background: repeating-linear-gradient(
+    -45deg, var(--accent-dim) 0 14px, var(--panel-2) 14px 28px);
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ld-construction .ld-cone { animation: ld-bob 2.6s ease-in-out infinite; }
+}
+@keyframes ld-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50%      { transform: translateY(-7px) rotate(4deg); }
+}
+
 /* ------------------------------------------------ mobile */
 @media (max-width: 640px) {
+  .ld-construction { padding: 40px 16px 48px; }
+  .ld-construction .ld-cone { font-size: 52px; }
+  .ld-construction h2 { font-size: 21px; }
+  .ld-construction .ld-heh { font-size: 16px; }
+
   .coup-shell { padding: 0 10px 40px; }
   .coup-top { flex-wrap: wrap; gap: 8px; padding-bottom: 8px; }
   .coup-nav { order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap; }

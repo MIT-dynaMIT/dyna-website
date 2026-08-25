@@ -140,18 +140,16 @@ export default function CoupApp() {
     );
   }
 
-  // organizers can always reach the leaderboard (that is where they start it);
-  // for everyone else it exists only while the scrimmage is running
-  const ladderOn = !!live?.ladderOn;
-  const showLadder = ladderOn || user.isAdmin;
-
+  // The Leaderboard tab is always there. While the scrimmage is paused the
+  // page is a placeholder — campers get the under-construction sign, and the
+  // standings, ratings and submit button stay gone.
   const tabs = [
     { name: 'Bot Editor', to: '/coup/editor' },
     { name: 'Levels', to: '/coup/levels' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Multiplayer', to: '/coup/tables' },
-    ...(showLadder ? [{ name: 'Leaderboard', to: '/coup/leaderboard' }] : []),
+    { name: 'Leaderboard', to: '/coup/leaderboard' },
     { name: 'Match History', to: '/coup/matches' },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
@@ -189,13 +187,7 @@ export default function CoupApp() {
             <Route path="play" element={<PlayPage user={user} />} />
             <Route path="versus" element={<VersusPage user={user} />} />
             <Route path="tables" element={<TablesPage />} />
-            {/* wait for the first heartbeat before judging — otherwise a
-                direct visit bounces off a leaderboard that is in fact live */}
-            <Route path="leaderboard" element={
-              live == null ? <div className="coup-note"><span className="coup-spin" /> Loading…</div>
-                : showLadder ? <LeaderboardPage user={user} />
-                  : <Navigate to="/coup" replace />
-            } />
+            <Route path="leaderboard" element={<LeaderboardPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />

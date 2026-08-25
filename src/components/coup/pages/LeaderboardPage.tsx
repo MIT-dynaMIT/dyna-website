@@ -38,15 +38,28 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
 
   if (!data) return <div className="coup-note"><span className="coup-spin" /> Loading the leaderboard…</div>;
 
-  // paused: campers never get here (the tab and the route are gone), so this
-  // is the organizer's view of their own switch
+  // paused. Campers get the sign; the server has already withheld every
+  // number, so there is nothing here to leak.
+  if (!data.running && data.hidden) {
+    return (
+      <div className="ld-construction">
+        <div className="ld-cone" aria-hidden="true">🚧</div>
+        <h2>This area is under construction.</h2>
+        <p className="ld-heh">Heheheha.</p>
+        <div className="ld-tape" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  // paused, but an organizer is looking — show the real state and the way back
   if (!data.running) {
     return (
       <div className="coup-card">
-        <h2 className="coup-h">🏆 Scrimmage paused<small>hidden from the campers</small></h2>
+        <h2 className="coup-h">🏆 Scrimmage paused<small>campers see the construction sign</small></h2>
         <p className="coup-sub">
-          Nobody else can see the Leaderboard tab, the standings, their rating, or
-          scrimmage matches in Match History right now, and no bot can be submitted.
+          Everyone else gets “This area is under construction. Heheheha.” instead of this
+          page — no standings, no ratings, no scrimmage matches in Match History, and no
+          bot can be submitted.
           {data.totalBots > 0 && <> The {data.totalBots} bots already rated keep their ELO.</>}
         </p>
         <p className="coup-note">Start it again from the <b>Organizer</b> tab.</p>

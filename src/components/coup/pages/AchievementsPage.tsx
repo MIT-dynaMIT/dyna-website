@@ -24,29 +24,46 @@ function unlockedDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/** 1 → "1st", 2 → "2nd", 22 → "22nd", 11 → "11th" */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
+}
+
 function Plaque({ a }: { a: AchievementRow }) {
   const unlocked = a.unlockedAt != null;
-  const secret = a.hidden && !unlocked;
+  // Secrecy is whatever the SERVER withheld — never re-derived from `hidden`,
+  // which would keep the padlock on for organizers who are being shown the
+  // real thing. No name means no name was sent.
+  const secret = a.name == null;
   return (
     <div className={`ach-card ${unlocked ? 'got' : 'locked'} ${secret ? 'secret' : ''}`}>
       <div className="ach-icon" aria-hidden>
-        {secret ? '🔒' : a.icon}
+        {a.icon ?? '🔒'}
       </div>
       <div className="ach-body">
         <div className="ach-title">
-          {secret ? 'Hidden achievement' : a.name}
+          {a.name ?? 'Hidden achievement'}
           {a.hidden && unlocked && <span className="ach-tag">hidden</span>}
+          {a.revealed && <span className="ach-tag organizer">hidden from campers</span>}
         </div>
         <div className="ach-desc">
-          {secret
-            ? 'Keep playing. You will know it when it happens.'
-            : a.desc}
+          {a.desc ?? 'Keep playing. You will know it when it happens.'}
         </div>
         <div className="ach-foot">
           <span className={`ach-rarity ${rarityTone(a.pct)}`}>
             <span className="ach-bar"><i style={{ width: `${Math.max(2, a.pct * 100)}%` }} /></span>
             {rarityLabel(a.pct)}
           </span>
+          {/* the race: where you placed among everyone who has it */}
+          {unlocked && a.rank != null && (
+            <span className={`ach-rank ${a.rank === 1 ? 'first' : ''}`}>
+              {a.rank === 1 && a.holders === 1
+                ? 'only one so far'
+                : `${ordinal(a.rank)} of ${a.holders}`}
+            </span>
+          )}
           {unlocked && <span className="ach-when">unlocked {unlockedDate(a.unlockedAt!)}</span>}
         </div>
       </div>
@@ -156,6 +173,12 @@ export default function AchievementsPage() {
           <p className="coup-sub" style={{ margin: 0 }}>
             Most of these are hiding in the Bot Editor. Try something you have not tried yet.
           </p>
+          {data.revealAll && (
+            <p className="coup-note" style={{ margin: '8px 0 0', color: 'var(--accent)' }}>
+              👁 Organizer view — every hidden achievement is spelled out for you.
+              Campers see a padlock on the ones tagged “hidden from campers”.
+            </p>
+          )}
           {/* the frog hunt gets a scoreboard, but never a map */}
           {data.bufosFound > 0 && data.bufosFound < data.bufosTotal && (
             <p className="coup-note" style={{ margin: '8px 0 0' }}>

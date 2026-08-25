@@ -117,11 +117,15 @@ export interface AchievementRow {
   cat: string;
   hidden: boolean;
   unlockedAt: number | null;
+  /** where you placed in the race for it — 1 = first person to get it */
+  rank: number | null;
   pct: number;          // share of active accounts holding it, 0..1
   holders: number;
   icon: string | null;
   name: string | null;
   desc: string | null;
+  /** organizer-only: this is hidden from campers, shown to you anyway */
+  revealed?: boolean;
 }
 export interface AchievementCategory { id: string; name: string; blurb: string }
 export interface AchievementsData {
@@ -132,6 +136,8 @@ export interface AchievementsData {
   activeCount: number;
   bufosFound: number;
   bufosTotal: number;
+  /** true when the viewer is an organizer and hidden awards are shown */
+  revealAll: boolean;
 }
 
 // live human-vs-human (+ bot-battle challenges)

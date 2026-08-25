@@ -371,20 +371,43 @@ class AchievementBook {
     const active = this.store.activeUsernames();
     const n = active.length;
     const out = {};
-    for (const a of ACHIEVEMENTS) out[a.id] = { holders: 0, pct: 0 };
+    for (const a of ACHIEVEMENTS) out[a.id] = { holders: 0, pct: 0, times: [] };
     for (const u of active) {
       const rec = this._data[u];
       if (!rec || !rec.unlocked) continue;
-      for (const id of Object.keys(rec.unlocked)) {
-        if (out[id]) out[id].holders++;
+      for (const [id, ts] of Object.entries(rec.unlocked)) {
+        if (!out[id]) continue;
+        out[id].holders++;
+        out[id].times.push(ts);            // for "you were 3rd to get this"
       }
     }
-    if (n) for (const id of Object.keys(out)) out[id].pct = out[id].holders / n;
+    for (const id of Object.keys(out)) {
+      if (n) out[id].pct = out[id].holders / n;
+      out[id].times.sort((a, b) => a - b);
+    }
     return { rarity: out, activeCount: n };
   }
 
-  /** everything the Achievements page renders */
-  view(username) {
+  /**
+   * Where this account placed in the race for one award: 1 = first to get it.
+   * Counted among ACTIVE holders, so it stays consistent with the holder count
+   * shown beside it — retiring last week's cohort re-bases both together.
+   * Ties (same millisecond) share a place.
+   */
+  _rankOf(times, ts) {
+    if (!ts || !times || !times.length) return null;
+    let earlier = 0;
+    for (const t of times) { if (t < ts) earlier++; else break; }
+    return earlier + 1;
+  }
+
+  /**
+   * Everything the Achievements page renders.
+   * @param revealAll organizers see through every hidden award — they need to
+   *        know what the camp can actually earn. `revealed` marks the ones a
+   *        camper would still be looking at a padlock for.
+   */
+  view(username, revealAll = false) {
     const rec = this._rec(username);
     const { rarity, activeCount } = this.rarity();
     return {
@@ -394,20 +417,27 @@ class AchievementBook {
       total: ACHIEVEMENTS.length,
       bufosFound: (rec.bufos || []).filter((b) => BUFOS.includes(b)).length,
       bufosTotal: BUFOS.length,
+      revealAll: !!revealAll,
       achievements: ACHIEVEMENTS.map((a) => {
         const at = rec.unlocked[a.id] || null;
-        const secret = !!a.hidden && !at;
+        const r = rarity[a.id] || { pct: 0, holders: 0, times: [] };
+        const stillSecret = !!a.hidden && !at;      // as a camper would see it
+        const secret = stillSecret && !revealAll;
         return {
           id: a.id,
           cat: a.cat,
           hidden: !!a.hidden,
           unlockedAt: at,
-          pct: rarity[a.id] ? rarity[a.id].pct : 0,
-          holders: rarity[a.id] ? rarity[a.id].holders : 0,
+          // where you placed in the race for it — 1 = you got there first
+          rank: this._rankOf(r.times, at),
+          pct: r.pct,
+          holders: r.holders,
           // a locked hidden award gives nothing away but its rarity
           icon: secret ? null : a.icon,
           name: secret ? null : a.name,
           desc: secret ? null : (at && a.hidden ? (a.hint || a.desc) : a.desc),
+          // organizer is looking at something campers cannot see
+          revealed: stillSecret && !!revealAll,
         };
       }),
     };

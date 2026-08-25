@@ -358,6 +358,17 @@
 .ach-rarity.rare i { background: var(--accent); }
 .ach-rarity.legendary i { background: var(--contessa); }
 .ach-rarity.legendary { color: var(--contessa); font-weight: 600; }
+/* the race: 1st of 12 to unlock it */
+.ach-rank {
+  font-size: 11px; color: var(--ink-mut); font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px;
+  white-space: nowrap;
+}
+.ach-rank.first {
+  color: var(--accent); border-color: var(--accent-dim);
+  background: rgba(168, 132, 44, 0.09); font-weight: 600;
+}
+.ach-tag.organizer { color: var(--accent); border-color: var(--accent-dim); }
 .ach-when { margin-left: auto; font-size: 11px; color: var(--ink-mut); font-style: italic; }
 
 /* --------------------------- the hidden bufos

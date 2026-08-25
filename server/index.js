@@ -124,7 +124,8 @@ app.get('/api/coup/achievements', auth, (req, res) => {
   // who built a bot before this page existed starts on zero
   try { book.fromSlots(req.user.username, store.getSlots(req.user)); }
   catch (err) { console.error('[achievements] backfill failed', err.message); }
-  res.json(book.view(req.user.username));
+  // organizers see through the hidden ones — they need to know what is in there
+  res.json(book.view(req.user.username, !!req.user.isAdmin));
 });
 
 // the client has shown these unlock toasts — stop re-sending them

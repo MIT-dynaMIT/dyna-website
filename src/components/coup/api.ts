@@ -103,6 +103,35 @@ export interface PlaySnapshot {
   prompt: Prompt | null; done: boolean; winnerName: string | null;
 }
 
+// ------------------------------------------------------------------ achievements
+/** the toast payload: everything needed to pop an unlock in the corner */
+export interface AchievementToastData { id: string; icon: string; name: string; desc: string }
+
+/**
+ * One plaque on the Achievements page. A LOCKED HIDDEN award carries no icon,
+ * name or description at all — the server withholds them, so there is nothing
+ * to leak in the network tab.
+ */
+export interface AchievementRow {
+  id: string;
+  cat: string;
+  hidden: boolean;
+  unlockedAt: number | null;
+  pct: number;          // share of active accounts holding it, 0..1
+  holders: number;
+  icon: string | null;
+  name: string | null;
+  desc: string | null;
+}
+export interface AchievementCategory { id: string; name: string; blurb: string }
+export interface AchievementsData {
+  categories: AchievementCategory[];
+  achievements: AchievementRow[];
+  unlockedCount: number;
+  total: number;
+  activeCount: number;
+}
+
 // live human-vs-human (+ bot-battle challenges)
 export interface LiveOnlineUser { username: string; displayName: string; role: string }
 export interface LivePollData {
@@ -111,6 +140,12 @@ export interface LivePollData {
   match: string | null;
   /** is the ELO scrimmage running? organizers flip this live */
   ladderOn: boolean;
+  /** Unlocks earned since the last beat — pop them, then ack them. Optional:
+   *  a server older than the achievements work sends none of these three, and
+   *  a page left open across that upgrade must not render `undefined`. */
+  ach?: AchievementToastData[];
+  achCount?: number;
+  achTotal?: number;
 }
 export interface LiveSnapshot extends PlaySnapshot {
   youIndex: number;

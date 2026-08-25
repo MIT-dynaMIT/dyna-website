@@ -4,8 +4,11 @@ import { useToast } from '../CoupApp';
 
 interface Overview {
   totalMatches: number;
+  activeCount: number;
+  achievementTotal: number;
   students: {
     username: string; displayName: string; isAdmin: boolean; role: string;
+    active: boolean; achievements: number;
     slotsUsed: number; selectedBot: string | null;
   }[];
 }
@@ -59,6 +62,21 @@ export default function AdminPage() {
     if (!window.confirm('Reset the leaderboard? Every bot comes off the ladder and all ratings are wiped — Andrew re-seats fresh at 1000. Match history is kept.')) return;
     await api.post('/admin/ladder-reset');
     toast('Leaderboard reset — a new season begins');
+    refresh();
+  };
+
+  const setActive = async (usernames: string[], active: boolean) => {
+    if (!usernames.length) { toast('Nobody to change'); return; }
+    if (!active && !window.confirm(
+      `Retire ${usernames.length} account${usernames.length === 1 ? '' : 's'}?\n\n`
+      + 'They are signed out immediately and cannot log back in, and they stop counting '
+      + 'towards the achievement percentages — which is how last week\'s campers stop '
+      + 'dragging this week\'s numbers down.\n\nTheir bots and achievements are kept, '
+      + 'so you can bring them back at any time.')) return;
+    const r = await api.post<{ changed: string[] }>('/admin/set-active', { usernames, active });
+    toast(active
+      ? `Brought back ${r.changed.length} account${r.changed.length === 1 ? '' : 's'}`
+      : `Retired ${r.changed.length} account${r.changed.length === 1 ? '' : 's'}`);
     refresh();
   };
 
@@ -130,19 +148,60 @@ export default function AdminPage() {
             </button>
           </div>
         </div>
+        <div className="coup-card" style={{ background: 'var(--panel-2)', margin: '0 0 16px' }}>
+          <h2 className="coup-h" style={{ marginTop: 0 }}>🗓 Cohort
+            <small>{data.activeCount} active · {data.students.filter((s) => !s.isAdmin && !s.active).length} retired</small>
+          </h2>
+          <p className="coup-sub">
+            Achievement percentages are shares of the <b>active</b> accounts — students,
+            mentors and board alike. Retiring a finished week signs those campers out,
+            blocks their logins, and takes them out of the percentages so this week's
+            rarity numbers mean something. Their bots and trophies are kept.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="danger"
+              onClick={() => setActive(
+                data.students.filter((s) => s.role === 'student' && s.active).map((s) => s.username),
+                false,
+              )}
+              title="Sign out and retire every currently-active student login">
+              🗄 Retire all students
+            </button>
+            <button
+              onClick={() => setActive(
+                data.students.filter((s) => !s.isAdmin && !s.active).map((s) => s.username),
+                true,
+              )}
+              title="Bring every retired account back">
+              ↩ Bring everyone back
+            </button>
+          </div>
+        </div>
+
         <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
           <table className="coup-table">
             <thead><tr><th>Login</th><th>Name</th><th>Role</th>
-              <th className="num">Saved</th><th>Selected bot</th><th /></tr></thead>
+              <th className="num">Saved</th><th className="num">🏅</th>
+              <th>Selected bot</th><th /></tr></thead>
             <tbody>
               {data.students.map((s) => (
-                <tr key={s.username}>
+                <tr key={s.username} style={s.active ? undefined : { opacity: 0.45 }}>
                   <td className="mono" style={{ fontSize: 13 }}>{s.username}{s.isAdmin ? ' ⭐' : ''}</td>
-                  <td>{s.displayName}</td>
+                  <td>{s.displayName}{s.active ? '' : ' · retired'}</td>
                   <td style={{ color: 'var(--ink-mut)', fontSize: 13 }}>{s.role}</td>
                   <td className="num">{s.slotsUsed}</td>
+                  <td className="num" style={{ color: 'var(--ink-mut)', fontSize: 13 }}>
+                    {s.achievements}/{data.achievementTotal}
+                  </td>
                   <td style={{ color: 'var(--ink-mut)', fontSize: 13 }}>{s.selectedBot ? `★ ${s.selectedBot}` : '—'}</td>
-                  <td><button className="small ghost" onClick={() => resetPw(s.username)}>reset pw</button></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button className="small ghost" onClick={() => resetPw(s.username)}>reset pw</button>
+                    {!s.isAdmin && (
+                      <button className="small ghost" onClick={() => setActive([s.username], !s.active)}>
+                        {s.active ? 'retire' : 'restore'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -17,6 +17,8 @@ import VersusPage from './pages/VersusPage';
 import MatchesPage from './pages/MatchesPage';
 import ReplayPage from './pages/ReplayPage';
 import AdminPage from './pages/AdminPage';
+import AchievementsPage from './pages/AchievementsPage';
+import AchievementToasts from './AchievementToasts';
 
 // ------------------------------------------------------------ toast
 const ToastCtx = createContext<(msg: string) => void>(() => {});
@@ -151,6 +153,11 @@ export default function CoupApp() {
     { name: 'Multiplayer', to: '/coup/tables' },
     { name: 'Leaderboard', to: '/coup/leaderboard' },
     { name: 'Match History', to: '/coup/matches' },
+    // The running tally rides the heartbeat, so it ticks up wherever you are.
+    // A server older than the achievements work sends no counts at all — show
+    // the bare tab rather than "undefined/undefined".
+    { name: 'Achievements', to: '/coup/achievements',
+      badge: live && live.achTotal != null ? `${live.achCount ?? 0}/${live.achTotal}` : null },
     ...(user.isAdmin ? [{ name: 'Organizer', to: '/coup/admin' }] : []),
   ];
 
@@ -166,6 +173,7 @@ export default function CoupApp() {
                 <Link key={t.to} to={t.to}
                   className={location.pathname.startsWith(t.to) ? 'active' : ''}>
                   {t.name}
+                  {'badge' in t && t.badge && <span className="coup-nav-badge">{t.badge}</span>}
                 </Link>
               ))}
             </nav>
@@ -190,11 +198,13 @@ export default function CoupApp() {
             <Route path="leaderboard" element={<LeaderboardPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
+            <Route path="achievements" element={<AchievementsPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />
             <Route path="*" element={<Navigate to="editor" replace />} />
           </Routes>
         </div>
         <div className={`coup-toast ${toast ? 'show' : ''}`}>{toast}</div>
+        <AchievementToasts incoming={live?.ach ?? []} />
       </div>
       </LiveCtx.Provider>
     </ToastCtx.Provider>

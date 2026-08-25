@@ -20,9 +20,12 @@ const { ScriptBot, checkProgram } = require('./botapi');
 const { replayMatch } = require('./runner');
 const { HOUSE } = require('./samplebots/bots');
 
+const { AchievementBook } = require('./achievements');
+
 const PORT = Number(process.env.PORT || 8787);
 const store = new Store(process.env.DATA_DIR || path.join(__dirname, 'data'));
-const arena = new Arena(store);
+const book = new AchievementBook(store);
+const arena = new Arena(store, book);
 const plays = new PlayManager();
 const live = new LiveManager(store);
 const { Resim } = require('./resim');
@@ -30,7 +33,7 @@ const resim = new Resim();
 const { MultiManager } = require('./multi');
 const multi = new MultiManager(store);
 const { LadderServer } = require('./ladder');
-const ladder = new LadderServer(store);
+const ladder = new LadderServer(store, book);
 
 // resolve the user's SELECTED BOT into a compiling fighter, or an error
 function fighterFor(user) {
@@ -72,6 +75,9 @@ app.post('/api/coup/login', (req, res) => {
   const { username, password } = req.body || {};
   const user = store.checkLogin(username, password);
   if (!user) return res.status(401).json({ error: 'Wrong username or password' });
+  if (user.deactivated) {
+    return res.status(403).json({ error: 'That account has been retired — ask a mentor if you think this is a mistake.' });
+  }
   res.json({ token: store.createSession(user.username), user: pub(user) });
 });
 
@@ -97,11 +103,32 @@ app.put('/api/coup/bots/:idx', auth, (req, res) => {
   const r = store.saveSlot(req.user, Number(req.params.idx), req.body || {});
   if (r.conflict) return res.status(409).json({ error: 'this slot was changed elsewhere — reloading it', slot: r.slot });
   if (r.error) return res.status(400).json(r);
+  // saving is where the code-craft awards get handed out
+  try { book.fromSlots(req.user.username, store.getSlots(req.user)); }
+  catch (err) { console.error('[achievements] save scan failed', err.message); }
   res.json(r);
 });
 
 app.post('/api/coup/check', auth, (req, res) => {
-  res.json(checkProgram(String(req.body.python || '')));
+  const result = checkProgram(String(req.body.python || ''));
+  try { book.fromCheck(req.user.username, result); }
+  catch (err) { console.error('[achievements] check failed', err.message); }
+  res.json(result);
+});
+
+// ------------------------------------------------------------ achievements
+app.get('/api/coup/achievements', auth, (req, res) => {
+  // a first visit backfills whatever the saved bots already earn, so nobody
+  // who built a bot before this page existed starts on zero
+  try { book.fromSlots(req.user.username, store.getSlots(req.user)); }
+  catch (err) { console.error('[achievements] backfill failed', err.message); }
+  res.json(book.view(req.user.username));
+});
+
+// the client has shown these unlock toasts — stop re-sending them
+app.post('/api/coup/achievements/ack', auth, (req, res) => {
+  book.ack(req.user.username, Array.isArray(req.body.ids) ? req.body.ids.map(String) : []);
+  res.json({ ok: true });
 });
 
 // parse botlang into its AST — powers the editor's python→blocks decompiler
@@ -206,9 +233,11 @@ app.post('/api/coup/play/start', auth, (req, res) => {
   const pick = picks[0];
   const slots = store.getSlots(req.user);
   let source, name;
+  let vsOwnBot = false;
   if (pick != null && pick !== 'house' && slots[pick] && slots[pick].python) {
     source = slots[pick].python;
     name = slots[pick].name;
+    vsOwnBot = true;
   } else {
     const h = typeof pick === 'string' && pick.startsWith('house:')
       ? HOUSE.find((x) => x.name === pick.slice(6)) || HOUSE[0]
@@ -222,9 +251,17 @@ app.post('/api/coup/play/start', auth, (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: `that bot does not compile: ${err.message}` });
   }
-  const sess = plays.create(req.user.displayName, [opponent]);
+  const sess = plays.create(req.user.displayName, [opponent],
+    { username: req.user.username, vsOwnBot });
+  book.unlock(req.user.username, 'table_first');
   res.json(sess.snapshot(0));
 });
+
+/** award a finished table game to the human who was sitting at it */
+function awardTable(user, ctx) {
+  try { book.fromTable(user.username, ctx); }
+  catch (err) { console.error('[achievements] table failed', err.message); }
+}
 
 // list of house opponents for the play setup screen
 app.get('/api/coup/play/house-bots', auth, (_req, res) => {
@@ -243,6 +280,12 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
   const cursor = Number(req.body.cursor) || 0;
   try { sess.humanMove(req.body || {}); }
   catch (err) { return res.status(400).json({ error: err.message }); }
+  awardTable(req.user, {
+    kind: 'play',
+    won: !!sess.game.winner && sess.game.winner === sess.humanId,
+    bluffed: sess.bluffs.size > 0,
+    vsOwnBot: sess.vsOwnBot,
+  });
   res.json(sess.snapshot(cursor));
 });
 
@@ -253,8 +296,16 @@ app.post('/api/coup/play/:id/move', auth, (req, res) => {
 const pollHash = (s) => require('node:crypto').createHash('md5').update(s).digest('hex').slice(0, 10);
 app.post('/api/coup/live/poll', auth, (req, res) => {
   // the app-wide heartbeat also carries the scrimmage switch, so the
-  // Leaderboard tab appears and disappears without a poll of its own
-  const data = { ...live.poll(req.user), ladderOn: ladder.running };
+  // Leaderboard tab appears and disappears without a poll of its own —
+  // and any unlock the client has not popped up yet, so trophies land
+  // within a beat of being earned wherever you happen to be standing
+  const data = {
+    ...live.poll(req.user),
+    ladderOn: ladder.running,
+    ach: book.pending(req.user.username),
+    achCount: book.count(req.user.username),
+    achTotal: book.total(),
+  };
   const v = pollHash(JSON.stringify(data));
   if (req.body && req.body.v === v) return res.json({ same: true, v });
   res.json({ ...data, v });
@@ -304,6 +355,7 @@ app.post('/api/coup/live/match/:id/move', auth, (req, res) => {
   const cursor = Number(req.body.cursor) || 0;
   try { sess.move(req.user.username, req.body || {}); }
   catch (err) { return res.status(400).json({ error: err.message }); }
+  awardTable(req.user, { kind: 'live', ...sess.outcomeFor(req.user.username) });
   res.json(sess.snapshot(req.user.username, cursor));
 });
 
@@ -333,6 +385,7 @@ app.post('/api/coup/ladder/submit', auth, ladderOpen, (req, res) => {
   const check = checkProgram(s.python);
   if (!check.ok) return res.status(400).json({ error: 'that bot has problems — run "Check my bot" in the editor first' });
   const r = ladder.submit(req.user, idx, s);
+  book.unlock(req.user.username, 'ladder_submit');
   res.json({ ok: true, unchanged: !!r.unchanged, submission: { id: r.submission.id, name: r.submission.name } });
 });
 
@@ -369,6 +422,7 @@ app.post('/api/coup/multi/move', auth, (req, res) => {
   if (!s) return res.status(404).json({ error: 'no game at your table' });
   try { s.move(req.user.username, req.body || {}); }
   catch (err) { return res.status(400).json({ error: err.message }); }
+  awardTable(req.user, { kind: 'multi', ...s.outcomeFor(req.user.username) });
   res.json(s.snapshot(req.user.username, Number(req.body.cursor) || 0));
 });
 
@@ -376,16 +430,32 @@ app.post('/api/coup/multi/move', auth, (req, res) => {
 app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
   res.json({
     totalMatches: store.matches.list.length,
+    activeCount: store.activeUsernames().length,
+    achievementTotal: book.total(),
     students: Object.values(store.users).map((u) => {
       const sel = store.selectedBot(u);
       return {
         username: u.username, displayName: u.displayName, isAdmin: !!u.isAdmin,
         role: u.role || 'student',
+        active: store.isActive(u),
         slotsUsed: (store.bots[u.username] || []).filter(Boolean).length,
         selectedBot: sel.error ? null : sel.name,
+        achievements: book.count(u.username),
       };
     }),
   });
+});
+
+/**
+ * Retire (or bring back) a set of logins. A deactivated account cannot log in,
+ * is signed out everywhere, and leaves every achievement percentage — which is
+ * how last week's cohort stops dragging this week's rarity numbers down. Their
+ * unlocks are kept, so reactivating restores everything.
+ */
+app.post('/api/coup/admin/set-active', auth, adminOnly, (req, res) => {
+  const names = Array.isArray(req.body.usernames) ? req.body.usernames.map(String) : [];
+  const changed = store.setActive(names, !!req.body.active);
+  res.json({ ok: true, changed, activeCount: store.activeUsernames().length });
 });
 
 app.post('/api/coup/admin/reset-password', auth, adminOnly, (req, res) => {

@@ -3,6 +3,7 @@
  *   users.json     pre-created logins (scrypt-hashed) + selected bot slot
  *   bots.json      per-student saved bot versions (10 slots, admin 100)
  *   matches.json   best-of-5 bot matches (sample replays inside), capped
+ *   achievements.json  per-account unlocks + the un-popped toast queue
  */
 'use strict';
 
@@ -34,6 +35,7 @@ class Store {
     this.bots = this._load('bots.json', {});
     this.matches = this._load('matches.json', { list: [] });
     this.ladder = this._load('ladder.json', { submissions: [], totalMatches: 0, running: true });
+    this.achievements = this._load('achievements.json', {});
     this._timers = {};
   }
 
@@ -48,9 +50,13 @@ class Store {
       catch (err) { console.error('[store] save failed', file, err.message); }
     }, delay);
   }
+  /** achievements move in tiny bursts and matter immediately — short debounce */
+  saveAchievements() { this._save('achievements.json', this.achievements, 500); }
+
   flush() {
     for (const [file, obj] of [['users.json', this.users], ['sessions.json', this.sessions],
-      ['bots.json', this.bots], ['matches.json', this.matches], ['ladder.json', this.ladder]]) {
+      ['bots.json', this.bots], ['matches.json', this.matches], ['ladder.json', this.ladder],
+      ['achievements.json', this.achievements]]) {
       clearTimeout(this._timers[file]);
       try { fs.writeFileSync(path.join(this.dir, file), JSON.stringify(obj)); } catch {}
     }
@@ -67,13 +73,48 @@ class Store {
       pass: hashPassword(password),
       isAdmin: !!isAdmin,
       role: isAdmin ? 'organizer' : (['mentor', 'board'].includes(role) ? role : 'student'),
+      active: true,
     };
     this._save('users.json', this.users);
     return { user: this.users[uname] };
   }
   checkLogin(username, password) {
     const u = this.users[String(username || '').trim().toLowerCase()];
-    return u && checkPassword(password, u.pass) ? u : null;
+    if (!u || !checkPassword(password, u.pass)) return null;
+    return this.isActive(u) ? u : { deactivated: true };
+  }
+
+  // ------------------------------------------------------------ active accounts
+  /**
+   * Accounts written before the switch existed have no `active` field, so
+   * "not explicitly deactivated" is what counts as active. Deactivating is how
+   * a finished week's cohort leaves the camp: they cannot log in, and they drop
+   * out of every achievement percentage — their unlocks stay on record.
+   */
+  isActive(user) { return !!user && user.active !== false; }
+
+  /** every active login except the organizers — the achievement denominator */
+  activeUsernames() {
+    return Object.values(this.users)
+      .filter((u) => !u.isAdmin && this.isActive(u))
+      .map((u) => u.username);
+  }
+
+  /** organizer: retire (or bring back) a set of logins */
+  setActive(usernames, active) {
+    const changed = [];
+    for (const name of usernames) {
+      const u = this.users[String(name || '').toLowerCase()];
+      if (!u || u.isAdmin) continue;          // never lock the organizers out
+      if (this.isActive(u) === !!active) continue;
+      u.active = !!active;
+      changed.push(u.username);
+    }
+    if (changed.length) {
+      this._save('users.json', this.users);
+      if (!active) this.revokeSessions(changed);   // deactivating logs them out
+    }
+    return changed;
   }
   resetPassword(username, newPassword) {
     const u = this.users[String(username || '').toLowerCase()];
@@ -90,7 +131,8 @@ class Store {
   }
   getSessionUser(token) {
     const s = token && this.sessions[token];
-    return s ? this.users[s.username] || null : null;
+    const u = s ? this.users[s.username] || null : null;
+    return u && this.isActive(u) ? u : null;
   }
   /** log the given users out everywhere (e.g. archived accounts) */
   revokeSessions(usernames) {

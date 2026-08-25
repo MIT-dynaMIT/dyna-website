@@ -18,8 +18,10 @@ const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {
-  constructor(store) {
+  /** @param book optional AchievementBook — standings hand out trophies */
+  constructor(store, book = null) {
     this.store = store;
+    this.book = book;
     this.busy = false;
     this._timer = null;
     this._lastPair = '';
@@ -174,6 +176,28 @@ class LadderServer {
     return [a, cand];
   }
 
+  /** a scrimmage match just moved the board: match trophies, then standings */
+  _award(a, b, result) {
+    if (!this.book) return;
+    const [wa, wb] = result.score;
+    const board = this.board();
+    for (const [entry, mine, theirs] of [[a, wa, wb], [b, wb, wa]]) {
+      if (entry.owner === 'house') continue;
+      try {
+        this.book.fromMatch(entry.owner, {
+          mode: 'ladder', level: null, houseName: null,
+          won: mine > theirs,
+          swept: mine > theirs && theirs === 0,
+          flags: (result.flags || {})[entry.name],
+        });
+        const row = board.find((x) => x.id === entry.id);
+        this.book.fromLadder(entry.owner, entry, row ? row.rank : null);
+      } catch (err) {
+        console.error('[ladder] achievements failed', err.message);
+      }
+    }
+  }
+
   _playOne() {
     if (this.busy) return;
     const pair = this._pick();
@@ -215,6 +239,7 @@ class LadderServer {
         eloDelta: { [a.name]: Math.round(delta), [b.name]: Math.round(-delta) },
         errors: result.errors,
       });
+      this._award(a, b, result);
       this._save();
     };
     worker.once('message', finish);

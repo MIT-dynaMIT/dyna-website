@@ -9,6 +9,7 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
+const { HOUSE } = require('./samplebots/bots');
 
 const SERIES_COUNT = 5;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
@@ -17,8 +18,10 @@ const MAX_WORKERS = 2;
 const MAX_PENDING_PER_USER = 3;
 
 class Arena {
-  constructor(store) {
+  /** @param book optional AchievementBook — matches award trophies as they land */
+  constructor(store, book = null) {
     this.store = store;
+    this.book = book;
     this.queue = [];
     this.running = 0;
     this.jobs = new Map();     // id -> {id, mode, level, players, owners, ownerNames, status, ts, error}
@@ -43,6 +46,33 @@ class Arena {
     this.queue.push(job);
     this._drain();
     return { job: this._pub(job) };
+  }
+
+  /** hand each human owner their side of the finished match */
+  _award(job, result) {
+    if (!this.book) return;
+    const [wa, wb] = result.score;
+    const total = wa + wb;
+    for (const side of [0, 1]) {
+      const owner = job.owners[side];
+      if (!owner || owner === 'house') continue;
+      const mine = side === 0 ? wa : wb;
+      const theirs = side === 0 ? wb : wa;
+      try {
+        this.book.fromMatch(owner, {
+          mode: job.mode,
+          level: job.level,
+          // by the house bot's REAL name — arena renames a colliding
+          // player bot, so job.players is not a safe way to identify a boss
+          houseName: job.mode === 'gauntlet' && HOUSE[job.level] ? HOUSE[job.level].name : null,
+          won: mine > theirs,
+          swept: mine > theirs && theirs === 0 && total > 0,
+          flags: (result.flags || {})[job.players[side]],
+        });
+      } catch (err) {
+        console.error('[arena] achievements failed', err.message);
+      }
+    }
   }
 
   _pub(j) {
@@ -78,6 +108,7 @@ class Arena {
             sources: [job._a.source, job._b.source],
             errors: result.errors,
           });
+          this._award(job, result);
           this.jobs.delete(job.id);
         } else {
           job.status = 'failed';

@@ -244,3 +244,183 @@
   .coup-table { font-size: 12.5px; }
   .coup-table th, .coup-table td { padding: 5px 6px; }
 }
+
+
+/* =========================================================== achievements
+   Steam-shaped trophy cabinet: a plaque per award, gold when earned, flat
+   parchment when not, and a locked padlock for the hidden ones. Rarity is
+   the whole point of the bottom row — a 4% award should look like one. */
+
+.coup-nav-badge {
+  margin-left: 6px; font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--accent); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 6px;
+}
+.coup-nav a.active .coup-nav-badge { border-color: var(--accent-dim); }
+
+.ach-head { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.ach-head-main { flex: 1; min-width: 260px; }
+.ach-score { text-align: right; min-width: 170px; }
+.ach-score-n {
+  font-size: 34px; color: var(--accent); font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ach-score-of { font-size: 18px; color: var(--ink-mut); }
+.ach-progress {
+  height: 7px; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 999px; overflow: hidden; margin: 9px 0 5px;
+}
+.ach-progress i {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.5s ease;
+}
+
+.ach-filters { display: flex; gap: 8px; margin: 16px 0 6px; flex-wrap: wrap; }
+
+.ach-section { margin-top: 22px; }
+.ach-section-h {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--parch); margin: 0 0 10px; padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+.ach-section-h small {
+  font-size: 12.5px; letter-spacing: 0.02em; text-transform: none;
+  font-style: italic; color: var(--ink-mut); font-weight: 400;
+}
+.ach-section-n {
+  margin-left: auto; font-size: 13px; color: var(--ink-mut);
+  font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+
+.ach-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+}
+
+.ach-card {
+  display: flex; gap: 13px; align-items: flex-start;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 13px 14px;
+}
+.ach-card.got {
+  border-color: var(--accent-dim);
+  background: linear-gradient(180deg, #fffdf6, var(--panel));
+  box-shadow: 0 1px 0 rgba(168, 132, 44, 0.16);
+}
+.ach-card.locked { background: var(--panel-2); }
+
+.ach-icon {
+  width: 46px; height: 46px; flex: none; border-radius: 9px;
+  display: grid; place-items: center; font-size: 25px; line-height: 1;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.ach-card.got .ach-icon {
+  background: #fdf6e2; border-color: var(--accent-dim);
+}
+/* an award you have not earned reads as an outline of one */
+.ach-card.locked .ach-icon { filter: grayscale(1); opacity: 0.5; }
+.ach-card.secret .ach-icon { filter: none; opacity: 0.65; font-size: 21px; }
+
+.ach-body { min-width: 0; flex: 1; }
+.ach-title {
+  font-size: 14.5px; font-weight: 600; color: var(--parch);
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.ach-card.got .ach-title { color: var(--accent); }
+.ach-card.locked .ach-title { color: var(--ink-mut); }
+.ach-card.secret .ach-title { font-style: italic; }
+.ach-tag {
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--ink-mut); border: 1px solid var(--line);
+  border-radius: 999px; padding: 1px 6px; font-weight: 400;
+}
+.ach-desc {
+  font-size: 12.5px; color: var(--ink-mut); margin: 4px 0 0; line-height: 1.45;
+}
+.ach-card.secret .ach-desc { font-style: italic; }
+
+.ach-foot {
+  display: flex; align-items: center; gap: 10px; margin-top: 9px;
+  flex-wrap: wrap;
+}
+.ach-rarity {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: var(--ink-mut); font-variant-numeric: tabular-nums;
+}
+.ach-bar {
+  display: block; width: 54px; height: 4px; border-radius: 999px;
+  background: var(--line); overflow: hidden;
+}
+.ach-bar i { display: block; height: 100%; background: var(--ink-mut); }
+.ach-rarity.common i { background: var(--felt-1); }
+.ach-rarity.rare i { background: var(--accent); }
+.ach-rarity.legendary i { background: var(--contessa); }
+.ach-rarity.legendary { color: var(--contessa); font-weight: 600; }
+.ach-when { margin-left: auto; font-size: 11px; color: var(--ink-mut); font-style: italic; }
+
+/* --------------------------- the unlock popups */
+.ach-toasts {
+  position: fixed; right: 18px; bottom: 18px; z-index: 120;
+  display: flex; flex-direction: column-reverse; gap: 10px;
+  max-width: min(340px, calc(100vw - 36px));
+}
+.ach-toast {
+  position: relative; display: flex; gap: 12px; align-items: flex-start;
+  background: #232a32; color: #f6f1e4;
+  border: 1px solid var(--accent); border-left-width: 4px;
+  border-radius: 10px; padding: 13px 32px 13px 14px;
+  box-shadow: 0 14px 34px rgba(28, 33, 40, 0.34);
+  animation: achslide 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+@keyframes achslide {
+  from { opacity: 0; transform: translateX(26px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+/* held for 3s, then it fades on its own. `forwards` keeps it invisible for
+   the moment between the fade ending and React dropping it from the DOM */
+.ach-toast.leaving {
+  animation: achfade 0.45s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes achfade {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateX(16px) scale(0.98); }
+}
+.ach-toast-icon {
+  width: 40px; height: 40px; flex: none; border-radius: 8px;
+  display: grid; place-items: center; font-size: 22px; line-height: 1;
+  background: rgba(194, 162, 79, 0.17); border: 1px solid var(--accent-dim);
+}
+.ach-toast-body { min-width: 0; }
+.ach-toast-lead {
+  font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--accent-dim);
+}
+.ach-toast-name { font-size: 14.5px; font-weight: 600; margin-top: 2px; }
+.ach-toast-desc {
+  font-size: 12px; color: #c9c3b4; margin-top: 3px; line-height: 1.4;
+}
+.ach-toast-link {
+  display: inline-block; margin-top: 7px; font-size: 11.5px;
+  color: var(--accent-dim); text-decoration: none;
+}
+.ach-toast-link:hover { color: #f6f1e4; }
+/* .coup-root button is (0,1,1), so these must be scoped to out-rank it —
+   otherwise the ✕ keeps the pale panel chrome and sits on the dark toast
+   like a sticker */
+.coup-root .ach-toast-x {
+  position: absolute; top: 5px; right: 5px;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: #8b8577; padding: 3px 6px; font-size: 13px; line-height: 1;
+}
+.coup-root .ach-toast-x:hover:not(:disabled) {
+  color: #f6f1e4; background: rgba(246, 241, 228, 0.1); border-color: transparent;
+}
+
+@media (max-width: 700px) {
+  .ach-grid { grid-template-columns: 1fr; }
+  .ach-score { text-align: left; }
+  .ach-toasts { right: 10px; left: 10px; bottom: 10px; max-width: none; }
+}

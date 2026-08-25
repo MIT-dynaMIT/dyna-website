@@ -10,7 +10,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { CoupGame } = require('./coup');
+const { CoupGame, ACTIONS } = require('./coup');
 
 const ONLINE_MS = 12_000;      // seen a poll this recently = online
 const SESSION_TTL = 3 * 3600 * 1000;
@@ -40,6 +40,7 @@ class LiveSession {
     this.game = new CoupGame(this.ids);
     this.frames = { p0: [], p1: [] };
     this._logIdx = 0;
+    this.bluffs = { p0: new Set(), p1: new Set() };   // roles claimed unbacked
     this.forfeitedBy = null;
     this._snap();
     this._decisionKey = null;
@@ -167,6 +168,21 @@ class LiveSession {
     return null;
   }
 
+  /** claiming a card this seat cannot show is a bluff — remember which */
+  _noteBluff(seat, role) {
+    if (role && !this.game.hasRole(this.game.player(seat), role)) this.bluffs[seat].add(role);
+  }
+
+  /** {won, bluffed} for one seat, once the table is done */
+  outcomeFor(username) {
+    const seat = this.seatOf[username];
+    if (!seat) return null;
+    return {
+      won: this.done && this.winnerName() === this.names[seat],
+      bluffed: this.bluffs[seat].size > 0,
+    };
+  }
+
   move(username, msg) {
     this.enforceTimer();   // a timed-out decision was already auto-played
     const seat = this.seatOf[username];
@@ -177,6 +193,7 @@ class LiveSession {
     const pend = g.pending;
     if (msg.kind === 'action') {
       if (pend.type !== 'action') throw new Error('no action pending');
+      this._noteBluff(seat, ACTIONS[msg.type] && ACTIONS[msg.type].role);
       g._assassinP = 0; // humans decide their challenges live
       g.submitAction(seat, { type: msg.type, call: msg.call });
     } else if (msg.kind === 'respond') {
@@ -184,8 +201,10 @@ class LiveSession {
       if (pend.type === 'challenge') {
         g.resolveChallenge(msg.what === 'challenge' ? seat : null);
       } else if (pend.type === 'block') {
-        if (msg.what === 'block' && pend.roles.includes(msg.role)) g.resolveBlock(seat, msg.role);
-        else g.resolveBlock(null, null);
+        if (msg.what === 'block' && pend.roles.includes(msg.role)) {
+          this._noteBluff(seat, msg.role);
+          g.resolveBlock(seat, msg.role);
+        } else g.resolveBlock(null, null);
       } else throw new Error('nothing to respond to');
     } else if (msg.kind === 'lose') {
       g.resolveLose(seat, Number(msg.idx));

@@ -10,8 +10,32 @@
  */
 'use strict';
 
-const { CoupGame } = require('./coup');
+const { CoupGame, ACTIONS } = require('./coup');
 const { ScriptBot } = require('./botapi');
+
+/**
+ * Per-bot achievement tally for one game. Collected GOD-SIDE — knowing that a
+ * tax claim was a bluff means seeing the claimant's hand, which no bot and no
+ * client may ever do. It therefore lives here and never touches game.log
+ * (which is handed to bots and rendered in live tables).
+ */
+function freshFlags() {
+  return {
+    bluffs: { duke: 0, assassin: 0, ambassador: 0, contessa: 0 },
+    challengesMade: 0, challengeWins: 0, caught: 0,
+    coupCalls: 0, coupHits: 0, errors: 0, wins: 0,
+  };
+}
+const FLAG_KEYS = ['challengesMade', 'challengeWins', 'caught',
+  'coupCalls', 'coupHits', 'errors', 'wins'];
+function mergeFlags(into, add) {
+  for (const [name, f] of Object.entries(add)) {
+    const t = into[name] || (into[name] = freshFlags());
+    for (const r of Object.keys(t.bluffs)) t.bluffs[r] += f.bluffs[r];
+    for (const k of FLAG_KEYS) t[k] += f[k];
+  }
+  return into;
+}
 
 /** deterministic rng */
 function mulberry32(seed) {
@@ -46,6 +70,8 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
 
   const game = new CoupGame(ids, rng, gameOpts || {});
   const decisions = [];
+  const flags = {};
+  ids.forEach((id) => { flags[names[id]] = freshFlags(); });
   let guard = 0;
   const MAX = 2000;
 
@@ -56,6 +82,10 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
     if (pend.type === 'action') {
       const id = pend.player;
       const act = botOf[id].yourTurn(game, id, names, series, botRng);
+      // a role action the bot cannot back up is a bluff — only visible here
+      const role = ACTIONS[act.type] && ACTIONS[act.type].role;
+      if (role && !game.hasRole(game.player(id), role)) flags[names[id]].bluffs[role]++;
+      if (act.type === 'coup') flags[names[id]].coupCalls++;
       decisions.push(['action', id, { type: act.type, call: act.call }]);
       // remember the assassin's auto-challenge probability for the contessa block
       game._assassinP = act.type === 'assassinate' ? (act.p || 0) : 0;
@@ -90,6 +120,9 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
         }
         if (r && r.block) { blocker = id; role = r.block; break; }
       }
+      if (blocker && role && !game.hasRole(game.player(blocker), role)) {
+        flags[names[blocker]].bluffs[role]++;
+      }
       decisions.push(['block', blocker, role]);
       game.resolveBlock(blocker, role);
     } else if (pend.type === 'lose') {
@@ -112,6 +145,24 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
     const b = botOf[id];
     if (b.errors && b.errors.length) errorsByBot[names[id]] = b.errors.splice(0, b.errors.length);
   });
+
+  // the rest of the tally reads off the public log
+  for (const e of game.log) {
+    if (e.t === 'challenge') {
+      if (flags[names[e.by]]) {
+        flags[names[e.by]].challengesMade++;
+        if (!e.truthful) flags[names[e.by]].challengeWins++;
+      }
+      if (!e.truthful && flags[names[e.against]]) flags[names[e.against]].caught++;
+    } else if (e.t === 'hit' && e.action === 'coup' && flags[names[e.actor]]) {
+      flags[names[e.actor]].coupHits++;
+    }
+  }
+  for (const [n, errs] of Object.entries(errorsByBot)) {
+    if (flags[n]) flags[n].errors += errs.length;
+  }
+  if (flags[names[game.winner]]) flags[names[game.winner]].wins++;
+
   return {
     winnerName: names[game.winner],
     seed,
@@ -121,6 +172,7 @@ function playBotGame({ bots, seed, series = null, gameOpts }) {
     seatNames: ids.map((id) => names[id]),
     adjudicated: !!game.log.find((e) => e.t === 'win' && e.adjudicated),
     errorsByBot,
+    flags,
   };
 }
 
@@ -153,7 +205,7 @@ function accumulateSeriesStats(log, names, statsByName) {
  * alone, so draining this at any chunk size gives bit-identical results.
  *
  * → { winsByName, statsByName, winStrip (A's perspective), samples, errors,
- *     turnsTotal, adjudicated }
+ *     flags (god-side achievement tally, by bot name), turnsTotal, adjudicated }
  */
 function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, sampleAt = null, chunk = 5 }) {
   const winsByName = { [botA.name]: 0, [botB.name]: 0 };
@@ -164,6 +216,7 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
   const samples = [];
   const sampleIdx = new Set(sampleAt || [0, Math.floor(total / 2), total - 1]);
   const errors = {};
+  const flags = {};
   let winStrip = '';
   let turnsTotal = 0, adjudicated = 0;
   for (let g = 0; g < total; g++) {
@@ -181,12 +234,13 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
     for (const [n, errs] of Object.entries(r.errorsByBot)) {
       errors[n] = (errors[n] || 0) + errs.length;
     }
+    mergeFlags(flags, r.flags);
     if (sampleIdx.has(g)) {
       samples.push({ g: g + 1, seed, seatNames: r.seatNames, decisions: r.decisions, winnerName: r.winnerName });
     }
     if (chunk > 0 && (g + 1) % chunk === 0 && g + 1 < total) yield g + 1;
   }
-  return { winsByName, statsByName, winStrip, samples, errors, turnsTotal, adjudicated, total };
+  return { winsByName, statsByName, winStrip, samples, errors, flags, turnsTotal, adjudicated, total };
 }
 
 /** Drain a matchup in one go — for seeding and any offline batch run. */
@@ -234,4 +288,7 @@ function replayMatch({ seed, seatNames, decisions }) {
   return { frames, seatNames, winnerName: game.winner ? seatNames[ids.indexOf(game.winner)] : null };
 }
 
-module.exports = { playBotGame, playSeries, playSeriesIter, replayMatch, mulberry32 };
+module.exports = {
+  playBotGame, playSeries, playSeriesIter, replayMatch, mulberry32,
+  freshFlags, mergeFlags,
+};

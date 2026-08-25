@@ -25,6 +25,7 @@ class ClassicSession {
     this.game = new ClassicGame(this.ids);
     this.frames = Object.fromEntries(this.ids.map((id) => [id, []]));
     this._logIdx = 0;
+    this.bluffs = Object.fromEntries(this.ids.map((id) => [id, new Set()]));
     this.quitters = new Set();
     this.bots = new Set(seats.map((u, i) => u.bot ? 'p' + i : null).filter(Boolean));
     this._snap();
@@ -196,15 +197,34 @@ class ClassicSession {
     this._armTimer();
   }
 
+  /** claiming a card this seat cannot show is a bluff — remember which */
+  _noteBluff(seat, role) {
+    if (role && !this.game.p(seat).cards.includes(role)) this.bluffs[seat].add(role);
+  }
+
+  /** {won, bluffed} for one seat, for the achievement book */
+  outcomeFor(username) {
+    const seat = this.seatOf[username];
+    if (!seat) return null;
+    return {
+      won: this.done && this.game.winner === seat,
+      bluffed: this.bluffs[seat].size > 0,
+    };
+  }
+
   move(username, msg) {
     this.enforceTimer();
     const seat = this.seatOf[username];
     if (!seat) throw new Error('not at this table');
     if (this.done) throw new Error('game is over');
     const g = this.game;
-    if (msg.kind === 'action') g.submitAction(seat, { type: msg.type, target: msg.target });
-    else if (msg.kind === 'respond') g.respond(seat, { what: msg.what, role: msg.role });
-    else if (msg.kind === 'lose') g.resolveLose(seat, Number(msg.idx));
+    if (msg.kind === 'action') {
+      this._noteBluff(seat, ClassicGame.CLAIM[msg.type]);
+      g.submitAction(seat, { type: msg.type, target: msg.target });
+    } else if (msg.kind === 'respond') {
+      if (msg.what === 'block') this._noteBluff(seat, msg.role);
+      g.respond(seat, { what: msg.what, role: msg.role });
+    } else if (msg.kind === 'lose') g.resolveLose(seat, Number(msg.idx));
     else if (msg.kind === 'exchange') g.resolveExchange(seat, (msg.keep || []).map(Number));
     else throw new Error('unknown move');
     this._snap();

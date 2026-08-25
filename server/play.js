@@ -6,13 +6,20 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { CoupGame } = require('./coup');
+const { CoupGame, ACTIONS } = require('./coup');
 
 class PlaySession {
-  /** @param opponents [{bot: ScriptBot, name}] — exactly 1 (heads-up) */
-  constructor(humanName, opponents) {
+  /**
+   * @param opponents [{bot: ScriptBot, name}] — exactly 1 (heads-up)
+   * @param opts {username, vsOwnBot} — who is sitting here, and whether the
+   *        bot across the table is one of their own (achievements read this)
+   */
+  constructor(humanName, opponents, opts = {}) {
     this.id = crypto.randomBytes(8).toString('hex');
     this.createdAt = Date.now();
+    this.username = opts.username || null;
+    this.vsOwnBot = !!opts.vsOwnBot;
+    this.bluffs = new Set();      // roles this human claimed without holding
     this.humanId = 'p0';
     this.ids = ['p0', 'p1'];
     this.names = { p0: humanName };
@@ -183,12 +190,18 @@ class PlaySession {
     this.prompt = null;
   }
 
+  /** claiming a card you cannot show is a bluff — remember which */
+  _noteBluff(role) {
+    if (role && !this.game.hasRole(this.game.player(this.humanId), role)) this.bluffs.add(role);
+  }
+
   humanMove(msg) {
     const g = this.game;
     const pend = g.pending;
     if (!pend) throw new Error('game is over');
     if (msg.kind === 'action') {
       if (pend.type !== 'action' || pend.player !== this.humanId) throw new Error('not your turn');
+      this._noteBluff(ACTIONS[msg.type] && ACTIONS[msg.type].role);
       g._assassinP = 0; // humans challenge manually
       g.submitAction(this.humanId, { type: msg.type, call: msg.call });
     } else if (msg.kind === 'respond') {
@@ -198,6 +211,7 @@ class PlaySession {
         else { poll.humanPassed = true; }
       } else if (pend.type === 'block') {
         if (msg.what === 'block' && pend.roles.includes(msg.role)) {
+          this._noteBluff(msg.role);
           g.resolveBlock(this.humanId, msg.role); this._polled = null;
         } else { poll.humanPassed = true; }
       } else throw new Error('nothing to respond to');
@@ -230,8 +244,8 @@ class PlaySession {
 
 class PlayManager {
   constructor() { this.sessions = new Map(); }
-  create(humanName, opponents) {
-    const s = new PlaySession(humanName, opponents);
+  create(humanName, opponents, opts) {
+    const s = new PlaySession(humanName, opponents, opts);
     this.sessions.set(s.id, s);
     // keep at most a few hours of sessions
     const cutoff = Date.now() - 3 * 3600 * 1000;

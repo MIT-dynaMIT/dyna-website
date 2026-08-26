@@ -1,6 +1,6 @@
 /**
  * seed — set up the camp: the admin login, real camper/mentor logins from
- * roster.csv (if present), the three house bots in the organizer's slots,
+ * roster.csv (if present), the house bots in the organizer's slots,
  * and one demo best-of-5 so Match History isn't empty on day one.
  *
  *   node seed.js              (use --fresh to wipe data/)
@@ -70,7 +70,10 @@ HOUSE.forEach((h, i) => {
 
 // ------------------------------------------------------------ demo match
 if (!store.matches.list.length) {
-  const [, mid, top] = HOUSE;
+  // the demo is the FINAL boss against the one below it — indexes shift every
+  // time a level is inserted, so take them from the end, not by position
+  const top = HOUSE[HOUSE.length - 1];
+  const mid = HOUSE[HOUSE.length - 2];
   console.log(`\nPlaying a demo best-of-${SERIES_COUNT}: ${top.name} vs ${mid.name}…`);
   const botA = { bot: new ScriptBot(top.source, top.name), name: top.name };
   const botB = { bot: new ScriptBot(mid.source, mid.name), name: mid.name };

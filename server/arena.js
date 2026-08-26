@@ -14,7 +14,18 @@ const { HOUSE } = require('./samplebots/bots');
 const SERIES_COUNT = 5;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 const SAMPLE_AT = [0, 49, 99];          // game 1, 50, 100 of each series
-const MAX_WORKERS = 2;
+/**
+ * How many bot matches run at once. These two workers are shared by EVERY
+ * camper's level runs and bot battles, so a class of 40 all pressing "play
+ * this level" queues behind them.
+ *
+ * Default stays 2 because the deploy target may be a small instance — and
+ * os.cpus() lies inside a container, reporting the host's cores rather than
+ * the quota, so it cannot be auto-derived safely. Organizers raise it live
+ * from the Organizer tab when the machine can take it.
+ */
+const WORKER_CHOICES = [1, 2, 3, 4, 6, 8];
+const DEFAULT_WORKERS = Number(process.env.COUP_MAX_WORKERS || 2);
 const MAX_PENDING_PER_USER = 3;
 
 class Arena {
@@ -46,6 +57,23 @@ class Arena {
     this.queue.push(job);
     this._drain();
     return { job: this._pub(job) };
+  }
+
+  /** organizer-set concurrency; falls back to the env default */
+  get maxWorkers() {
+    const v = Number(this.store.settings.maxWorkers);
+    return WORKER_CHOICES.includes(v) ? v : DEFAULT_WORKERS;
+  }
+
+  /** Raising this starts queued matches immediately; lowering it never kills
+   *  a match in flight — the extras simply retire as they finish. */
+  setMaxWorkers(n) {
+    const next = Number(n);
+    if (!WORKER_CHOICES.includes(next)) return { error: 'not a worker count we offer' };
+    this.store.settings.maxWorkers = next;
+    this.store.saveSettings();
+    this._drain();
+    return { ok: true, maxWorkers: next, running: this.running, queued: this.queue.length };
   }
 
   /** hand each human owner their side of the finished match */
@@ -82,7 +110,7 @@ class Arena {
   }
 
   _drain() {
-    while (this.running < MAX_WORKERS && this.queue.length) {
+    while (this.running < this.maxWorkers && this.queue.length) {
       const job = this.queue.shift();
       this.running++;
       job.status = 'running';
@@ -130,4 +158,4 @@ class Arena {
   }
 }
 
-module.exports = { Arena, SERIES_COUNT, SERIES_GAMES };
+module.exports = { Arena, SERIES_COUNT, SERIES_GAMES, WORKER_CHOICES };

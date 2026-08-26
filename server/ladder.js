@@ -15,6 +15,14 @@ const SERIES_COUNT = 7;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 const K = 32;
 const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
+/**
+ * Tick speeds an organizer can pick live. Measured on a 700-game match:
+ * 0.52s for two light bots, 0.90s Andrew-vs-Andrew, and 72 KB of match record
+ * each. 5s therefore still leaves the worker ~85% idle; anything under ~2s
+ * would saturate a small instance and is left to LADDER_INTERVAL_MS, which
+ * still overrides the default for anyone who really wants it.
+ */
+const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000];
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {
@@ -37,6 +45,23 @@ class LadderServer {
   }
 
   get running() { return !!this.store.ladder.running; }
+
+  /** how often a pairing is attempted; organizer-set, survives restarts */
+  get tickMs() {
+    const v = Number(this.store.ladder.tickMs);
+    return TICK_CHOICES.includes(v) ? v : INTERVAL_MS;
+  }
+
+  /** organizer dial. Re-arms the timer immediately when the scrimmage is live. */
+  setTickMs(ms) {
+    const next = Number(ms);
+    if (!TICK_CHOICES.includes(next)) return { error: 'not a speed we offer' };
+    if (next === this.tickMs) return { ok: true, tickMs: next };
+    this.store.ladder.tickMs = next;
+    this._save();
+    if (this.running) { this.stop(); this.start(); }
+    return { ok: true, tickMs: next };
+  }
 
   get sub() { return this.store.ladder.submissions; }
   _save() { this.store._save('ladder.json', this.store.ladder); }
@@ -120,6 +145,7 @@ class LadderServer {
       return {
         top: [], totalBots: 0, totalMatches: 0, running: false, hidden: true,
         seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES, mine: [],
+        tickMs: this.tickMs, tickChoices: TICK_CHOICES,
       };
     }
     const board = this.board();
@@ -130,6 +156,7 @@ class LadderServer {
       running: this.running,
       hidden: false,
       seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES,
+      tickMs: this.tickMs, tickChoices: TICK_CHOICES,
       mine: this.sub.filter((s) => s.owner === user.username).map((s) => ({
         id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
         errors: s.errors, rank: board.findIndex((b) => b.id === s.id) + 1,
@@ -153,8 +180,10 @@ class LadderServer {
   start() {
     if (this._timer || !this.running) return;
     const tick = () => { this._playOne(); };
-    this._timer = setInterval(tick, INTERVAL_MS);
-    setTimeout(tick, 5_000);   // first match soon after starting
+    this._timer = setInterval(tick, this.tickMs);
+    // first match soon after starting — but never after the tick itself, or a
+    // fast speed would sit idle waiting on a five-second warm-up
+    setTimeout(tick, Math.min(5_000, this.tickMs));
   }
 
   stop() {
@@ -248,4 +277,6 @@ class LadderServer {
   }
 }
 
-module.exports = { LadderServer, SERIES_COUNT: SERIES_COUNT, LADDER_SERIES_GAMES: SERIES_GAMES };
+module.exports = {
+  LadderServer, SERIES_COUNT: SERIES_COUNT, LADDER_SERIES_GAMES: SERIES_GAMES, TICK_CHOICES,
+};

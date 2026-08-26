@@ -6,6 +6,7 @@ interface Overview {
   totalMatches: number;
   activeCount: number;
   achievementTotal: number;
+  arena: { maxWorkers: number; choices: number[]; running: number; queued: number };
   students: {
     username: string; displayName: string; isAdmin: boolean; role: string;
     active: boolean; achievements: number;
@@ -13,7 +14,18 @@ interface Overview {
   }[];
 }
 
-interface LadderState { running: boolean; totalBots: number; totalMatches: number }
+interface LadderState {
+  running: boolean; totalBots: number; totalMatches: number;
+  tickMs: number; tickChoices: number[];
+}
+
+/** a 700-game match takes ~0.5-0.9s, so these are all comfortably idle */
+const TICK_LABEL: Record<number, string> = {
+  40000: 'Relaxed — one match every 40s',
+  20000: 'Brisk — every 20s',
+  10000: 'Fast — every 10s',
+  5000: 'Frantic — every 5s',
+};
 
 export default function AdminPage() {
   const [data, setData] = useState<Overview | null>(null);
@@ -56,6 +68,27 @@ export default function AdminPage() {
       ? '▶ Scrimmage started — the Leaderboard is live for everyone'
       : '⏸ Scrimmage paused — the Leaderboard is hidden from the campers');
     refresh();
+  };
+
+  const setTick = async (ms: number) => {
+    try {
+      const r = await api.post<{ tickMs: number }>('/admin/ladder-tick', { ms });
+      setLadder((l) => (l ? { ...l, tickMs: r.tickMs } : l));
+      toast(`Scrimmage speed: a match every ${r.tickMs / 1000}s`);
+      refresh();
+    } catch (ex) {
+      toast(ex instanceof Error ? ex.message : 'could not change the speed');
+    }
+  };
+
+  const setWorkers = async (n: number) => {
+    try {
+      await api.post('/admin/arena-workers', { n });
+      toast(`Level runs and bot battles: ${n} at a time`);
+      refresh();
+    } catch (ex) {
+      toast(ex instanceof Error ? ex.message : 'could not change that');
+    }
   };
 
   const resetLadder = async () => {
@@ -147,6 +180,21 @@ export default function AdminPage() {
               🔄 Reset leaderboard
             </button>
           </div>
+          {ladder && ladder.tickChoices && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+              <label style={{ margin: 0 }}>Speed</label>
+              <select value={ladder.tickMs} style={{ width: 250 }}
+                onChange={(e) => setTick(Number(e.target.value))}>
+                {ladder.tickChoices.map((ms) => (
+                  <option key={ms} value={ms}>{TICK_LABEL[ms] ?? `every ${ms / 1000}s`}</option>
+                ))}
+              </select>
+              <span className="coup-note">
+                ≈ {Math.round(3600 / (ladder.tickMs / 1000))} matches/hour
+                · {(3600 / (ladder.tickMs / 1000) * 700).toLocaleString()} games
+              </span>
+            </div>
+          )}
         </div>
         <div className="coup-card" style={{ background: 'var(--panel-2)', margin: '0 0 16px' }}>
           <h2 className="coup-h" style={{ marginTop: 0 }}>🗓 Cohort
@@ -175,6 +223,35 @@ export default function AdminPage() {
               title="Bring every retired account back">
               ↩ Bring everyone back
             </button>
+          </div>
+        </div>
+
+        <div className="coup-card" style={{ background: 'var(--panel-2)', margin: '0 0 16px' }}>
+          <h2 className="coup-h" style={{ marginTop: 0 }}>⚙️ Match queue
+            <small>
+              {data.arena.running} running · {data.arena.queued} waiting ·
+              {' '}{data.arena.maxWorkers} at a time
+            </small>
+          </h2>
+          <p className="coup-sub">
+            Level runs and bot battles share these workers, so a whole class pressing
+            “play this level” at once queues behind them. One match is ~700 games and
+            takes about a second. Raise this if campers are waiting; lower it if the
+            site feels sluggish — a small cloud instance has far less CPU than it claims.
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ margin: 0 }}>At once</label>
+            <select value={data.arena.maxWorkers} style={{ width: 110 }}
+              onChange={(e) => setWorkers(Number(e.target.value))}>
+              {data.arena.choices.map((n) => (
+                <option key={n} value={n}>{n} match{n === 1 ? '' : 'es'}</option>
+              ))}
+            </select>
+            <span className="coup-note">
+              {data.arena.maxWorkers <= 2
+                ? 'safe on any instance'
+                : 'needs real CPU — check the site stays responsive'}
+            </span>
           </div>
         </div>
 

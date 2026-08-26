@@ -36,6 +36,8 @@ class Store {
     this.matches = this._load('matches.json', { list: [] });
     this.ladder = this._load('ladder.json', { submissions: [], totalMatches: 0, running: true });
     this.achievements = this._load('achievements.json', {});
+    // organizer-tuned knobs that are not about any one subsystem's data
+    this.settings = this._load('settings.json', {});
     this._timers = {};
   }
 
@@ -52,11 +54,12 @@ class Store {
   }
   /** achievements move in tiny bursts and matter immediately — short debounce */
   saveAchievements() { this._save('achievements.json', this.achievements, 500); }
+  saveSettings() { this._save('settings.json', this.settings, 500); }
 
   flush() {
     for (const [file, obj] of [['users.json', this.users], ['sessions.json', this.sessions],
       ['bots.json', this.bots], ['matches.json', this.matches], ['ladder.json', this.ladder],
-      ['achievements.json', this.achievements]]) {
+      ['achievements.json', this.achievements], ['settings.json', this.settings]]) {
       clearTimeout(this._timers[file]);
       try { fs.writeFileSync(path.join(this.dir, file), JSON.stringify(obj)); } catch {}
     }

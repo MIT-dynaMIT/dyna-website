@@ -449,6 +449,13 @@ app.get('/api/coup/admin/overview', auth, adminOnly, (req, res) => {
     totalMatches: store.matches.list.length,
     activeCount: store.activeUsernames().length,
     achievementTotal: book.total(),
+    // match-queue throughput, so the organizer can see and tune the bottleneck
+    arena: {
+      maxWorkers: arena.maxWorkers,
+      choices: require('./arena').WORKER_CHOICES,
+      running: arena.running,
+      queued: arena.queue.length,
+    },
     students: Object.values(store.users).map((u) => {
       const sel = store.selectedBot(u);
       return {
@@ -522,6 +529,20 @@ app.post('/api/coup/admin/revoke-sessions', auth, adminOnly, (req, res) => {
 app.post('/api/coup/admin/ladder-run', auth, adminOnly, (req, res) => {
   const running = ladder.setRunning(!!(req.body && req.body.running));
   res.json({ ok: true, running });
+});
+
+// how many level runs / bot battles may run at once — effective immediately
+app.post('/api/coup/admin/arena-workers', auth, adminOnly, (req, res) => {
+  const r = arena.setMaxWorkers(req.body && req.body.n);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+// how often the scrimmage pairs bots — takes effect immediately, no restart
+app.post('/api/coup/admin/ladder-tick', auth, adminOnly, (req, res) => {
+  const r = ladder.setTickMs(req.body && req.body.ms);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
 });
 
 app.post('/api/coup/admin/ladder-reset', auth, adminOnly, (req, res) => {

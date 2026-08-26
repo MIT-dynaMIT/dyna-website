@@ -25,7 +25,13 @@ const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
  * `busy` guard keeps it correct either way — a tick landing mid-match is
  * dropped, never queued, so the rate self-limits instead of piling up.
  */
-const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000, 1_000];
+const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000, 1_000, 0];
+
+/** 0 = MAX: no waiting at all — the next match starts the moment one ends. */
+const MAX_SPEED = 0;
+/** even at MAX a slow heartbeat runs, so a worker dying without reporting
+ *  back cannot silently stall the whole scrimmage */
+const WATCHDOG_MS = 2_000;
 
 /** which house bots sit on the scrimmage board, by name */
 const HOUSE_DEFENDERS = ['Andrew', 'Nish'];
@@ -204,10 +210,12 @@ class LadderServer {
   start() {
     if (this._timer || !this.running) return;
     const tick = () => { this._playOne(); };
-    this._timer = setInterval(tick, this.tickMs);
+    // At MAX the chain in _playOne drives everything and this is only a
+    // watchdog; otherwise it is the metronome.
+    this._timer = setInterval(tick, this.tickMs === MAX_SPEED ? WATCHDOG_MS : this.tickMs);
     // first match soon after starting — but never after the tick itself, or a
     // fast speed would sit idle waiting on a five-second warm-up
-    setTimeout(tick, Math.min(5_000, this.tickMs));
+    setTimeout(tick, this.tickMs === MAX_SPEED ? 0 : Math.min(5_000, this.tickMs));
   }
 
   stop() {
@@ -268,6 +276,10 @@ class LadderServer {
     });
     const finish = (result) => {
       this.busy = false;
+      // MAX speed: straight into the next one. setImmediate rather than a
+      // direct call so the chain unwinds instead of nesting, and so the HTTP
+      // server gets a turn of the event loop between matches.
+      if (this.tickMs === MAX_SPEED && this.running) setImmediate(() => this._playOne());
       if (!result || !result.ok) return;   // a broken bot just skips its turn
       const [wa, wb] = result.score;
       const outcome = wa > wb ? 1 : wa < wb ? 0 : 0.5;

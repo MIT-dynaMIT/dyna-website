@@ -26,6 +26,7 @@ const TICK_LABEL: Record<number, string> = {
   10000: 'Fast — every 10s',
   5000: 'Frantic — every 5s',
   1000: 'Flat out — every 1s ⚠',
+  0: 'MAX — no waiting at all ⚠⚠',
 };
 
 export default function AdminPage() {
@@ -191,9 +192,15 @@ export default function AdminPage() {
                 ))}
               </select>
               <span className="coup-note">
-                ≈ {Math.round(3600 / (ladder.tickMs / 1000))} matches/hour
-                · {(3600 / (ladder.tickMs / 1000) * 700).toLocaleString()} games
-                {ladder.tickMs <= 1000 && ' · a worker busy ~70% of the time, ~250 MB/hr of records'}
+                {ladder.tickMs === 0
+                  // no interval to divide by — a match takes ~0.7s, so this is
+                  // simply as fast as the machine goes
+                  ? 'as fast as the machine allows — roughly 5,000 matches/hour, one worker pinned. Do not leave this on.'
+                  : <>
+                      ≈ {Math.round(3600 / (ladder.tickMs / 1000))} matches/hour
+                      · {(3600 / (ladder.tickMs / 1000) * 700).toLocaleString()} games
+                      {ladder.tickMs <= 1000 && ' · a worker busy ~70% of the time, ~250 MB/hr of records'}
+                    </>}
               </span>
             </div>
           )}

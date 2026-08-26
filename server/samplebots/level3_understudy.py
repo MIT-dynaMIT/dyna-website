@@ -33,10 +33,6 @@
 # Beat it by being the kind of opponent it cannot model: challenge it early
 # and often, and it will keep walking into you.
 
-def unseen(state, role):
-    seen = state.my_cards.count(role) + state.my_graveyard.count(role)
-    return 3 - seen - state.opponent.graveyard.count(role)
-
 def your_turn(state):
     call = best_coup_call(state)
     if state.my_coins >= 10:
@@ -61,7 +57,7 @@ def your_turn(state):
         return exchange()
     # THE LIE — flat 30%, and only while a Duke is still unaccounted for.
     # Andrew would price this off how much is unseen and who is watching.
-    if unseen(state, "duke") > 0 and chance(0.3):
+    if unseen_copies(state, "duke") > 0 and chance(0.3):
         return tax()
     if prob_opponent_has(state, "duke") < 0.45 and times_claimed(state.opponent, "duke") == 0:
         return foreign_aid()
@@ -70,7 +66,7 @@ def your_turn(state):
 def respond(state, action):
     if action.claimed_role != None:
         # a claim nobody can possibly hold is a free card
-        if unseen(state, action.claimed_role) <= 0:
+        if unseen_copies(state, action.claimed_role) <= 0:
             return challenge()
         # challenging a BLOCK is double value: the card and the action
         if action.is_block and chance(0.35):
@@ -78,7 +74,7 @@ def respond(state, action):
     if action.type == "foreign_aid":
         if "duke" in state.my_cards:
             return block("duke")
-        if unseen(state, "duke") > 0 and chance(0.3):
+        if unseen_copies(state, "duke") > 0 and chance(0.3):
             return block("duke")
     return allow()
 
@@ -90,7 +86,7 @@ def when_assassinated(state, action):
         return block_contessa()
     if state.my_lives <= 1:
         return block_contessa()
-    if unseen(state, "contessa") > 0 and chance(0.45):
+    if unseen_copies(state, "contessa") > 0 and chance(0.45):
         return block_contessa()
     return allow()
 

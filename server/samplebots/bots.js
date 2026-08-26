@@ -61,7 +61,7 @@ const HOUSE = [
   { name: 'Megan',  source: py('level2_auditor.py') },
   // measured to sit between them: beats Megan 56-61%, loses to Andrew 56-62%
   // across four independent 400-game seeds
-  { name: 'Nithya', source: py('level3_understudy.py') },
+  { name: 'Nishita', source: py('level3_understudy.py') },
   { name: 'Andrew', source: py('ultimate.py') },
 ];
 

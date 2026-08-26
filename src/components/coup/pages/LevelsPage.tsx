@@ -8,7 +8,7 @@ import Bufo from '../Bufo';
 const LEVEL_FLAVOR = [
   "Level 1. Victor made this game. That doesn't mean he's good at it.",
   'Level 2. Megan is disappointed you even tried.',
-  "Level 3. Nithya learned everything from Andrew except when to stop talking.",
+  "Level 3. Nishita learned everything from Andrew except when to stop talking.",
   "Level 4. The final boss. We don't talk about Andrew's win rate.",
 ];
 const LEVEL_ICON = ['🥉', '🥈', '🥇', '🏆'];
@@ -93,7 +93,7 @@ export default function LevelsPage() {
     <div>
       <div className="coup-card" style={{ marginBottom: 18 }}>
         <h2 className="coup-h">🎯 Levels
-          <small>three bots to beat · best of {data.seriesCount} · each round is a {data.seriesGames}-game series</small>
+          <small>four bots to beat · best of {data.seriesCount} · each round is a {data.seriesGames}-game series</small>
         </h2>
         <p className="coup-sub">
           Your <b>selected bot</b> plays a house bot for {data.seriesCount} rounds of {data.seriesGames} games

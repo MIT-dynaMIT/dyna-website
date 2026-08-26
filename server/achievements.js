@@ -20,7 +20,7 @@
 
 // ------------------------------------------------------------ categories
 const CATEGORIES = [
-  { id: 'levels', name: 'The Gauntlet', blurb: 'Three house bots stand in your way.' },
+  { id: 'levels', name: 'The Gauntlet', blurb: 'Four house bots stand in your way.' },
   { id: 'bluff', name: 'The Art of Lying', blurb: 'Claim what you do not hold.' },
   { id: 'read', name: 'Reading the Room', blurb: 'Work out when THEY are lying.' },
   { id: 'ladder', name: 'The Scrimmage', blurb: 'Everyone else’s bots, all day long.' },
@@ -60,8 +60,8 @@ const ACHIEVEMENTS = [
     desc: 'Beat Level 1. Victor wrote this game; that never meant he was good at it.' },
   { id: 'beat_megan', cat: 'levels', icon: '🥈', name: 'Megan Is Still Disappointed',
     desc: 'Beat Level 2. She expected this, but she is not impressed.' },
-  { id: 'beat_nithya', cat: 'levels', icon: '🥇', name: 'The Understudy Sits Down',
-    desc: 'Beat Level 3. Nithya knew almost enough.' },
+  { id: 'beat_nishita', cat: 'levels', icon: '🥇', name: 'The Understudy Sits Down',
+    desc: 'Beat Level 3. Nishita knew almost enough.' },
   { id: 'beat_andrew', cat: 'levels', icon: '🏆', name: 'We Do Not Talk About Andrew',
     desc: 'Beat Level 4. The final boss falls.' },
   { id: 'beat_all', cat: 'levels', icon: '👑', name: 'Clean Sweep of the Court',
@@ -289,12 +289,38 @@ function scanSource(source, scaffoldComments) {
 }
 
 // ------------------------------------------------------------ the engine
+/**
+ * Awards whose id changed after they had already shipped. count() only counts
+ * ids still in the registry, so a rename would silently delete the award from
+ * anyone already holding it — carry them over on boot instead.
+ */
+const RENAMED = { beat_nithya: 'beat_nishita' };
+
 class AchievementBook {
   constructor(store) {
     this.store = store;
     // scaffold comments are "free" — loaded lazily so a missing samplebots
     // folder can never stop the server booting
     this._scaffold = null;
+    this._migrate();
+  }
+
+  _migrate() {
+    let touched = 0;
+    for (const rec of Object.values(this.store.achievements || {})) {
+      if (!rec || !rec.unlocked) continue;
+      for (const [from, to] of Object.entries(RENAMED)) {
+        if (rec.unlocked[from] === undefined) continue;
+        if (rec.unlocked[to] === undefined) rec.unlocked[to] = rec.unlocked[from];
+        delete rec.unlocked[from];
+        if (rec.pending) rec.pending = rec.pending.map((id) => (id === from ? to : id));
+        touched++;
+      }
+    }
+    if (touched) {
+      this.store.saveAchievements();
+      console.log(`[achievements] carried ${touched} renamed unlock(s) across`);
+    }
   }
 
   get _data() { return this.store.achievements; }
@@ -574,12 +600,12 @@ class AchievementBook {
         // keyed by the boss's NAME, so inserting a level never re-points an award
         const level = {
           Victor: 'beat_victor', Megan: 'beat_megan',
-          Nithya: 'beat_nithya', Andrew: 'beat_andrew',
+          Nishita: 'beat_nishita', Andrew: 'beat_andrew',
         }[ctx.houseName];
         if (level) {
           ids.push(level);
           const held = this._rec(username).unlocked;
-          const all = ['beat_victor', 'beat_megan', 'beat_nithya', 'beat_andrew'];
+          const all = ['beat_victor', 'beat_megan', 'beat_nishita', 'beat_andrew'];
           if (all.every((x) => x === level || held[x])) ids.push('beat_all');
         }
       }

@@ -62,7 +62,10 @@ const HOUSE = [
   // measured to sit between them: beats Megan 56-61%, loses to Andrew 56-62%
   // across four independent 400-game seeds
   { name: 'Nishita', source: py('level3_understudy.py') },
-  { name: 'Andrew', source: py('ultimate.py') },
+  // Andrew is back to THE ARBITER v1 — the build Dom Dang beat. v2 (the
+  // rebuild that went 0-for-830 against the field) is in ./archive/ as
+  // arbiter_v2_ultimate.py if the boss ever needs its teeth back.
+  { name: 'Andrew', source: py('arbiter_v1.py') },
 ];
 
 module.exports = { HOUSE, THE_SCAFFOLD };

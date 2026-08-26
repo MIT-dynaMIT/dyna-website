@@ -26,6 +26,9 @@ const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
  * dropped, never queued, so the rate self-limits instead of piling up.
  */
 const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000, 1_000];
+
+/** which house bots sit on the scrimmage board, by name */
+const HOUSE_DEFENDERS = ['Andrew', 'Nishita'];
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {
@@ -69,17 +72,35 @@ class LadderServer {
   get sub() { return this.store.ladder.submissions; }
   _save() { this.store._save('ladder.json', this.store.ladder); }
 
-  /** Andrew defends the ladder for the house */
+  /**
+   * The house bots that defend the ladder. Keyed by NAME so a defender is
+   * matched to its entry even after its source is rewritten — swapping Andrew
+   * for an older build updates the existing entry in place and keeps its ELO
+   * history rather than seeding a stranger at 1000.
+   */
   ensureHouse() {
-    const andrew = HOUSE.find((h) => h.name === 'Andrew') || HOUSE[HOUSE.length - 1];
-    let e = this.sub.find((x) => x.owner === 'house');
-    if (!e) {
-      this.sub.push(this._entry('house', 'The House', -1, andrew.name, andrew.source));
-      this._save();
-    } else if (e.source !== andrew.source) {
-      e.source = andrew.source; e.name = andrew.name;
-      this._save();
+    let changed = false;
+    for (const name of HOUSE_DEFENDERS) {
+      const h = HOUSE.find((x) => x.name === name);
+      if (!h) continue;
+      const e = this.sub.find((x) => x.owner === 'house' && x.name === name);
+      if (!e) {
+        this.sub.push(this._entry('house', 'The House', -1, h.name, h.source));
+        changed = true;
+      } else if (e.source !== h.source) {
+        e.source = h.source;                       // same defender, new build
+        changed = true;
+      }
     }
+    // a house entry for a bot that no longer defends comes off the board
+    const keep = new Set(HOUSE_DEFENDERS);
+    for (let i = this.sub.length - 1; i >= 0; i--) {
+      if (this.sub[i].owner === 'house' && !keep.has(this.sub[i].name)) {
+        this.sub.splice(i, 1);
+        changed = true;
+      }
+    }
+    if (changed) this._save();
   }
 
   _entry(owner, ownerName, slot, name, source) {

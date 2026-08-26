@@ -85,16 +85,23 @@ const isNone = (e: Node) => e && e.k === 'num' && e.v === null;
 
 // -------------------------------------------------- entry point
 export function astToWorkspaceJson(
-  ast: { fns: Record<string, Node>; globals?: { name: string }[] },
+  ast: { fns: Record<string, Node>; globals?: { name: string; value: Node }[] },
 ): object {
   ensureBlocklySetup();
-  // Blocks have no way to show a top-level variable, and quietly dropping one
-  // would delete a camper's memory the moment they peeked at Blocks. Refuse
-  // instead — the editor catches this and keeps them in Advanced.
-  if (ast.globals && ast.globals.length) {
-    const names = ast.globals.map((g) => g.name).join(', ');
+  // Top-level `x = None` is exactly what the block generator emits for a
+  // memory variable, so it round-trips for free — Blockly rebuilds those
+  // declarations from the variables the blocks actually use.
+  //
+  // A top-level variable with a REAL starting value is different: blocks have
+  // nowhere to put "starts at 7". Refuse rather than silently drop it, which
+  // would quietly reset a camper's memory the moment they peeked at Blocks.
+  // The editor catches this and keeps them in Advanced.
+  const withValues = (ast.globals || []).filter((g) => !isNone(g.value));
+  if (withValues.length) {
+    const names = withValues.map((g) => `${g.name} = …`).join(', ');
     throw new DecompileError(
-      `this bot remembers things between turns (${names}), and blocks cannot show that yet`,
+      `this bot starts a memory variable at a set value (${names}), and blocks `
+      + 'cannot show that — set it inside "when a new game starts" instead',
     );
   }
   const ws = new Blockly.Workspace();

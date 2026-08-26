@@ -1015,10 +1015,16 @@ export function generatePython(workspace: Blockly.Workspace): string {
   let code = pythonGenerator.workspaceToCode(workspace);
   // Blockly's Python generator treats every block variable as a global: it
   // seeds top-level `x = None` lines and adds `global x` inside functions.
-  // botlang has neither and forbids both (top level = defs only), so the
-  // variables kids/decompiled bots use are already plain function locals —
-  // drop the injected lines.
-  code = code.replace(/^[A-Za-z_]\w* = None *$/gm, '').replace(/^[ \t]*global .*$/gm, '');
+  //
+  // We KEEP the top-level lines. Blockly already presents variables as global
+  // — one shared dropdown across every block — so making them behave that way
+  // is what the blocks were promising all along, and it is what gives block
+  // campers memory at all. Set a variable in one turn, read it the next.
+  //
+  // The `global x` lines still go: botlang has no such keyword, because
+  // assigning to a name declared at the top level writes to the shared one
+  // automatically. Nothing to declare, nothing to teach.
+  code = code.replace(/^[ \t]*global .*$/gm, '');
   return code.replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 

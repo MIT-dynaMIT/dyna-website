@@ -639,6 +639,15 @@ function checkProgram(source) {
     const rng = mkRng(seedArr);
     const names = { a: 'you', b: 'Rival' };
 
+    // ---- state 0: run new_game first, exactly as a real game does.
+    // Without this, a bot whose memory starts at None fails the whole battery
+    // on "expected a number but got None" — a bot that plays perfectly well.
+    if (program.has('new_game')) {
+      const g0 = new CoupGame(['a', 'b'], mkRng(seedArr));
+      const r0 = callRaw('new_game', buildState(g0, 'a', names, {}), [], rng);
+      if (r0.threw) once('new_game', `crashed: ${r0.threw.message}`, r0.threw.line);
+    }
+
     // ---- state 1: your turn, mid-game flavor
     const g1 = new CoupGame(['a', 'b'], rng);
     g1.player('a').coins = 3;

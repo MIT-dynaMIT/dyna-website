@@ -78,6 +78,7 @@ class Arena {
     this.queue = [];
     this.running = 0;
     this.jobs = new Map();     // id -> {id, mode, level, players, owners, ownerNames, status, ts, error}
+    this.lastServed = new Map();   // username -> when a match of theirs last STARTED
   }
 
   /** a, b: {owner, ownerName, name, source}; mode 'gauntlet'|'botduel' */
@@ -151,9 +152,40 @@ class Arena {
       owners: j.owners, ownerNames: j.ownerNames, status: j.status, ts: j.ts, error: j.error };
   }
 
+  /**
+   * FAIR SHARE, not first-come-first-served.
+   *
+   * A queue is only fair if waiting is what earns you a turn. Straight FIFO
+   * means a camper who fires off three level runs occupies the front of the
+   * line, and everyone behind waits for all three — the more you spam, the
+   * more of the queue you own.
+   *
+   * So the next job is the one belonging to whoever has gone LONGEST without a
+   * match starting. Somebody who just had one drops to the back of the pack
+   * automatically, and their second and third runs fill the gaps between other
+   * people's firsts. Ties fall back to enqueue order, so among equals it is
+   * still FIFO.
+   */
+  _takeNext() {
+    let bestIdx = 0;
+    let bestAt = Infinity;
+    for (let i = 0; i < this.queue.length; i++) {
+      // a job's claim on the queue is its neediest human owner
+      const owners = this.queue[i].owners.filter((o) => o && o !== 'house');
+      const served = owners.length
+        ? Math.min(...owners.map((o) => this.lastServed.get(o) || 0))
+        : 0;
+      if (served < bestAt) { bestAt = served; bestIdx = i; }   // ties keep the earlier job
+    }
+    const job = this.queue.splice(bestIdx, 1)[0];
+    const now = Date.now();
+    for (const o of job.owners) if (o && o !== 'house') this.lastServed.set(o, now);
+    return job;
+  }
+
   _drain() {
     while (this.running < this.maxWorkers && this.queue.length) {
-      const job = this.queue.shift();
+      const job = this._takeNext();
       this.running++;
       job.status = 'running';
       const worker = new Worker(path.join(__dirname, 'arena-worker.js'), {

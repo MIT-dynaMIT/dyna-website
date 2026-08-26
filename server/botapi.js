@@ -407,6 +407,10 @@ class ScriptBot {
     this.program = compile(source);
   }
 
+  /** forget the bot's top-level variables — called between series, so its own
+   *  memory spans exactly what state.series does and no more */
+  resetMemory() { this.program.resetGlobals(); }
+
   _call(fn, args, state, rng) {
     if (!this.program.has(fn)) return undefined;
     try {

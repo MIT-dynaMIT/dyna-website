@@ -5,6 +5,8 @@
  * advanced students type it directly. It is deliberately small:
  *
  *   def / return / if / elif / else / while / for-in / pass / break / continue
+ *   top-level variables (bot memory: they survive from call to call, and are
+ *     reset between series so a bot's own memory spans what state.series does)
  *   numbers, strings, booleans, None, lists, dicts
  *   and / or / not / in / not in / comparisons / + - * / // % **
  *   attribute access (state.my_coins), indexing (xs[0], xs[-1]), ternary
@@ -100,6 +102,7 @@ function parse(src) {
 
   function parseProgram() {
     const fns = {};
+    const globals = [];      // top-level `name = expr`, in source order
     while (!at('EOF')) {
       if (at('NEWLINE')) { next(); continue; }
       if (at('def')) {
@@ -112,9 +115,22 @@ function parse(src) {
         fns[f.name] = f;
         continue;
       }
-      throw new CompileError('only "def" function definitions are allowed at the top level', peek().line);
+      // a top-level variable: `memory = {}` / `taxes_seen = 0`
+      if (at('NAME') && toks[p + 1] && toks[p + 1].t === '=') {
+        const line = peek().line;
+        const name = next().v;
+        next();                                   // '='
+        const value = parseExpr();
+        if (at('NEWLINE')) next();
+        globals.push({ name, value, line });
+        continue;
+      }
+      throw new CompileError(
+        'at the top level you can only define functions ("def ...") or set a '
+        + 'variable ("count = 0"). Everything else has to go inside a function.',
+        peek().line);
     }
-    return { fns };
+    return { fns, globals };
   }
 
   function parseDef() {
@@ -383,9 +399,37 @@ class Program {
   constructor(source) {
     this.source = source;
     this.ast = parse(source);           // throws CompileError
+    this.globalNames = new Set((this.ast.globals || []).map((g) => g.name));
+    this._globalValues = null;          // built on first call, then kept
   }
   has(name) { return !!this.ast.fns[name]; }
   functionNames() { return Object.keys(this.ast.fns); }
+
+  /**
+   * Evaluate the top-level variables once. They are plain literals as far as
+   * the game is concerned — `state` does not exist yet — so anything reaching
+   * for it fails here with a line number rather than mid-match.
+   */
+  _initGlobals(rng, printOut) {
+    if (this._globalValues) return;
+    this._globalValues = Object.create(null);
+    const g = Object.assign(Object.create(null), stdBuiltins(rng, printOut));
+    const S = { steps: 0, maxSteps: 10000, depth: 0, globals: g, globalNames: new Set(), globalStore: null };
+    for (const d of this.ast.globals || []) {
+      try {
+        const v = evalExpr(d.value, Object.create(null), S);
+        this._globalValues[d.name] = v;
+        g[d.name] = v;
+      } catch (err) {
+        throw new BotRuntimeError(
+          `the top-level variable "${d.name}" could not be worked out: ${err.message}`
+          + ' — variables up here can only use plain values, not the game state.', d.line);
+      }
+    }
+  }
+
+  /** forget everything the bot remembered — a fresh mind for a fresh match */
+  resetGlobals() { this._globalValues = null; }
 
   /**
    * Call a top-level function. `env` maps names → values (game builtins,
@@ -395,10 +439,17 @@ class Program {
     const fn = this.ast.fns[name];
     if (!fn) throw new BotRuntimeError(`function "${name}" is not defined`);
     const globals = Object.assign(Object.create(null), stdBuiltins(rng, printOut), env);
+    // the bot's own memory, carried over from previous calls, before the
+    // function names so a `def` always wins a name clash
+    this._initGlobals(rng, printOut);
+    for (const k of this.globalNames) globals[k] = this._globalValues[k];
     for (const [fname, fdef] of Object.entries(this.ast.fns)) {
       globals[fname] = { __fn: fdef, __globals: globals };
     }
-    const state = { steps: 0, maxSteps, depth: 0, globals };
+    const state = {
+      steps: 0, maxSteps, depth: 0, globals,
+      globalNames: this.globalNames, globalStore: this._globalValues,
+    };
     return callFn(globals[name], args, state);
   }
 }
@@ -447,7 +498,18 @@ function execStmt(st, locals, S) {
         const opc = st.op[0];
         v = binop(opc, cur, v, st.line);
       }
-      if (st.target.k === 'name') locals[st.target.v] = v;
+      if (st.target.k === 'name') {
+        const n = st.target.v;
+        // A name set at the TOP LEVEL is shared memory, not a fresh local, so
+        // assigning to it inside a function updates the one everybody sees —
+        // and it has to reach the persistent store, because `globals` is
+        // rebuilt on every call. No `global` keyword to teach: if you declared
+        // it up top, writing to it means writing to it.
+        if (!(n in locals) && S.globalNames && S.globalNames.has(n)) {
+          S.globals[n] = v;
+          if (S.globalStore) S.globalStore[n] = v;
+        } else locals[n] = v;
+      }
       else {
         const obj = evalExpr(st.target.obj, locals, S);
         const idx = evalExpr(st.target.idx, locals, S);

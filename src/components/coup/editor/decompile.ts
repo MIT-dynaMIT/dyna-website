@@ -83,8 +83,19 @@ const isAttrOf = (e: Node, objName: string, attr: string) =>
 const isNone = (e: Node) => e && e.k === 'num' && e.v === null;
 
 // -------------------------------------------------- entry point
-export function astToWorkspaceJson(ast: { fns: Record<string, Node> }): object {
+export function astToWorkspaceJson(
+  ast: { fns: Record<string, Node>; globals?: { name: string }[] },
+): object {
   ensureBlocklySetup();
+  // Blocks have no way to show a top-level variable, and quietly dropping one
+  // would delete a camper's memory the moment they peeked at Blocks. Refuse
+  // instead — the editor catches this and keeps them in Advanced.
+  if (ast.globals && ast.globals.length) {
+    const names = ast.globals.map((g) => g.name).join(', ');
+    throw new DecompileError(
+      `this bot remembers things between turns (${names}), and blocks cannot show that yet`,
+    );
+  }
   const ws = new Blockly.Workspace();
   try {
     const procs = new Map<string, string[]>();

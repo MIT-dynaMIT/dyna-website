@@ -219,6 +219,12 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
     [botA.name]: { challenges: 0, claims: 0, caught: 0, proofs: 0, contessaBlocks: 0 },
     [botB.name]: { challenges: 0, claims: 0, caught: 0, proofs: 0, contessaBlocks: 0 },
   };
+  // A bot's own top-level variables are matchup memory, exactly like the
+  // series_* stats — so they start empty at game 1 of every series and are
+  // earned inside it. Without this they would quietly span all 7 series of a
+  // match, which is more than state.series ever tells them.
+  for (const b of [botA, botB]) if (b.bot && b.bot.resetMemory) b.bot.resetMemory();
+
   const samples = [];
   const sampleIdx = new Set(sampleAt || [0, Math.floor(total / 2), total - 1]);
   const errors = {};

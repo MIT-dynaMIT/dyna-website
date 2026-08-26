@@ -582,8 +582,11 @@ export default function EditorPage({ user }: { user: CoupUser }) {
               />
             </div>
             <p className="coup-note ed-py-note">
-              Write functions only: <code>your_turn</code>, <code>respond</code>, <code>when_assassinated</code>,
-              <code> choose_card_to_lose</code>. Heads-up: <code>coup</code> and <code>assassinate</code> name a
+              Write the functions <code>your_turn</code>, <code>respond</code>, <code>when_assassinated</code>,
+              <code> choose_card_to_lose</code> — plus, if you want the bot to <b>remember</b> things,
+              variables at the top like <code>taxes_seen = 0</code>. Those keep their value from turn to
+              turn and game to game, and start fresh against each new opponent.
+              Heads-up: <code>coup</code> and <code>assassinate</code> name a
               character (<code>coup("duke")</code>, <code>assassinate("duke", 0.35)</code>). There are four
               characters — duke, assassin, ambassador, contessa. No imports, f-strings, or keyword args — pass
               values positionally.

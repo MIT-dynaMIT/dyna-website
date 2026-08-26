@@ -24,6 +24,11 @@
 #   - WHEN TO SHUT UP. It has no idea it has been caught. Andrew stops lying
 #      after three catches; the Understudy will happily be caught nine times
 #      claiming the same Duke.
+#   - WHEN TO CHANGE THE SUBJECT. Exchanging wipes every claim it has made,
+#      which is the one move that makes a repeated lie survivable. It only
+#      bothers one time in five. Raising that single number is worth about ten
+#      points against a bot that counts your claims — find it and you have
+#      found most of the gap to Level 4.
 #
 # Beat it by being the kind of opponent it cannot model: challenge it early
 # and often, and it will keep walking into you.
@@ -48,8 +53,11 @@ def your_turn(state):
             return assassinate(call, 0.8)
     if "duke" in state.my_cards:
         return tax()
-    if "ambassador" in state.my_cards and state.my_claims != [] and chance(0.4):
-        # wipe the record before anyone tests it
+    if "ambassador" in state.my_cards and state.my_claims != [] and chance(0.2):
+        # Wipe the record before anyone tests it — but only sometimes, because
+        # it does not really understand WHY this matters. Exchanging clears
+        # every claim it has made; against someone who punishes a repeated
+        # claim, that is the difference between a story and a confession.
         return exchange()
     # THE LIE — flat 30%, and only while a Duke is still unaccounted for.
     # Andrew would price this off how much is unseen and who is watching.

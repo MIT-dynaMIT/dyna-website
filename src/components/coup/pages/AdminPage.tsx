@@ -19,12 +19,13 @@ interface LadderState {
   tickMs: number; tickChoices: number[];
 }
 
-/** a 700-game match takes ~0.5-0.9s, so these are all comfortably idle */
+/** a 700-game match takes ~0.5-0.9s, so all but the last are comfortably idle */
 const TICK_LABEL: Record<number, string> = {
   40000: 'Relaxed — one match every 40s',
   20000: 'Brisk — every 20s',
   10000: 'Fast — every 10s',
   5000: 'Frantic — every 5s',
+  1000: 'Flat out — every 1s ⚠',
 };
 
 export default function AdminPage() {
@@ -192,6 +193,7 @@ export default function AdminPage() {
               <span className="coup-note">
                 ≈ {Math.round(3600 / (ladder.tickMs / 1000))} matches/hour
                 · {(3600 / (ladder.tickMs / 1000) * 700).toLocaleString()} games
+                {ladder.tickMs <= 1000 && ' · a worker busy ~70% of the time, ~250 MB/hr of records'}
               </span>
             </div>
           )}

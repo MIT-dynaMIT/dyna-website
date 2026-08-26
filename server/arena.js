@@ -7,6 +7,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const { HOUSE } = require('./samplebots/bots');
@@ -14,19 +16,59 @@ const { HOUSE } = require('./samplebots/bots');
 const SERIES_COUNT = 5;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 const SAMPLE_AT = [0, 49, 99];          // game 1, 50, 100 of each series
-/**
- * How many bot matches run at once. These two workers are shared by EVERY
- * camper's level runs and bot battles, so a class of 40 all pressing "play
- * this level" queues behind them.
- *
- * Default stays 2 because the deploy target may be a small instance — and
- * os.cpus() lies inside a container, reporting the host's cores rather than
- * the quota, so it cannot be auto-derived safely. Organizers raise it live
- * from the Organizer tab when the machine can take it.
- */
 const WORKER_CHOICES = [1, 2, 3, 4, 6, 8];
-const DEFAULT_WORKERS = Number(process.env.COUP_MAX_WORKERS || 2);
 const MAX_PENDING_PER_USER = 3;
+
+/**
+ * CPUs actually available to THIS process.
+ *
+ * os.cpus() counts the HOST's cores, which inside a container is a fantasy —
+ * a 0.1-CPU instance on an 8-core box still reports 8. The truth is in the
+ * cgroup quota, so read that first and only fall back to the core count when
+ * there is no quota to read (bare metal, or macOS, which has no cgroups).
+ */
+function cpuBudget() {
+  // cgroup v2: "<quota> <period>", or "max <period>" when uncapped
+  try {
+    const [q, p] = fs.readFileSync('/sys/fs/cgroup/cpu.max', 'utf8').trim().split(/\s+/);
+    if (q !== 'max') {
+      const n = Number(q) / Number(p || 100000);
+      if (n > 0) return n;
+    }
+  } catch { /* not cgroup v2 */ }
+  // cgroup v1: quota and period in separate files, -1 quota means uncapped
+  try {
+    const q = Number(fs.readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_quota_us', 'utf8'));
+    const p = Number(fs.readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_period_us', 'utf8'));
+    if (q > 0 && p > 0) return q / p;
+  } catch { /* not cgroup v1 */ }
+  return os.availableParallelism ? os.availableParallelism() : os.cpus().length;
+}
+
+/** round down to a value the picker actually offers */
+function snapToChoice(n) {
+  let best = WORKER_CHOICES[0];
+  for (const c of WORKER_CHOICES) if (c <= n) best = c;
+  return best;
+}
+
+/**
+ * How many bot matches run at once. These workers are shared by EVERY camper's
+ * level runs and bot battles, so a class of 40 all pressing "play this level"
+ * queues behind them.
+ *
+ * Derived from the real CPU budget, leaving one for the HTTP server and the
+ * ladder: a 0.1-CPU free instance gets 1, a 14-core laptop gets 8. Organizers
+ * still override it live, and COUP_MAX_WORKERS beats everything.
+ */
+function defaultWorkers() {
+  const env = Number(process.env.COUP_MAX_WORKERS);
+  if (WORKER_CHOICES.includes(env)) return env;
+  const budget = cpuBudget();
+  if (budget < 2) return 1;              // anything tiny: never compete with the server
+  return snapToChoice(Math.floor(budget) - 1);
+}
+const DEFAULT_WORKERS = defaultWorkers();
 
 class Arena {
   /** @param book optional AchievementBook — matches award trophies as they land */

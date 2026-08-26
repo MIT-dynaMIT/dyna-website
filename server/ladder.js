@@ -16,13 +16,16 @@ const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 const K = 32;
 const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
 /**
- * Tick speeds an organizer can pick live. Measured on a 700-game match:
- * 0.52s for two light bots, 0.90s Andrew-vs-Andrew, and 72 KB of match record
- * each. 5s therefore still leaves the worker ~85% idle; anything under ~2s
- * would saturate a small instance and is left to LADDER_INTERVAL_MS, which
- * still overrides the default for anyone who really wants it.
+ * Tick speeds an organizer can pick live. Measured on a 700-game match: 0.52s
+ * for two light bots, 0.90s Andrew-vs-Andrew, 72 KB of match record each.
+ *
+ * 1s is offered but is genuinely different in kind: at ~0.5-0.9s a match the
+ * worker runs at 50-90% duty forever, and records churn at ~250 MB/hour. Fine
+ * on a real machine during a session, rough on a small cloud instance. The
+ * `busy` guard keeps it correct either way — a tick landing mid-match is
+ * dropped, never queued, so the rate self-limits instead of piling up.
  */
-const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000];
+const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000, 1_000];
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {

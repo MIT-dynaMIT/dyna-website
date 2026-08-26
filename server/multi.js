@@ -1,5 +1,5 @@
 /**
- * multi — the tables lobby around classic Coup. Players sit at 4-6 seat
+ * multi — the tables lobby around classic Coup. Players sit at 3-6 seat
  * tables (5 suggested); a table only exists because someone sat at it, and
  * the game deals itself the moment the last seat fills. After a game the
  * table goes back to waiting with its players still seated.
@@ -318,7 +318,10 @@ class MultiManager {
 
   create(user, size, practice = false) {
     this._gc();
-    const n = Math.max(4, Math.min(6, Number(size) || 5));
+    // 3 is the floor: the 15-card deck and every window generalise fine below
+    // four (verified over 200 full games), and a trio is what is left when a
+    // group of seven splits, or when someone drops out of a four
+    const n = Math.max(3, Math.min(6, Number(size) || 5));
     if (this._tableOf(user.username)) return { error: 'you are already at a table — leave it first' };
     const t = {
       id: crypto.randomBytes(6).toString('hex'),

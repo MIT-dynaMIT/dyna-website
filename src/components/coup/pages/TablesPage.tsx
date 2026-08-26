@@ -4,7 +4,7 @@ import { useToast } from '../CoupApp';
 import '../table.css';
 import '../tables.css';
 
-/** Classic multiplayer Coup — 15 cards, five roles, 4-6 players a table. */
+/** Classic multiplayer Coup — 15 cards, five roles, 3-6 players a table. */
 
 const ROLE_LABEL: Record<string, string> = {
   duke: 'Duke', assassin: 'Assassin', captain: 'Captain', ambassador: 'Ambassador', contessa: 'Contessa',
@@ -167,7 +167,7 @@ export default function TablesPage() {
       <div>
         <div className="coup-card" style={{ marginBottom: 18 }}>
           <h2 className="coup-h">🐸 Multiplayer Coup
-            <small>classic rules · 15 cards · five characters · 4-6 a table</small>
+            <small>classic rules · 15 cards · five characters · 3-6 a table</small>
           </h2>
           <p className="coup-sub">
             Real Coup, everyone for themselves. Sit at a table — the game deals the moment
@@ -176,6 +176,7 @@ export default function TablesPage() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <label style={{ margin: 0 }}>Table size</label>
             <select value={size} onChange={(e) => setSize(Number(e.target.value))} style={{ width: 130 }}>
+              <option value={3}>3 players</option>
               <option value={4}>4 players</option>
               <option value={5}>5 players ★</option>
               <option value={6}>6 players</option>

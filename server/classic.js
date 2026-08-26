@@ -1,5 +1,5 @@
 /**
- * classic — CLASSIC multiplayer Coup (4-6 players, 15 cards, standard rules).
+ * classic — CLASSIC multiplayer Coup (3-6 players, 15 cards, standard rules).
  * Completely separate from the heads-up "Ultimate" engine in coup.js: five
  * roles, two influence each, open challenge/block windows, last one standing.
  *
@@ -25,7 +25,7 @@ function shuffled(arr) {
 }
 
 class ClassicGame {
-  /** @param ids seat ids, 4-6 of them */
+  /** @param ids seat ids, 3-6 of them */
   constructor(ids) {
     this.ids = [...ids];
     this.deck = shuffled(ROLES.flatMap((r) => Array(COPIES).fill(r)));

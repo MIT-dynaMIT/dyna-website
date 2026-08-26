@@ -271,7 +271,15 @@ function buildActionResponse(ctx: Ctx, call: Node): Blockly.Block {
 /** A role argument: any expression, but a string literal must name a real role. */
 function buildCallArg(ctx: Ctx, arg: Node, where: string, line?: number): Blockly.Block {
   if (!arg) throw new DecompileError(`${where} needs a character to name`, line);
-  if (arg.k === 'str') roleLiteral(arg.v, where, arg.line ?? line);
+  if (arg.k === 'str') {
+    // We just proved this names a character, so show it as one. Falling through
+    // to buildExpr would hand back a generic text block — a camper opening a
+    // house bot in Blocks would see a box reading "contessa" instead of the
+    // Contessa dropdown, which is both uglier and a lie about what it is.
+    const b = nb(ctx, 'coup_role');
+    b.setFieldValue(roleLiteral(arg.v, where, arg.line ?? line), 'ROLE');
+    return b;
+  }
   return buildExpr(ctx, arg);
 }
 
@@ -456,8 +464,8 @@ function buildCall(ctx: Ctx, e: Node): Blockly.Block {
     case 'claimed_card': return nb(ctx, 'coup_claimed_card');
     case 'unclaimed_card': return nb(ctx, 'coup_unclaimed_card');
     case 'random': return nb(ctx, 'coup_random');
-    case 'prob_opponent_has': { const b = nb(ctx, 'coup_prob_opp_has'); connectValue(b, 'ROLE', buildExpr(ctx, a[1]), e.line); return b; }
-    case 'unseen_copies': { const b = nb(ctx, 'coup_unseen'); connectValue(b, 'ROLE', buildExpr(ctx, a[1]), e.line); return b; }
+    case 'prob_opponent_has': { const b = nb(ctx, 'coup_prob_opp_has'); connectValue(b, 'ROLE', buildCallArg(ctx, a[1], 'prob_opponent_has', e.line), e.line); return b; }
+    case 'unseen_copies': { const b = nb(ctx, 'coup_unseen'); connectValue(b, 'ROLE', buildCallArg(ctx, a[1], 'unseen_copies', e.line), e.line); return b; }
     case 'chance': { const b = nb(ctx, 'coup_chance'); connectValue(b, 'P', buildExpr(ctx, a[0]), e.line); return b; }
     case 'choice': { const b = nb(ctx, 'coup_random_choice'); connectValue(b, 'LIST', buildExpr(ctx, a[0]), e.line); return b; }
     case 'len': { const b = nb(ctx, 'lists_length'); connectValue(b, 'VALUE', buildExpr(ctx, a[0]), e.line); return b; }

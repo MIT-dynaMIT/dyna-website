@@ -679,6 +679,7 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
           { kind: 'block', type: 'coup_when_respond' },
           { kind: 'block', type: 'coup_when_assassinated' },
           { kind: 'block', type: 'coup_choose_lose' },
+          { kind: 'block', type: 'coup_new_game' },
           { kind: 'block', type: 'coup_choose_exchange' },
         ],
       },

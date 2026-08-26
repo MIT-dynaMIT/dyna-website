@@ -216,7 +216,9 @@ class Store {
     for (let i = this.matches.list.length - 1; i >= 0; i--) {
       const m = this.matches.list[i];
       const section = m.mode === 'ladder' ? 'ladder' : 'other';
-      for (const o of m.owners) {
+      // dedupe: in a bot-vs-your-own-bot match both owners are the same person,
+      // and counting them twice would burn two of their five kept matches
+      for (const o of new Set(m.owners)) {
         const k = o + ':' + section;
         const n = seen.get(k) || 0;
         if (n < MATCHES_PER_ACCOUNT) { keep.add(m.id); seen.set(k, n + 1); }

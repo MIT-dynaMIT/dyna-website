@@ -187,6 +187,33 @@ app.post('/api/coup/gauntlet/challenge', auth, (req, res) => {
   res.json({ ok: true, job: r.job });
 });
 
+/**
+ * Two of your OWN bots, head to head. Same best-of-5 as any bot battle, so the
+ * result lands in Match History with replays — the fastest way to find out
+ * whether the change you just made is actually an improvement.
+ */
+app.post('/api/coup/bots/duel', auth, (req, res) => {
+  const slots = store.getSlots(req.user);
+  const pick = (i, which) => {
+    const idx = Number(i);
+    const s = slots[idx];
+    if (!s || !s.python || !s.python.trim()) return { error: `${which} bot: that slot is empty` };
+    const check = checkProgram(s.python);
+    if (!check.ok) return { error: `"${s.name}" has problems — run Check in the editor first` };
+    return { owner: req.user.username, ownerName: req.user.displayName, name: s.name, source: s.python };
+  };
+  if (Number(req.body.a) === Number(req.body.b)) {
+    return res.status(400).json({ error: 'pick two different slots — a bot cannot fight itself' });
+  }
+  const a = pick(req.body.a, 'first');
+  if (a.error) return res.status(400).json(a);
+  const b = pick(req.body.b, 'second');
+  if (b.error) return res.status(400).json(b);
+  const r = arena.enqueue({ mode: 'botduel', a, b });
+  if (r.error) return res.status(400).json(r);
+  res.json({ ok: true, job: r.job });
+});
+
 // ------------------------------------------------------------ match history
 app.get('/api/coup/matches', auth, (req, res) => {
   // while the scrimmage is paused its matches are part of what stays hidden

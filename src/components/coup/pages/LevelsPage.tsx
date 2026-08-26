@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, timeAgo } from '../api';
-import type { GauntletData, MatchesData, MatchRow } from '../api';
+import type { BotSlot, GauntletData, MatchesData, MatchRow } from '../api';
 import { useToast } from '../CoupApp';
 import Bufo from '../Bufo';
 
@@ -17,14 +17,21 @@ export default function LevelsPage() {
   const [data, setData] = useState<GauntletData | null>(null);
   const [results, setResults] = useState<MatchRow[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
+  // your own bots, for the head-to-head picker
+  const [slots, setSlots] = useState<(BotSlot | null)[]>([]);
+  const [duelA, setDuelA] = useState<number | null>(null);
+  const [duelB, setDuelB] = useState<number | null>(null);
+  const [duelling, setDuelling] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [g, m] = await Promise.all([
+    const [g, m, b] = await Promise.all([
       api.get<GauntletData>('/gauntlet'),
       api.get<MatchesData>('/matches'),
+      api.get<{ slots: (BotSlot | null)[] }>('/bots'),
     ]);
     setData(g);
     setResults(m.matches.filter((x) => x.mode === 'gauntlet'));
+    setSlots(b.slots);
   }, []);
 
   useEffect(() => {
@@ -50,6 +57,24 @@ export default function LevelsPage() {
       toast(ex instanceof Error ? ex.message : 'could not start the match');
     } finally {
       setBusy(null);
+    }
+  };
+
+  const filled = slots
+    .map((s, i) => ({ s, i }))
+    .filter((x) => x.s && x.s.python && x.s.python.trim());
+
+  const startDuel = async () => {
+    if (duelA == null || duelB == null) return;
+    setDuelling(true);
+    try {
+      await api.post('/bots/duel', { a: duelA, b: duelB });
+      toast('Your two bots are fighting — results in about 20 seconds');
+      await refresh();
+    } catch (ex) {
+      toast(ex instanceof Error ? ex.message : 'could not start that match');
+    } finally {
+      setDuelling(false);
     }
   };
 
@@ -92,6 +117,44 @@ export default function LevelsPage() {
           ))}
         </div>
       )}
+
+      <div className="coup-card" style={{ marginBottom: 18 }}>
+        <h2 className="coup-h">🥊 Your bots, head to head
+          <small>best of {data.seriesCount} · the fastest way to tell if a change helped</small>
+        </h2>
+        {filled.length < 2 ? (
+          <p className="coup-note" style={{ margin: 0 }}>
+            Save a second bot in the Bot Editor and you can pit your own two against
+            each other — much faster than guessing which version is better.
+          </p>
+        ) : (
+          <>
+            <p className="coup-sub">
+              Keep the old version in another slot before you change something big. Then
+              fight them and let {data.seriesCount * data.seriesGames} games settle it.
+            </p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select value={duelA ?? ''} onChange={(e) => setDuelA(Number(e.target.value))} style={{ width: 190 }}>
+                <option value="" disabled>first bot…</option>
+                {filled.map(({ s, i }) => <option key={i} value={i}>{i + 1}. {s!.name}</option>)}
+              </select>
+              <span className="coup-note">vs</span>
+              <select value={duelB ?? ''} onChange={(e) => setDuelB(Number(e.target.value))} style={{ width: 190 }}>
+                <option value="" disabled>second bot…</option>
+                {filled.map(({ s, i }) => <option key={i} value={i}>{i + 1}. {s!.name}</option>)}
+              </select>
+              <button className="primary"
+                disabled={duelling || duelA == null || duelB == null || duelA === duelB}
+                onClick={startDuel}>
+                {duelling ? 'Starting…' : 'Fight'}
+              </button>
+              {duelA != null && duelA === duelB && (
+                <span className="coup-note">pick two different slots</span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="coup-grid2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
         {data.levels.map((l) => {

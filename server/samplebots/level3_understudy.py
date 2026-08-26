@@ -55,12 +55,6 @@ def your_turn(state):
         # every claim it has made; against someone who punishes a repeated
         # claim, that is the difference between a story and a confession.
         return exchange()
-    # COMMIT TO THE STORY. An honest Duke taxes every single turn, so claiming
-    # one and then quietly stopping is its own tell. Having already said it,
-    # keep saying it. This comes AFTER the exchange above on purpose: changing
-    # the subject is better than doubling down, when it can manage it.
-    if "duke" in state.my_claims:
-        return tax()
     # THE LIE — flat 30%, and only while a Duke is still unaccounted for.
     # Andrew would price this off how much is unseen and who is watching.
     if unseen_copies(state, "duke") > 0 and chance(0.3):

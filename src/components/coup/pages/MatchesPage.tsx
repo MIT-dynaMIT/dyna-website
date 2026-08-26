@@ -58,8 +58,8 @@ export default function MatchesPage() {
         </h2>
         <p className="coup-sub" style={{ marginBottom: 0 }}>
           {!inLadderTab
-            ? 'Level runs and bot battles, best of 5 — your last 5 are kept. Click a match to watch any of its games.'
-            : 'Leaderboard matches, best of 7 — each of the 7 a 100-game series. Your last 5 are kept.'}
+            ? 'Level runs and bot battles, best of 5 — your last 10 are kept. Click a match to watch any of its games.'
+            : 'Leaderboard matches, best of 7 — each of the 7 a 100-game series. Your last 10 are kept.'}
           {/* a frog sits at the end of the small print */}
           <Bufo id="matches" />
         </p>

@@ -11,8 +11,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const MATCH_CAP = 250;             // global backstop
-const MATCHES_PER_ACCOUNT = 5;     // each account keeps only its last 5 matches
+/**
+ * Retention. Each account keeps its last N of EACH section — 10 level runs and
+ * bot battles, and 10 scrimmage matches — so a busy ladder can never push
+ * somebody's level history off the end.
+ *
+ * MATCH_CAP is the global backstop, and it has to be big enough for the
+ * per-account promise to actually hold: ~40 active campers x 2 sections x 10
+ * is 800 owner-slots, and a match between two students serves two of them at
+ * once. At 250 the cap silently won the argument and nobody got ten.
+ *
+ * A record is ~50 KB, three quarters of which is stored replay games, so the
+ * file lands around 30 MB at full stretch. If that gets heavy the lever is the
+ * replay samples on LADDER matches, not this number.
+ */
+const MATCH_CAP = 800;
+const MATCHES_PER_ACCOUNT = 10;
 
 function hashPassword(pw) {
   const salt = crypto.randomBytes(12).toString('hex');

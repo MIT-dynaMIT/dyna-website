@@ -35,6 +35,7 @@ const HATS: Record<string, string> = {
   when_assassinated: 'coup_when_assassinated',
   choose_card_to_lose: 'coup_choose_lose',
   choose_exchange: 'coup_choose_exchange',
+  new_game: 'coup_new_game',
 };
 
 // return <call> where the call is one of these maps to a dedicated action/response block

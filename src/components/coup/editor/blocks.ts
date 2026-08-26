@@ -84,6 +84,17 @@ const BLOCKS: Record<string, unknown>[] = [
     hat: 'cap',
   },
   {
+    type: 'coup_new_game',
+    message0: 'when a new game starts 🔄',
+    message1: 'do %1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
+    colour: C_EVENT,
+    tooltip: 'Runs once at the very start of every game, before anybody moves. '
+      + 'Use it to reset anything you count per game — your memory variables keep '
+      + 'their values from game to game otherwise.',
+    hat: 'cap',
+  },
+  {
     type: 'coup_choose_exchange',
     message0: 'when I exchange, from the pool %1',
     args0: [{ type: 'field_label', name: 'L', text: '(advanced)' }],
@@ -435,6 +446,7 @@ function registerGenerators() {
   forBlock['coup_when_assassinated'] = hatGen('def when_assassinated(state, action):');
   forBlock['coup_choose_lose'] = hatGen('def choose_card_to_lose(state):');
   forBlock['coup_choose_exchange'] = hatGen('def choose_exchange(state, pool):');
+  forBlock['coup_new_game'] = hatGen('def new_game(state):');
 
   // actions (Call-the-Coup: coup/assassinate take role strings, not players)
   forBlock['coup_income'] = () => 'return income()\n';
@@ -947,7 +959,7 @@ export function coupTheme(): Blockly.Theme {
 // canonical top-block order: the five hats first, then procedures / others
 const HAT_ORDER = [
   'coup_when_turn', 'coup_when_respond', 'coup_when_assassinated',
-  'coup_choose_lose', 'coup_choose_exchange',
+  'coup_choose_lose', 'coup_choose_exchange', 'coup_new_game',
 ];
 
 /** True if any two top-level blocks' bounding boxes overlap. */

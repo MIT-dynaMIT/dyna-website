@@ -12,6 +12,14 @@
  *   when_assassinated(state, action) → block_contessa() | allow()
  *   choose_card_to_lose(state)       → reveal(role)
  *   choose_exchange(state, pool)     → list of role names to keep
+ *   new_game(state)                  → nothing; called ONCE at the start of
+ *                                      every game, before any decision, so a
+ *                                      bot can clear whatever it counts per
+ *                                      game. Top-level variables live for the
+ *                                      whole matchup, and resetting them by
+ *                                      hand is a trap: whoever moves first
+ *                                      decides whether your_turn or respond
+ *                                      runs first.
  *
  * The math toolkit (also exposed as blocks):
  *   prob_opponent_has(state, role)   hypergeometric P(opponent holds ≥1 role)
@@ -409,7 +417,28 @@ class ScriptBot {
 
   /** forget the bot's top-level variables — called between series, so its own
    *  memory spans exactly what state.series does and no more */
-  resetMemory() { this.program.resetGlobals(); }
+  resetMemory() { this.program.resetGlobals(); this._lastGame = null; }
+
+  /**
+   * Build a state, and fire the optional `new_game(state)` hook the first time
+   * we are asked anything in a fresh game.
+   *
+   * This exists because top-level variables survive the whole matchup, so
+   * anything a bot counts per-game has to be cleared somewhere. Doing that by
+   * hand is a trap: whoever moves first decides whether your_turn or respond
+   * runs first, so a reset written into only one of them silently never fires
+   * in half the games. The engine calls the hook instead, before any decision,
+   * every game, no matter who leads.
+   */
+  _state(game, selfId, names, seriesCtx, rng) {
+    const state = buildState(game, selfId, names, seriesCtx);
+    const g = state.series.game;
+    if (this._lastGame !== g) {
+      this._lastGame = g;
+      if (this.program.has('new_game')) this._call('new_game', [state], state, rng);
+    }
+    return state;
+  }
 
   _call(fn, args, state, rng) {
     if (!this.program.has(fn)) return undefined;
@@ -423,7 +452,7 @@ class ScriptBot {
 
   /** → engine action {type, call, p} */
   yourTurn(game, selfId, names, seriesCtx, rng) {
-    const state = buildState(game, selfId, names, seriesCtx);
+    const state = this._state(game, selfId, names, seriesCtx, rng);
     const mustCoup = game.player(selfId).coins >= 10;
     const legal = game.legalActions(selfId);
     const v = this._call('your_turn', [state], state, rng);
@@ -448,7 +477,7 @@ class ScriptBot {
   }
 
   respond(game, selfId, names, seriesCtx, rng, kind) {
-    const state = buildState(game, selfId, names, seriesCtx);
+    const state = this._state(game, selfId, names, seriesCtx, rng);
     const action = buildActionInfo(game, state, kind);
     const v = this._call('respond', [state, action], state, rng);
     if (!v || typeof v !== 'object' || !v.__resp) return 'pass';
@@ -462,7 +491,7 @@ class ScriptBot {
 
   /** → {block:'contessa'} | {reveal: role|null} — sees the called role */
   whenAssassinated(game, selfId, names, seriesCtx, rng) {
-    const state = buildState(game, selfId, names, seriesCtx);
+    const state = this._state(game, selfId, names, seriesCtx, rng);
     const action = buildActionInfo(game, state, 'block');
     action.call = game.pending && game.pending.call ? game.pending.call : action.call;
     const v = this._call('when_assassinated', [state, action], state, rng);
@@ -485,7 +514,7 @@ class ScriptBot {
     if (p.cards.length === 1) return 0;
     let role = preferRole;
     if (!role) {
-      const state = buildState(game, selfId, names, seriesCtx);
+      const state = this._state(game, selfId, names, seriesCtx, rng);
       const v = this._call('choose_card_to_lose', [state], state, rng);
       if (v && typeof v === 'object' && v.__reveal) role = v.__reveal;
     }
@@ -502,7 +531,7 @@ class ScriptBot {
   chooseExchange(game, selfId, names, seriesCtx, rng) {
     const { pool, keep, reason } = game.pending;
     if (this.program.has('choose_exchange')) {
-      const state = buildState(game, selfId, names, seriesCtx);
+      const state = this._state(game, selfId, names, seriesCtx, rng);
       const v = this._call('choose_exchange', [state, [...pool], reason || 'ambassador'], state, rng);
       if (Array.isArray(v) && v.length === keep) {
         const used = new Set();
@@ -571,6 +600,7 @@ function checkProgram(source) {
   const status = {};
   for (const fn of CORE) status[fn] = program.has(fn) ? 'ok' : 'default';
   if (program.has('choose_exchange')) status.choose_exchange = 'ok';
+  if (program.has('new_game')) status.new_game = 'ok';
   for (const fn of CORE) {
     if (!program.has(fn)) notes.push(`"${fn}" is not defined — the bot will use the built-in default for it.`);
   }
@@ -736,7 +766,8 @@ function checkProgram(source) {
     if (problems.length >= 6) break; // enough to work on
   }
 
-  const functions = ['your_turn', 'respond', 'when_assassinated', 'choose_card_to_lose', 'choose_exchange']
+  const functions = ['your_turn', 'respond', 'when_assassinated', 'choose_card_to_lose',
+    'choose_exchange', 'new_game']
     .filter((fn) => status[fn])
     .map((fn) => ({ fn, status: status[fn] }));
   return { ok: problems.length === 0, problems, notes, functions };

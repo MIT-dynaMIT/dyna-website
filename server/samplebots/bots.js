@@ -59,6 +59,9 @@ const HOUSE = [
   // (Victor V2 — the dodge — is retired to ./archive/)
   { name: 'Victor', source: THE_SCAFFOLD },
   { name: 'Megan',  source: py('level2_auditor.py') },
+  // measured to sit between them: beats Megan 56-61%, loses to Andrew 56-62%
+  // across four independent 400-game seeds
+  { name: 'Nithya', source: py('level3_understudy.py') },
   { name: 'Andrew', source: py('ultimate.py') },
 ];
 

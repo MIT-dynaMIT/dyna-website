@@ -60,10 +60,12 @@ const ACHIEVEMENTS = [
     desc: 'Beat Level 1. Victor wrote this game; that never meant he was good at it.' },
   { id: 'beat_megan', cat: 'levels', icon: '🥈', name: 'Megan Is Still Disappointed',
     desc: 'Beat Level 2. She expected this, but she is not impressed.' },
+  { id: 'beat_nithya', cat: 'levels', icon: '🥇', name: 'The Understudy Sits Down',
+    desc: 'Beat Level 3. Nithya knew almost enough.' },
   { id: 'beat_andrew', cat: 'levels', icon: '🏆', name: 'We Do Not Talk About Andrew',
-    desc: 'Beat Level 3. The final boss falls.' },
+    desc: 'Beat Level 4. The final boss falls.' },
   { id: 'beat_all', cat: 'levels', icon: '👑', name: 'Clean Sweep of the Court',
-    desc: 'Beat all three house bots.' },
+    desc: 'Beat every house bot.' },
   { id: 'sweep', cat: 'levels', icon: '💯', name: 'Not Even Close',
     desc: 'Win a match without dropping a single round.' },
 
@@ -569,11 +571,15 @@ class AchievementBook {
       if (f.errors) ids.push('crash_but_win');
       if (ctx.swept) ids.push('sweep');
       if (ctx.mode === 'gauntlet') {
-        const level = { Victor: 'beat_victor', Megan: 'beat_megan', Andrew: 'beat_andrew' }[ctx.houseName];
+        // keyed by the boss's NAME, so inserting a level never re-points an award
+        const level = {
+          Victor: 'beat_victor', Megan: 'beat_megan',
+          Nithya: 'beat_nithya', Andrew: 'beat_andrew',
+        }[ctx.houseName];
         if (level) {
           ids.push(level);
           const held = this._rec(username).unlocked;
-          const all = ['beat_victor', 'beat_megan', 'beat_andrew'];
+          const all = ['beat_victor', 'beat_megan', 'beat_nithya', 'beat_andrew'];
           if (all.every((x) => x === level || held[x])) ids.push('beat_all');
         }
       }

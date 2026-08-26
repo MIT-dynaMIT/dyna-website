@@ -28,7 +28,7 @@ const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
 const TICK_CHOICES = [40_000, 20_000, 10_000, 5_000, 1_000];
 
 /** which house bots sit on the scrimmage board, by name */
-const HOUSE_DEFENDERS = ['Andrew', 'Nishita'];
+const HOUSE_DEFENDERS = ['Andrew', 'Nish'];
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {

@@ -61,7 +61,7 @@ const ACHIEVEMENTS = [
   { id: 'beat_megan', cat: 'levels', icon: '🥈', name: 'Megan Is Still Disappointed',
     desc: 'Beat Level 2. She expected this, but she is not impressed.' },
   { id: 'beat_nishita', cat: 'levels', icon: '🥇', name: 'The Understudy Sits Down',
-    desc: 'Beat Level 3. Nishita knew almost enough.' },
+    desc: 'Beat Level 3. Nish knew almost enough.' },
   { id: 'beat_andrew', cat: 'levels', icon: '🏆', name: 'We Do Not Talk About Andrew',
     desc: 'Beat Level 4. The final boss falls.' },
   { id: 'beat_all', cat: 'levels', icon: '👑', name: 'Clean Sweep of the Court',
@@ -600,7 +600,7 @@ class AchievementBook {
         // keyed by the boss's NAME, so inserting a level never re-points an award
         const level = {
           Victor: 'beat_victor', Megan: 'beat_megan',
-          Nishita: 'beat_nishita', Andrew: 'beat_andrew',
+          Nish: 'beat_nishita', Andrew: 'beat_andrew',
         }[ctx.houseName];
         if (level) {
           ids.push(level);

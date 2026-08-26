@@ -8,7 +8,7 @@ import Bufo from '../Bufo';
 const LEVEL_FLAVOR = [
   "Level 1. Victor made this game. That doesn't mean he's good at it.",
   'Level 2. Megan is disappointed you even tried.',
-  "Level 3. Nishita learned everything from Andrew except when to stop talking.",
+  "Level 3. Nish learned everything from Andrew except when to stop talking.",
   "Level 4. The final boss. We don't talk about Andrew's win rate.",
 ];
 const LEVEL_ICON = ['🥉', '🥈', '🥇', '🏆'];

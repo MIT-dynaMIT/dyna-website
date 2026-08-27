@@ -25,6 +25,9 @@ const crypto = require('node:crypto');
  * file lands around 30 MB at full stretch. If that gets heavy the lever is the
  * replay samples on LADDER matches, not this number.
  */
+/** however busy it gets, a pending change reaches disk within this */
+const MAX_SAVE_WAIT = 20_000;
+
 const MATCH_CAP = 800;
 const MATCHES_PER_ACCOUNT = 10;
 
@@ -53,18 +56,34 @@ class Store {
     // organizer-tuned knobs that are not about any one subsystem's data
     this.settings = this._load('settings.json', {});
     this._timers = {};
+    this._pendingSince = {};   // file -> when its first unwritten change landed
   }
 
   _load(file, fallback) {
     try { return JSON.parse(fs.readFileSync(path.join(this.dir, file), 'utf8')); }
     catch { return fallback; }
   }
+  /**
+   * Debounced write, with a ceiling on how long a change may sit unwritten.
+   *
+   * A plain debounce starves under continuous load: every new match cleared
+   * the timer and set a fresh one, so a scrimmage running faster than the
+   * delay wrote NOTHING until it went quiet. Measured before this: 107 matches
+   * over a minute at MAX speed, and matches.json untouched throughout — a
+   * crash would have lost the lot, since only flush() on shutdown saved it.
+   *
+   * So the wait is now capped: however busy things get, a pending change
+   * reaches disk within MAX_SAVE_WAIT.
+   */
   _save(file, obj, delay = 2000) {
+    const since = this._pendingSince[file] || (this._pendingSince[file] = Date.now());
+    const wait = Math.max(0, Math.min(delay, MAX_SAVE_WAIT - (Date.now() - since)));
     clearTimeout(this._timers[file]);
     this._timers[file] = setTimeout(() => {
+      delete this._pendingSince[file];
       try { fs.writeFileSync(path.join(this.dir, file), JSON.stringify(obj)); }
       catch (err) { console.error('[store] save failed', file, err.message); }
-    }, delay);
+    }, wait);
   }
   /** achievements move in tiny bursts and matter immediately — short debounce */
   saveAchievements() { this._save('achievements.json', this.achievements, 500); }

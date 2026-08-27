@@ -286,9 +286,15 @@ export default function AdminPage() {
           </h2>
           <p className="coup-sub">
             Level runs and bot battles share these workers, so a whole class pressing
-            “play this level” at once queues behind them. One match is ~700 games and
-            takes about a second. Raise this if campers are waiting; lower it if the
+            “play this level” at once queues behind them. One match is 500 games and
+            takes about half a second. Raise this if campers are waiting; lower it if the
             site feels sluggish — a small cloud instance has far less CPU than it claims.
+          </p>
+          <p className="coup-note" style={{ marginTop: -6, marginBottom: 12 }}>
+            <b>Not the leaderboard.</b> The scrimmage runs one match at a time on its own
+            separate worker, which this number does not touch — its speed dial is above.
+            The two never queue behind each other; they only compete for CPU, and only
+            when the scrimmage is set to 1s or MAX.
           </p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <label style={{ margin: 0 }}>At once</label>

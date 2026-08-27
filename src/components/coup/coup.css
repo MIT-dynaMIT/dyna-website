@@ -195,6 +195,21 @@
 }
 
 
+/* --------------------------- leaderboard: full board (organizers only).
+   A whole camp's worth of bots is longer than the page, so it scrolls inside
+   the card and the header row stays put. */
+.ld-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+.ld-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
 /* --------------------------- leaderboard: paused (campers' view) */
 .ld-construction {
   position: relative;

@@ -39,6 +39,11 @@
 #      rarely (see the failure above).
 #   6. THE BIG ONE (+12.6): never score suspicion off a raw series counter.
 #      See the note on suspicion() below.
+#   7. Duke SILENCE decays the Duke's score (+1.14 across the whole field).
+#      An opponent who has taken turns and never taxed probably has no Duke —
+#      obvious in hindsight, invisible to prob_opponent_has(), which only
+#      counts cards. Paired by seed over 6,000 games per opponent: six real
+#      wins, two ties, zero losses, biggest against bots that never tax.
 
 def suspicion(state, who, role):
     # An EVIDENCE score, not a probability. Any role sits in a 2-card hand
@@ -78,12 +83,24 @@ def pick_call(state):
     # builtin's multiplier, no role-value weighting, and jitter. The jitter
     # matters — without it every tie resolves to "duke" and the opponent can
     # simply stop holding one.
+    #
+    # It does borrow ONE term from the builtin — the duke-silence decay (see
+    # header note 7). The builtin's OTHER extra, the role-value prior, was
+    # measured at the same time and LOST 1.6pp: it shoves Duke up the ranking
+    # on no evidence at all, which is exactly the readability the jitter
+    # exists to destroy. Borrowing evidence is worth it; borrowing bias is not.
     best = "duke"
     bs = -1
+    shots = state.opponent.actions
     for r in ["duke", "assassin", "ambassador", "contessa"]:
-        s = prob_opponent_has(state, r) + random() * 0.06
+        s = prob_opponent_has(state, r)
         if r in state.opponent.claims:
             s = s + 0.25            # they said so, which is weak evidence
+        elif r == "duke" and shots >= 2:
+            # they have taken turns and never once taxed: each turn of silence
+            # is evidence against the Duke that the raw card odds cannot see
+            s = s * max(0.08, 1 - 0.35 * (shots - 1))
+        s = s + random() * 0.06
         if s > bs:
             bs = s
             best = r

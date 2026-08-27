@@ -6,11 +6,13 @@ import { useToast } from '../CoupApp';
 interface LadderRow {
   rank: number; id: string; name: string; owner: string; isHouse: boolean;
   elo: number; matches: number; score: number;
+  errors?: number;              // organizer view only
 }
 interface MineRow { id: string; name: string; slot: number; elo: number; matches: number; errors: number; rank: number }
 interface LadderData {
   top: LadderRow[]; totalBots: number; totalMatches: number; running: boolean;
   hidden?: boolean;
+  full?: boolean;               // organizer: `top` is the WHOLE board
   seriesCount: number; seriesGames: number; mine: MineRow[];
 }
 
@@ -93,27 +95,40 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
   return (
     <div className="coup-grid2" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
       <div className="coup-card">
-        <h2 className="coup-h">🏆 Leaderboard — top 10
+        <h2 className="coup-h">🏆 Leaderboard — {data.full ? `all ${data.totalBots}` : 'top 10'}
           <small>{data.totalBots} bots · {data.totalMatches.toLocaleString()} matches · {data.running ? 'live' : 'paused'}</small>
         </h2>
-        <table className="coup-table">
-          <thead>
-            <tr><th className="rank">#</th><th>Bot</th><th>Coach</th>
-              <th className="num">ELO</th><th className="num">Matches</th><th className="num">Recent</th></tr>
-          </thead>
-          <tbody>
-            {data.top.map((r) => (
-              <tr key={r.id} className={`${r.rank === 1 ? 'top1' : ''} ${data.mine.some((m) => m.id === r.id) ? 'goldrow' : ''}`}>
-                <td className="rank">{r.rank}</td>
-                <td>{r.name}{r.isHouse && <span className="house-tag">HOUSE</span>}</td>
-                <td style={{ color: 'var(--ink-mut)' }}>{r.isHouse ? '—' : r.owner}</td>
-                <td className="num">{r.elo}</td>
-                <td className="num">{r.matches}</td>
-                <td className="num">{r.matches ? Math.round(r.score * 100) + '%' : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {data.full && (
+          <p className="coup-sub">
+            Organizer view: the whole board, crashes included. Campers only ever see the top 10.
+          </p>
+        )}
+        <div className={data.full ? 'ld-scroll' : undefined}>
+          <table className="coup-table">
+            <thead>
+              <tr><th className="rank">#</th><th>Bot</th><th>Coach</th>
+                <th className="num">ELO</th><th className="num">Matches</th><th className="num">Recent</th>
+                {data.full && <th className="num">Crashes</th>}</tr>
+            </thead>
+            <tbody>
+              {data.top.map((r) => (
+                <tr key={r.id} className={`${r.rank === 1 ? 'top1' : ''} ${data.mine.some((m) => m.id === r.id) ? 'goldrow' : ''}`}>
+                  <td className="rank">{r.rank}</td>
+                  <td>{r.name}{r.isHouse && <span className="house-tag">HOUSE</span>}</td>
+                  <td style={{ color: 'var(--ink-mut)' }}>{r.isHouse ? '—' : r.owner}</td>
+                  <td className="num">{r.elo}</td>
+                  <td className="num">{r.matches}</td>
+                  <td className="num">{r.matches ? Math.round(r.score * 100) + '%' : '—'}</td>
+                  {data.full && (
+                    <td className="num" style={r.errors ? { color: 'var(--bad)' } : undefined}>
+                      {r.errors || '—'}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="coup-note" style={{ marginTop: 10 }}>
           Every pairing is a best of {data.seriesCount} — each of the {data.seriesCount} is a{' '}
           {data.seriesGames}-game series. ELO moves once per match, on who takes the majority.

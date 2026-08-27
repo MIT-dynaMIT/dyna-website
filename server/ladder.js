@@ -235,8 +235,17 @@ class LadderServer {
       };
     }
     const board = this.board();
+    // Campers see the top 10 — the whole board would tell a camper in 40th
+    // exactly who is above them, which is discouraging and not the point.
+    // Organizers get every row: they need to spot crashed bots and stragglers.
+    const full = !!user.isAdmin;
+    // crash counts ride along on the organizer view only — a camper should
+    // not be able to read how often someone else's bot is throwing
+    const errOf = {};
+    for (const s of this.sub) errOf[s.id] = s.errors;
     return {
-      top: board.slice(0, 10),
+      top: full ? board.map((r) => ({ ...r, errors: errOf[r.id] || 0 })) : board.slice(0, 10),
+      full,
       totalBots: board.length,
       totalMatches: this.store.ladder.totalMatches,
       running: this.running,

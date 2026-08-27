@@ -17,6 +17,7 @@ interface Overview {
 interface LadderState {
   running: boolean; totalBots: number; totalMatches: number;
   tickMs: number; tickChoices: number[];
+  defenders: string[]; houseBots: string[];
 }
 
 /** a 700-game match takes ~0.5-0.9s, so all but the last are comfortably idle */
@@ -69,6 +70,23 @@ export default function AdminPage() {
     toast(r.running
       ? '▶ Scrimmage started — the Leaderboard is live for everyone'
       : '⏸ Scrimmage paused — the Leaderboard is hidden from the campers');
+    refresh();
+  };
+
+  const toggleDefender = async (name: string, on: boolean) => {
+    if (!ladder) return;
+    const next = on
+      ? [...ladder.defenders, name]
+      : ladder.defenders.filter((d) => d !== name);
+    if (!on && !window.confirm(
+      `Take ${name} off the leaderboard?\n\n`
+      + 'The bot comes off the board and its rating goes with it — putting it back '
+      + 'later starts it again at 1000. Everyone else keeps their rating.')) return;
+    const r = await api.post<{ defenders: string[] }>('/admin/house-defenders', { names: next });
+    setLadder((l) => (l ? { ...l, defenders: r.defenders } : l));
+    toast(r.defenders.length
+      ? `Defending the board: ${r.defenders.join(', ')}`
+      : 'No house bots on the board — campers fight only each other');
     refresh();
   };
 
@@ -182,6 +200,30 @@ export default function AdminPage() {
               🔄 Reset leaderboard
             </button>
           </div>
+          {ladder && ladder.houseBots && (
+            <div style={{ marginTop: 12 }}>
+              <label style={{ margin: '0 0 6px' }}>House bots on the board</label>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                {ladder.houseBots.map((name) => (
+                  <label key={name} style={{
+                    margin: 0, display: 'flex', alignItems: 'center', gap: 5,
+                    textTransform: 'none', letterSpacing: 0, fontSize: 13.5,
+                    color: ladder.defenders.includes(name) ? 'var(--accent)' : 'var(--ink-mut)',
+                  }}>
+                    <input type="checkbox" style={{ width: 'auto', margin: 0 }}
+                      checked={ladder.defenders.includes(name)}
+                      onChange={(e) => toggleDefender(name, e.target.checked)} />
+                    {name}
+                  </label>
+                ))}
+                <span className="coup-note">
+                  {ladder.defenders.length === 0
+                    ? 'campers fight only each other'
+                    : `${ladder.defenders.length} defending — they play from your saved slots`}
+                </span>
+              </div>
+            </div>
+          )}
           {ladder && ladder.tickChoices && (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
               <label style={{ margin: 0 }}>Speed</label>

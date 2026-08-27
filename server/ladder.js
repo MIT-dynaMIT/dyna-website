@@ -34,8 +34,8 @@ const MAX_SPEED = 0;
  *  back cannot silently stall the whole scrimmage */
 const WATCHDOG_MS = 2_000;
 
-/** which house bots sit on the scrimmage board, by name */
-const HOUSE_DEFENDERS = ['Andrew', 'Nish'];
+/** who defends until an organizer says otherwise */
+const DEFAULT_DEFENDERS = ['Andrew', 'Nish'];
 const SAMPLE_AT = [0, 49, 99];
 
 class LadderServer {
@@ -80,6 +80,30 @@ class LadderServer {
   _save() { this.store._save('ladder.json', this.store.ladder); }
 
   /**
+   * Which house bots defend the board. An organizer picks any number of them —
+   * all four for a crowded ladder with a clear ceiling, one for a single
+   * benchmark, none at all to let the campers fight only each other.
+   *
+   * An empty list is a real choice, so "never set" (undefined) is what falls
+   * back to the default rather than "set to nothing".
+   */
+  get defenders() {
+    const v = this.store.settings.houseDefenders;
+    if (!Array.isArray(v)) return DEFAULT_DEFENDERS;
+    return v.filter((n) => HOUSE.some((h) => h.name === n));
+  }
+
+  /** organizer choice. Dropping a defender takes it off the board and its
+   *  rating with it; adding one seats it fresh at 1000. */
+  setDefenders(names) {
+    const valid = (Array.isArray(names) ? names : []).filter((n) => HOUSE.some((h) => h.name === n));
+    this.store.settings.houseDefenders = valid;
+    this.store.saveSettings();
+    this.ensureHouse();
+    return { ok: true, defenders: this.defenders };
+  }
+
+  /**
    * Where a defender's code comes from: the ORGANIZER'S SAVED SLOT of that
    * name, so the boss can be tuned live from the Bot Editor without a deploy.
    * The bundled .py is the fallback — a fresh install before seeding, or a slot
@@ -114,7 +138,8 @@ class LadderServer {
    */
   ensureHouse() {
     let changed = false;
-    for (const name of HOUSE_DEFENDERS) {
+    const wanted = this.defenders;
+    for (const name of wanted) {
       const e0 = this.sub.find((x) => x.owner === 'house' && x.name === name);
       const source = this._defenderSource(name, e0 ? e0.source : null);
       if (!source) continue;
@@ -129,7 +154,7 @@ class LadderServer {
       }
     }
     // a house entry for a bot that no longer defends comes off the board
-    const keep = new Set(HOUSE_DEFENDERS);
+    const keep = new Set(wanted);
     for (let i = this.sub.length - 1; i >= 0; i--) {
       if (this.sub[i].owner === 'house' && !keep.has(this.sub[i].name)) {
         this.sub.splice(i, 1);
@@ -206,6 +231,7 @@ class LadderServer {
         top: [], totalBots: 0, totalMatches: 0, running: false, hidden: true,
         seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES, mine: [],
         tickMs: this.tickMs, tickChoices: TICK_CHOICES,
+      defenders: this.defenders, houseBots: HOUSE.map((h) => h.name),
       };
     }
     const board = this.board();
@@ -217,6 +243,7 @@ class LadderServer {
       hidden: false,
       seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES,
       tickMs: this.tickMs, tickChoices: TICK_CHOICES,
+      defenders: this.defenders, houseBots: HOUSE.map((h) => h.name),
       mine: this.sub.filter((s) => s.owner === user.username).map((s) => ({
         id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
         errors: s.errors, rank: board.findIndex((b) => b.id === s.id) + 1,

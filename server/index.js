@@ -565,6 +565,11 @@ app.post('/api/coup/admin/arena-workers', auth, adminOnly, (req, res) => {
   res.json(r);
 });
 
+// which house bots defend the board — any number of them, including none
+app.post('/api/coup/admin/house-defenders', auth, adminOnly, (req, res) => {
+  res.json(ladder.setDefenders(req.body && req.body.names));
+});
+
 // how often the scrimmage pairs bots — takes effect immediately, no restart
 app.post('/api/coup/admin/ladder-tick', auth, adminOnly, (req, res) => {
   const r = ladder.setTickMs(req.body && req.body.ms);

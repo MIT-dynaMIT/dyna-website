@@ -8,7 +8,9 @@ interface LadderRow {
   elo: number; matches: number; score: number;
   errors?: number;              // organizer view only
 }
-interface MineRow { id: string; name: string; slot: number; elo: number; matches: number; errors: number; rank: number }
+/** rank is null unless the bot is actually on the visible top 10 (or you are
+ *  an organizer) — see the note in ladder.js view() */
+interface MineRow { id: string; name: string; slot: number; elo: number; matches: number; errors: number; rank: number | null }
 interface LadderData {
   top: LadderRow[]; totalBots: number; totalMatches: number; running: boolean;
   hidden?: boolean;
@@ -165,7 +167,9 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
             <div key={m.id} style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <strong style={{ color: 'var(--parch)', fontSize: 16 }}>{m.name}</strong>
-                <span className="coup-note">rank #{m.rank || '—'} of {data.totalBots}</span>
+                {m.rank
+                  ? <span className="coup-note">rank #{m.rank} of {data.totalBots}</span>
+                  : <span className="coup-note">on the ladder</span>}
                 <span style={{ flex: 1 }} />
                 <button className="small danger ghost" onClick={() => withdraw(m.id)}>withdraw</button>
               </div>

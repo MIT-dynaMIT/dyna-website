@@ -270,10 +270,18 @@ class LadderServer {
       seriesCount: SERIES_COUNT, seriesGames: SERIES_GAMES,
       tickMs: this.tickMs, tickChoices: TICK_CHOICES,
       defenders: this.defenders, houseBots: HOUSE.map((h) => h.name),
-      mine: this.sub.filter((s) => s.owner === user.username).map((s) => ({
-        id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
-        errors: s.errors, rank: board.findIndex((b) => b.id === s.id) + 1,
-      })),
+      mine: this.sub.filter((s) => s.owner === user.username).map((s) => {
+        const rank = board.findIndex((b) => b.id === s.id) + 1;
+        return {
+          id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
+          errors: s.errors,
+          // A camper learns their placement only if it is on the board they can
+          // already see. "29th of 29" is discouraging and tells them nothing
+          // they can act on — their ELO and their crash count do. Withheld
+          // server-side, so it is not in the network tab either.
+          rank: (full || (rank >= 1 && rank <= 10)) ? rank : null,
+        };
+      }),
     };
   }
 

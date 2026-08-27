@@ -144,10 +144,19 @@ function probOpponentHas(state, role) {
 const DUKE_SILENCE_DECAY = 0.35;
 const DUKE_SILENCE_FLOOR = 0.08;
 
-/** claim- and reveal-weighted best role to name in a coup/assassination */
-function bestCoupCall(state) {
+/**
+ * Claim- and reveal-weighted best role to name in a coup/assassination.
+ *
+ * `jitter` (0..1) adds that much noise to each score before the argmax, which
+ * only ever changes a NEAR-TIE. Without it the function is deterministic, so an
+ * opponent that models it can simply stop holding whatever it is about to name.
+ * Off by default: the plain call stays predictable, which is the gap a camper
+ * closes themselves.
+ */
+function bestCoupCall(state, jitter = 0, rng = null) {
   const opp = state.opponent;
   const shots = opp ? (opp.actions || 0) : 0;
+  const noise = jitter > 0 ? (rng || Math.random) : null;
   let best = 'duke', bestScore = -1;
   for (const r of (state.__roles || ROLES)) {
     let score = probOpponentHas(state, r);
@@ -159,6 +168,7 @@ function bestCoupCall(state) {
       }
       score *= 1 + 0.05 * ROLE_VALUE[r];  // players tend to keep the strong cards
     }
+    if (noise) score += noise() * jitter;
     if (score > bestScore) { bestScore = score; best = r; }
   }
   return best;
@@ -314,7 +324,7 @@ function pickOpponent(st, prop, dir) {
   return st.opponents.reduce((a, b) => (dir * (val(b) - val(a)) > 0 ? b : a));
 }
 
-function gameBuiltins(state) {
+function gameBuiltins(state, rng = null) {
   const nat = (name, fn) => [name, { __native: fn, name }];
   const asRole = (x, what) => {
     if (x === null || x === undefined) return null;
@@ -364,7 +374,9 @@ function gameBuiltins(state) {
       if (!ROLES.includes(r)) throw new BotRuntimeError(`unseen_copies needs a role name, got ${repr(role)}`);
       return Math.max(0, 3 - (st.revealed_roles[r] || 0) - st.my_cards.filter((c) => c === r).length);
     }),
-    nat('best_coup_call', (st) => bestCoupCall(st)),
+    // a jitter argument only ever flips a near-tie; the seeded rng keeps
+    // replays bit-identical, which Math.random would not
+    nat('best_coup_call', (st, jit) => bestCoupCall(st, Number(jit) || 0, rng)),
     // convenience
     nat('has_role', (st, role) => (st && Array.isArray(st.my_cards) ? st.my_cards.includes(String(role).toLowerCase()) : false)),
     // how many times a player has claimed a role THIS game (resets when their
@@ -443,7 +455,7 @@ class ScriptBot {
   _call(fn, args, state, rng) {
     if (!this.program.has(fn)) return undefined;
     try {
-      return this.program.call(fn, args, { env: Object.assign({ state }, gameBuiltins(state)), rng });
+      return this.program.call(fn, args, { env: Object.assign({ state }, gameBuiltins(state, rng)), rng });
     } catch (err) {
       this.errors.push({ fn, message: err.message, line: err.line });
       return undefined;
@@ -619,7 +631,7 @@ function checkProgram(source) {
 
   const callRaw = (fn, state, extraArgs, rng) => {
     try {
-      const env = Object.assign({ state }, gameBuiltins(state));
+      const env = Object.assign({ state }, gameBuiltins(state, rng));
       return { value: program.call(fn, [state, ...extraArgs], { env, rng }) };
     } catch (err) {
       return { threw: err };

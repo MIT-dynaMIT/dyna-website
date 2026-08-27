@@ -15,6 +15,10 @@ const { checkProgram } = require('./botapi');
 const SERIES_COUNT = 7;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
 const K = 32;
+// how many of the nearest-rated bots are eligible as the opponent, before
+// "who has waited longest" decides between them. 1 would be pure closest-ELO
+// (the starving behaviour); the whole board would be random pairing.
+const NEAR_POOL = 5;
 const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
 /**
  * Tick speeds an organizer can pick live. Measured on a 700-game match: 0.52s
@@ -54,7 +58,19 @@ class LadderServer {
       this.store.ladder.control = 2;
       this._save();
     }
+    this._backfillLastAt();
     this.ensureHouse();
+  }
+
+  /** Entries written before fair-share pairing have no lastAt. Treat them as
+   *  never-played (0) so the scheduler picks them up first — the frozen-out
+   *  veterans are exactly the ones this fix exists for. */
+  _backfillLastAt() {
+    let changed = false;
+    for (const s of this.sub) {
+      if (typeof s.lastAt !== 'number') { s.lastAt = 0; changed = true; }
+    }
+    if (changed) this._save();
   }
 
   get running() { return !!this.store.ladder.running; }
@@ -169,6 +185,7 @@ class LadderServer {
       id: crypto.randomBytes(6).toString('hex'),
       owner, ownerName, slot, name: this._uniqueName(name || ownerName), source,
       elo: 1000, matches: 0, wins: 0, last: [], errors: 0, createdAt: Date.now(),
+      lastAt: 0,                    // never played — first in line
     };
   }
   _uniqueName(base) {
@@ -292,14 +309,31 @@ class LadderServer {
 
   _pick() {
     if (this.sub.length < 2 || !this.store.ladder.running) return null;
-    // least-played first (ties broken randomly)
-    const a = [...this.sub].sort((x, y) => x.matches - y.matches || Math.random() - 0.5)[0];
-    // opponent: closest ELO wins, but never the exact same pairing twice in a
-    // row when any alternative exists (no recursion — pick from a ranked list)
-    const ranked = this.sub.filter((s) => s !== a)
-      .sort((x, y) => Math.abs(x.elo - a.elo) - Math.abs(y.elo - a.elo) || Math.random() - 0.5);
-    let cand = ranked.find((s) => [a.id, s.id].sort().join(':') !== this._lastPair) || ranked[0];
+    // WAITED LONGEST first, not fewest-matches-played. Sorting on match count
+    // starves the two ends of the board: a bot only enters a match by being
+    // the least-played (which a busy veteran never is) or by being the closest
+    // rating to that bot (which is nearly always a resubmission sitting at
+    // 1000, since submit() mints a fresh entry with matches: 0). Measured on a
+    // 16-bot field with one camper resubmitting every 40 matches, the top bot
+    // went from 53 games per thousand to 8 and its rating went stale.
+    const a = [...this.sub].sort((x, y) =>
+      (x.lastAt || 0) - (y.lastAt || 0) || x.matches - y.matches || Math.random() - 0.5)[0];
+    // opponent: near in rating so the match still means something, but among
+    // those, whoever has waited longest. Never the exact same pairing twice in
+    // a row when any alternative exists (no recursion — pick from a list).
+    const near = this.sub.filter((s) => s !== a)
+      .sort((x, y) => Math.abs(x.elo - a.elo) - Math.abs(y.elo - a.elo) || Math.random() - 0.5)
+      .slice(0, NEAR_POOL)
+      .sort((x, y) => (x.lastAt || 0) - (y.lastAt || 0) || Math.random() - 0.5);
+    const cand = near.find((s) => [a.id, s.id].sort().join(':') !== this._lastPair) || near[0];
     this._lastPair = [a.id, cand.id].sort().join(':');
+    // stamp NOW, not on completion: a match that crashes still counts as a
+    // turn taken, or the same broken pair is retried on every single tick.
+    // Strictly increasing rather than raw Date.now(): at MAX speed two picks
+    // can land in the same millisecond, and equal stamps collapse the queue
+    // back onto the match-count tiebreak — which is the bug being fixed.
+    this._clock = Math.max(Date.now(), (this._clock || 0) + 1);
+    a.lastAt = this._clock; cand.lastAt = this._clock;
     return [a, cand];
   }
 

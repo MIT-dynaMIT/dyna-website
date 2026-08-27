@@ -10,6 +10,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const { HOUSE } = require('./samplebots/bots');
+const { checkProgram } = require('./botapi');
 
 const SERIES_COUNT = 7;
 const SERIES_GAMES = Number(process.env.COUP_SERIES_GAMES || 100);
@@ -79,23 +80,52 @@ class LadderServer {
   _save() { this.store._save('ladder.json', this.store.ladder); }
 
   /**
+   * Where a defender's code comes from: the ORGANIZER'S SAVED SLOT of that
+   * name, so the boss can be tuned live from the Bot Editor without a deploy.
+   * The bundled .py is the fallback — a fresh install before seeding, or a slot
+   * that has been renamed away.
+   *
+   * A slot only takes over if it actually compiles. Otherwise a half-finished
+   * edit would become the bot defending the ladder, and every match against it
+   * would fail; better to keep playing the last good build and let the editor's
+   * own check tell them what is wrong.
+   */
+  _defenderSource(name, current) {
+    const admin = Object.values(this.store.users).find((u) => u.isAdmin);
+    const slots = admin ? (this.store.bots[admin.username] || []) : [];
+    const slot = slots.find((s) => s && s.name === name && s.python && s.python.trim());
+    const bundled = HOUSE.find((x) => x.name === name);
+    if (slot) {
+      if (checkProgram(slot.python).ok) return slot.python;
+      // mid-edit and broken: hold whatever is already defending, which may be
+      // an earlier good save. Falling back to the bundled file here would throw
+      // away good tuning the moment of a typo.
+      return current || (bundled ? bundled.source : null);
+    }
+    return bundled ? bundled.source : null;
+  }
+
+  /**
    * The house bots that defend the ladder. Keyed by NAME so a defender is
-   * matched to its entry even after its source is rewritten — swapping Andrew
-   * for an older build updates the existing entry in place and keeps its ELO
-   * history rather than seeding a stranger at 1000.
+   * matched to its entry even after its code is rewritten — a new build
+   * updates the existing entry in place and keeps its ELO history rather than
+   * seeding a stranger at 1000. Called before every pairing, so editing a boss
+   * in the Bot Editor reaches the ladder on the next match, not the next boot.
    */
   ensureHouse() {
     let changed = false;
     for (const name of HOUSE_DEFENDERS) {
-      const h = HOUSE.find((x) => x.name === name);
-      if (!h) continue;
-      const e = this.sub.find((x) => x.owner === 'house' && x.name === name);
+      const e0 = this.sub.find((x) => x.owner === 'house' && x.name === name);
+      const source = this._defenderSource(name, e0 ? e0.source : null);
+      if (!source) continue;
+      const e = e0;
       if (!e) {
-        this.sub.push(this._entry('house', 'The House', -1, h.name, h.source));
+        this.sub.push(this._entry('house', 'The House', -1, name, source));
         changed = true;
-      } else if (e.source !== h.source) {
-        e.source = h.source;                       // same defender, new build
+      } else if (e.source !== source) {
+        e.source = source;                         // same defender, new build
         changed = true;
+        console.log(`[ladder] ${name} updated from the organizer's slot`);
       }
     }
     // a house entry for a bot that no longer defends comes off the board
@@ -262,6 +292,7 @@ class LadderServer {
 
   _playOne() {
     if (this.busy) return;
+    this.ensureHouse();          // pick up any edit to a boss's slot
     const pair = this._pick();
     if (!pair) return;
     const [a, b] = pair;

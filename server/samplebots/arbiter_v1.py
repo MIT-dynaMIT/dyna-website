@@ -1,10 +1,10 @@
-# LEVEL 3 — THE ARBITER — heads-up dynaMIT Coup
+# LEVEL 4 — THE ARBITER — heads-up dynaMIT Coup
 #
-# Top of a three-bot ladder: level1_apprentice.py (1 strategy, 41%),
-# level2_strategist.py (5 strategies, 77%), this one (11 strategies, 89%).
-# Everything Level 2 knows, plus: safe bluffing, opponent modelling across a
-# series, unpredictable calls, pair armour, assassination discipline, and the
-# hard-won rule that only same-game evidence can be trusted.
+# The final boss. Below him: Victor (the starter scaffold), Megan (never
+# lies, never forgets), and Nish (Andrew's apprentice — knows most of this
+# but not all of it). Everything Nish knows, plus: safe bluffing, opponent
+# modelling across a series, unpredictable calls, pair armour, assassination
+# discipline, and the hard-won rule that only same-game evidence is trustworthy.
 #
 # Measured against the whole ladder field, not guessed at. It is the house
 # champion's skeleton with five changes, each one kept only because it won:

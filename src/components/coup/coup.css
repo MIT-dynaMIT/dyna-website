@@ -195,6 +195,42 @@
 }
 
 
+/* --------------------------- house bot source, published in full */
+.hb-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+.hb-tab {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); cursor: pointer; text-align: left; min-width: 120px;
+}
+.hb-tab:hover { border-color: var(--accent); }
+.hb-tab.on { border-color: var(--accent); background: rgba(168, 132, 44, 0.12); }
+.hb-tab .hb-lvl { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-mut); }
+.hb-tab .hb-name { font-size: 15px; color: var(--parch); font-weight: 600; }
+.hb-tab .hb-lines { font-size: 11px; color: var(--ink-mut); }
+
+.hb-bar {
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 16px 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+
+/* the gutter scrolls WITH the code because both live in the same scroll box —
+   the editor's separate-element version needed JS to stay in sync */
+.hb-code {
+  display: flex; align-items: flex-start;
+  max-height: 70vh; overflow: auto;
+  background: #f7f6f2; border: 1px solid var(--line); border-radius: 10px;
+}
+.hb-gutter {
+  margin: 0; padding: 14px 10px 14px 14px; text-align: right;
+  color: #9aa2ab; background: #eeece5; user-select: none;
+  font-size: 12.5px; line-height: 1.55; position: sticky; left: 0;
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+.hb-src {
+  margin: 0; padding: 14px 16px; white-space: pre;
+  font-size: 12.5px; line-height: 1.55; color: var(--parch);
+}
+
 /* --------------------------- a crashed bot's actual error, under its match */
 .crash-note {
   margin: -6px 0 12px;

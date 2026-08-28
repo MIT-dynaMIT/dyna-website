@@ -18,6 +18,7 @@ import MatchesPage from './pages/MatchesPage';
 import ReplayPage from './pages/ReplayPage';
 import AdminPage from './pages/AdminPage';
 import AchievementsPage from './pages/AchievementsPage';
+import HouseBotsPage from './pages/HouseBotsPage';
 import AchievementToasts from './AchievementToasts';
 
 // ------------------------------------------------------------ toast
@@ -165,6 +166,7 @@ export default function CoupApp() {
   const tabs = [
     { name: 'Bot Editor', to: '/coup/editor' },
     { name: 'Levels', to: '/coup/levels' },
+    { name: 'House Bots', to: '/coup/housebots' },
     { name: 'Play a Table', to: '/coup/play' },
     { name: 'Versus', to: '/coup/versus' },
     { name: 'Multiplayer', to: '/coup/tables' },
@@ -215,6 +217,7 @@ export default function CoupApp() {
             <Route path="leaderboard" element={<LeaderboardPage user={user} />} />
             <Route path="matches" element={<MatchesPage />} />
             <Route path="matches/:id" element={<ReplayPage />} />
+            <Route path="housebots" element={<HouseBotsPage />} />
             <Route path="achievements" element={<AchievementsPage />} />
             <Route path="admin" element={user.isAdmin ? <AdminPage /> : <Navigate to="/coup" replace />} />
             <Route path="*" element={<Navigate to="editor" replace />} />

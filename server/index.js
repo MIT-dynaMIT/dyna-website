@@ -158,6 +158,28 @@ app.post('/api/coup/parse', auth, (req, res) => {
   }
 });
 
+/**
+ * ------------------------------------------------------------ house bot code
+ * The four level bots, published in full. These are exactly the sources the
+ * Levels ladder plays, so a camper reading this page is reading the opponent
+ * they are about to face — the intended way to learn the tricks (and to find
+ * the holes; the boss has some).
+ *
+ * The leaderboard defenders can differ: ladder.js prefers the organizer's
+ * saved slot of the same name when it compiles, so a live-tuned boss may be
+ * a build ahead of what is printed here. Said so on the page.
+ */
+app.get('/api/coup/housebots', auth, (req, res) => {
+  res.json({
+    bots: HOUSE.map((h, i) => ({
+      level: i + 1,
+      name: h.name,
+      source: h.source,
+      lines: h.source.split('\n').length,
+    })),
+  });
+});
+
 // ------------------------------------------------------------ the gauntlet
 // challenge one of the three house levels with your selected bot:
 // best of 5, where each of the 5 is a 100-game series

@@ -795,8 +795,15 @@ function checkProgram(source) {
 
   const seeds = [[0.1, 0.5, 0.9, 0.3, 0.7], [0.8, 0.2, 0.6, 0.4, 0.05], [0.33, 0.77, 0.51, 0.12, 0.95]];
   const seen = new Set();
-  const once = (fn, message, line) => {
-    const k = fn + '|' + message;
+  /**
+   * Report a problem once. `key` is what makes two reports "the same bug" —
+   * kept separate from the text on purpose, because the matrix appends the
+   * scenario ("7 coins, hand duke+contessa, …") to the message, and if that
+   * were part of the key one missing return would be reported once per cell:
+   * eleven coin counts x six claim patterns of identical advice.
+   */
+  const once = (fn, key, message, line) => {
+    const k = `${fn}|${line ?? ''}|${key}`;
     if (seen.has(k)) return;
     seen.add(k);
     addProblem(fn, message, line);
@@ -812,7 +819,7 @@ function checkProgram(source) {
     if (program.has('new_game')) {
       const g0 = new CoupGame(['a', 'b'], mkRng(seedArr));
       const r0 = callRaw('new_game', buildState(g0, 'a', names, {}), [], rng);
-      if (r0.threw) once('new_game', `crashed: ${r0.threw.message}`, r0.threw.line);
+      if (r0.threw) once('new_game', 'crash', `crashed: ${r0.threw.message}`, r0.threw.line);
     }
 
     // ---- state 1: your_turn, swept across the whole scenario matrix
@@ -828,19 +835,19 @@ function checkProgram(source) {
               const where = `(${coins} coins, hand ${hand.join('+')}, opponent ${label}`
                 + `${warm ? ', 40 games in' : ''})`;
               if (r.threw) {
-                once('your_turn', `crashed ${where}: ${r.threw.message}`, r.threw.line);
+                once('your_turn', 'crash', `crashed ${where}: ${r.threw.message}`, r.threw.line);
                 continue;
               }
               const v = r.value;
               const legal = g.legalActions('a').map((l) => l.type);
               if (!v || typeof v !== 'object' || !v.__act) {
-                once('your_turn', v === null || v === undefined
+                once('your_turn', 'shape', v === null || v === undefined
                   ? `returned nothing ${where} — EVERY path through your_turn must end with "return <an action>" like "return income()". Check each if/else branch!`
                   : `returned ${describeReturn(v)} ${where} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), exchange(), coup(role) or assassinate(role, p).`);
               } else if (!legal.includes(v.__act)) {
-                once('your_turn', `tried to ${v.__act}() with only ${coins} coins ${where} — the game would reject it and take income instead. Check costs (coup 7, assassinate 3) before returning.`);
+                once('your_turn', 'illegal', `tried to ${v.__act}() with only ${coins} coins ${where} — the game would reject it and take income instead. Check costs (coup 7, assassinate 3) before returning.`);
               } else if (coins >= 10 && v.__act !== 'coup') {
-                once('your_turn', `with ${coins} coins the rules FORCE you to coup, but your bot returned ${describeReturn(v)} ${where}. Add "if state.my_coins >= 10: return coup(...)" near the top.`);
+                once('your_turn', 'mustcoup', `with ${coins} coins the rules FORCE you to coup, but your bot returned ${describeReturn(v)} ${where}. Add "if state.my_coins >= 10: return coup(...)" near the top.`);
               }
               if (problems.length >= PROBLEM_CAP) break;
             }
@@ -863,15 +870,15 @@ function checkProgram(source) {
       const info = buildActionInfo(g2, st, 'challenge');
       const r = callRaw('respond', st, [info], rng);
       if (r.threw) {
-        once('respond', `crashed: ${r.threw.message}`, r.threw.line);
+        once('respond', 'crash', `crashed: ${r.threw.message}`, r.threw.line);
       } else {
         const v = r.value;
         if (!v || typeof v !== 'object' || (!v.__resp && !v.__act)) {
-          once('respond', v === null || v === undefined
+          once('respond', 'shape', v === null || v === undefined
             ? 'returned nothing — every path through respond must end with "return allow()", "return challenge()" or "return block(role)". The safe last line is "return allow()".'
             : `returned ${describeReturn(v)} — but respond must return allow(), challenge() or block(role).`);
         } else if (v.__act) {
-          once('respond', `returned ${describeReturn(v)} — that is a TURN action, but respond answers the opponent's move: return allow(), challenge() or block(role) instead.`);
+          once('respond', 'turnaction', `returned ${describeReturn(v)} — that is a TURN action, but respond answers the opponent's move: return allow(), challenge() or block(role) instead.`);
         }
       }
     }
@@ -890,19 +897,19 @@ function checkProgram(source) {
       info.call = g3.pending.call || 'duke';
       const r = callRaw('when_assassinated', st, [info], rng);
       if (r.threw) {
-        once('when_assassinated', `crashed: ${r.threw.message}`, r.threw.line);
+        once('when_assassinated', 'crash', `crashed: ${r.threw.message}`, r.threw.line);
       } else {
         const v = r.value;
         const okShape = v && typeof v === 'object'
           && ((v.__resp === 'block' && v.role === 'contessa') || v.__resp === 'pass' || v.__reveal);
         if (v === null || v === undefined) {
-          once('when_assassinated', 'returned nothing — every path must end with "return block_contessa()" or "return allow()" (allow = let it happen; smart when their call would miss!).');
+          once('when_assassinated', 'shape', 'returned nothing — every path must end with "return block_contessa()" or "return allow()" (allow = let it happen; smart when their call would miss!).');
         } else if (v && v.__resp === 'block' && v.role !== 'contessa') {
-          once('when_assassinated', `tried to block an assassination with ${v.role} — only the CONTESSA blocks assassinations. Use block_contessa().`);
+          once('when_assassinated', 'wrongblock', `tried to block an assassination with ${v.role} — only the CONTESSA blocks assassinations. Use block_contessa().`);
         } else if (v && v.__act) {
-          once('when_assassinated', `returned ${describeReturn(v)} — that is a turn action. When assassinated you can only block_contessa(), allow(), or reveal(card).`);
+          once('when_assassinated', 'turnaction', `returned ${describeReturn(v)} — that is a turn action. When assassinated you can only block_contessa(), allow(), or reveal(card).`);
         } else if (!okShape) {
-          once('when_assassinated', `returned ${describeReturn(v)} — expected block_contessa(), allow(), or reveal(card).`);
+          once('when_assassinated', 'shape2', `returned ${describeReturn(v)} — expected block_contessa(), allow(), or reveal(card).`);
         }
       }
     }
@@ -913,13 +920,13 @@ function checkProgram(source) {
       const st = buildState(g4, 'a', names, {});
       const r = callRaw('choose_card_to_lose', st, [], rng);
       if (r.threw) {
-        once('choose_card_to_lose', `crashed: ${r.threw.message}`, r.threw.line);
+        once('choose_card_to_lose', 'crash', `crashed: ${r.threw.message}`, r.threw.line);
       } else {
         const v = r.value;
         if (v === null || v === undefined) {
-          once('choose_card_to_lose', 'returned nothing — end every path with "return reveal(<one of your cards>)", e.g. "return reveal(state.my_cards[0])".');
+          once('choose_card_to_lose', 'shape', 'returned nothing — end every path with "return reveal(<one of your cards>)", e.g. "return reveal(state.my_cards[0])".');
         } else if (!v || typeof v !== 'object' || !v.__reveal) {
-          once('choose_card_to_lose', `returned ${describeReturn(v)} — but this function must return reveal(card), e.g. "return reveal(state.my_cards[0])".`);
+          once('choose_card_to_lose', 'shape2', `returned ${describeReturn(v)} — but this function must return reveal(card), e.g. "return reveal(state.my_cards[0])".`);
         } else if (!st.my_cards.includes(v.__reveal)) {
           notes.push(`choose_card_to_lose picked "${v.__reveal}" in a test game where your hand was [${st.my_cards.join(', ')}] — the game will fall back to a card you actually hold. Prefer picking from state.my_cards.`);
         }
@@ -933,13 +940,13 @@ function checkProgram(source) {
       const pool = [...st.my_cards, 'duke', 'contessa'];
       const r = callRaw('choose_exchange', st, [pool, 'ambassador'], rng);
       if (r.threw) {
-        once('choose_exchange', `crashed: ${r.threw.message}`, r.threw.line);
+        once('choose_exchange', 'crash', `crashed: ${r.threw.message}`, r.threw.line);
       } else {
         const v = r.value;
         if (!Array.isArray(v)) {
-          once('choose_exchange', `returned ${describeReturn(v)} — choose_exchange must return a LIST of role names to keep, e.g. ["duke", "contessa"].`);
+          once('choose_exchange', 'shape', `returned ${describeReturn(v)} — choose_exchange must return a LIST of role names to keep, e.g. ["duke", "contessa"].`);
         } else if (v.length !== st.my_num_cards) {
-          once('choose_exchange', `kept ${v.length} card(s) but you must keep exactly ${st.my_num_cards} (as many as you hold). The game will ignore a wrong-sized keep.`);
+          once('choose_exchange', 'size', `kept ${v.length} card(s) but you must keep exactly ${st.my_num_cards} (as many as you hold). The game will ignore a wrong-sized keep.`);
         }
       }
     }

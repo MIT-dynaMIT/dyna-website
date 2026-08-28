@@ -172,8 +172,10 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
             <div key={m.id} style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <strong style={{ color: 'var(--parch)', fontSize: 16 }}>{m.name}</strong>
+                {/* rank with NO denominator: "#35 of 35" tells a camper they
+                    are last, which is the one fact here they cannot act on */}
                 {m.rank
-                  ? <span className="coup-note">rank #{m.rank} of {data.totalBots}</span>
+                  ? <span className="coup-note">rank #{m.rank}</span>
                   : <span className="coup-note">on the ladder</span>}
                 <span style={{ flex: 1 }} />
                 <button className="small danger ghost" onClick={() => withdraw(m.id)}>withdraw</button>

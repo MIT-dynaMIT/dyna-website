@@ -10,7 +10,12 @@ interface LadderRow {
 }
 /** rank is null unless the bot is actually on the visible top 10 (or you are
  *  an organizer) — see the note in ladder.js view() */
-interface MineRow { id: string; name: string; slot: number; elo: number; matches: number; errors: number; rank: number | null }
+interface MineRow {
+  id: string; name: string; slot: number; elo: number; matches: number; errors: number;
+  rank: number | null;
+  /** the crash messages from this bot's most recent match, if any */
+  lastErrors?: { fn: string; line?: number; message: string; count: number }[] | null;
+}
 interface LadderData {
   top: LadderRow[]; totalBots: number; totalMatches: number; running: boolean;
   hidden?: boolean;
@@ -182,9 +187,21 @@ export default function LeaderboardPage({ user }: { user: CoupUser }) {
                 )}
               </div>
               {m.errors > 0 && (
-                <p className="coup-note" style={{ color: 'var(--bad)' }}>
-                  Your bot hit errors and fell back to safe moves — run “Check my bot” in the editor.
-                </p>
+                <div className="crash-note" style={{ margin: '8px 0 0', borderTop: '1px solid var(--bad)', borderRadius: 10 }}>
+                  <b>Your bot crashed and took income instead.</b>
+                  {m.lastErrors && m.lastErrors.length > 0
+                    ? <> From its most recent match:
+                        <ul>
+                          {m.lastErrors.map((c, i) => (
+                            <li key={i}>
+                              <code>{c.fn}{c.line ? `, line ${c.line}` : ''}</code>: {c.message}
+                              {c.count > 1 && <span className="coup-note"> ({c.count}×)</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    : <> Run “Check my bot” in the editor.</>}
+                </div>
               )}
             </div>
           ))}

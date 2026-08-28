@@ -6,7 +6,7 @@
 
 const { parentPort, workerData } = require('node:worker_threads');
 const { ScriptBot } = require('./botapi');
-const { playSeries, mergeFlags } = require('./runner');
+const { playSeries, mergeFlags, mergeErrorDetail } = require('./runner');
 
 const { a, b, seedBase, seriesCount, seriesGames, sampleAt } = workerData;
 
@@ -16,6 +16,7 @@ try {
   const series = [];
   let winsA = 0, winsB = 0;
   const errors = { [a.name]: 0, [b.name]: 0 };
+  const errorDetail = {};    // name -> [{fn, line, message, count}], across all series
   const flags = {};   // god-side achievement tally, by bot name
   for (let i = 0; i < seriesCount; i++) {
     const sb = (seedBase + i * 104729) >>> 0;
@@ -28,9 +29,10 @@ try {
     else if (wB > wA) winsB++;
     errors[a.name] += r.errors[a.name] || 0;
     errors[b.name] += r.errors[b.name] || 0;
+    mergeErrorDetail(errorDetail, r.errorDetail);
     mergeFlags(flags, r.flags);
   }
-  parentPort.postMessage({ ok: true, series, score: [winsA, winsB], errors, flags });
+  parentPort.postMessage({ ok: true, series, score: [winsA, winsB], errors, errorDetail, flags });
 } catch (err) {
   parentPort.postMessage({ ok: false, error: err.message });
 }

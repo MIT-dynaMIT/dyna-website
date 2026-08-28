@@ -671,4 +671,4 @@ function evalExpr(e, locals, S) {
 
 function compile(source) { return new Program(source); }
 
-module.exports = { compile, Program, CompileError, BotRuntimeError, repr, truthy };
+module.exports = { compile, Program, CompileError, BotRuntimeError, repr, truthy, stdBuiltins };

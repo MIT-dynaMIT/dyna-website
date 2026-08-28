@@ -210,6 +210,9 @@ class Arena {
             // the sources let any of the 100 games be re-dealt deterministically
             sources: [job._a.source, job._b.source],
             errors: result.errors,
+            // the actual crash messages, so the Levels result can tell a
+            // camper WHAT broke instead of only that something did
+            errorDetail: result.errorDetail || {},
           });
           this._award(job, result);
           this.jobs.delete(job.id);

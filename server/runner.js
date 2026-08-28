@@ -26,8 +26,22 @@ function freshFlags() {
     coupCalls: 0, coupHits: 0, contessaTries: 0, errors: 0, wins: 0,
   };
 }
+const ERROR_DETAIL_CAP = 8;   // distinct messages kept per bot per series
 const FLAG_KEYS = ['challengesMade', 'challengeWins', 'caught',
   'coupCalls', 'coupHits', 'contessaTries', 'errors', 'wins'];
+/** Fold one series' error detail into a running tally, same dedupe rules. */
+function mergeErrorDetail(into, add) {
+  for (const [name, list] of Object.entries(add || {})) {
+    const seen = (into[name] = into[name] || []);
+    for (const e of list) {
+      const hit = seen.find((x) => x.fn === e.fn && x.line === e.line && x.message === e.message);
+      if (hit) { hit.count += e.count; continue; }
+      if (seen.length < ERROR_DETAIL_CAP) seen.push({ ...e });
+    }
+  }
+  return into;
+}
+
 function mergeFlags(into, add) {
   for (const [name, f] of Object.entries(add)) {
     const t = into[name] || (into[name] = freshFlags());
@@ -228,6 +242,7 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
   const samples = [];
   const sampleIdx = new Set(sampleAt || [0, Math.floor(total / 2), total - 1]);
   const errors = {};
+  const errorDetail = {};   // name -> [{fn, line, message, count}]
   const flags = {};
   let winStrip = '';
   let turnsTotal = 0, adjudicated = 0;
@@ -245,6 +260,18 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
     accumulateSeriesStats(r.log, r.names, statsByName);
     for (const [n, errs] of Object.entries(r.errorsByBot)) {
       errors[n] = (errors[n] || 0) + errs.length;
+      // Keep the actual message, not just the tally. A student staring at
+      // "3 crashes" cannot fix anything; "your_turn line 27: no get here" is
+      // the whole debugging session. Deduped by fn+line+message and capped,
+      // because a broken bot throws the same thing hundreds of times.
+      const seen = (errorDetail[n] = errorDetail[n] || []);
+      for (const e of errs) {
+        const hit = seen.find((x) => x.fn === e.fn && x.line === e.line && x.message === e.message);
+        if (hit) { hit.count++; continue; }
+        if (seen.length < ERROR_DETAIL_CAP) {
+          seen.push({ fn: e.fn, line: e.line, message: e.message, count: 1 });
+        }
+      }
     }
     mergeFlags(flags, r.flags);
     if (sampleIdx.has(g)) {
@@ -252,7 +279,7 @@ function* playSeriesIter({ botA, botB, total = 100, seedBase = 1, gameOpts, samp
     }
     if (chunk > 0 && (g + 1) % chunk === 0 && g + 1 < total) yield g + 1;
   }
-  return { winsByName, statsByName, winStrip, samples, errors, flags, turnsTotal, adjudicated, total };
+  return { winsByName, statsByName, winStrip, samples, errors, errorDetail, flags, turnsTotal, adjudicated, total };
 }
 
 /** Drain a matchup in one go — for seeding and any offline batch run. */
@@ -302,5 +329,5 @@ function replayMatch({ seed, seatNames, decisions }) {
 
 module.exports = {
   playBotGame, playSeries, playSeriesIter, replayMatch, mulberry32,
-  freshFlags, mergeFlags,
+  freshFlags, mergeFlags, mergeErrorDetail,
 };

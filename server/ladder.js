@@ -274,7 +274,7 @@ class LadderServer {
         const rank = board.findIndex((b) => b.id === s.id) + 1;
         return {
           id: s.id, name: s.name, slot: s.slot, elo: Math.round(s.elo), matches: s.matches,
-          errors: s.errors,
+          errors: s.errors, lastErrors: s.lastErrors || null,
           // A camper learns their placement only if it is on the board they can
           // already see. "29th of 29" is discouraging and tells them nothing
           // they can act on — their ELO and their crash count do. Withheld
@@ -402,6 +402,13 @@ class LadderServer {
       if (b.last.length > 20) b.last.shift();
       a.errors += result.errors[a.name] || 0;
       b.errors += result.errors[b.name] || 0;
+      // Keep the LAST match's crash messages on the entry, so the camper's own
+      // card can say what broke rather than just how often. Only the latest —
+      // an old message about code they have since replaced is worse than none.
+      for (const s of [a, b]) {
+        const d = (result.errorDetail || {})[s.name];
+        s.lastErrors = d && d.length ? d.slice(0, 4) : null;
+      }
       this.store.ladder.totalMatches++;
       this.store.addMatch({
         mode: 'ladder', level: null,

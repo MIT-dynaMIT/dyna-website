@@ -24,6 +24,13 @@ export interface MatchRow {
   gamesPerSeries: number;
   series: { winsA: number; winsB: number }[];
   mine: number;                     // my index in players/owners (-1 for admin spectating)
+  /** runtime crashes from YOUR bot in this match (organizers see both sides) */
+  crashes?: BotCrash[];
+}
+
+/** one distinct runtime error, with how many times it fired across the match */
+export interface BotCrash {
+  who: string; fn: string; line?: number; message: string; count: number;
 }
 
 export interface PendingJob {

@@ -195,6 +195,26 @@
 }
 
 
+/* --------------------------- a crashed bot's actual error, under its match */
+.crash-note {
+  margin: -6px 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--bad);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: rgba(190, 60, 50, 0.08);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.crash-note ul { margin: 6px 0 0; padding-left: 20px; }
+.crash-note li { margin: 3px 0; }
+.crash-note code {
+  color: var(--accent);
+  background: rgba(168, 132, 44, 0.12);
+  padding: 1px 5px; border-radius: 4px; font-size: 12px;
+}
+.match-row.has-crash { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
 /* --------------------------- leaderboard: full board (organizers only).
    A whole camp's worth of bots is longer than the page, so it scrolls inside
    the card and the header row stays put. */

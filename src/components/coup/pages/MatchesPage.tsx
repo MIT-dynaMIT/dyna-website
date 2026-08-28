@@ -92,9 +92,11 @@ export default function MatchesPage() {
         const drawn = m.winnerName === null;
         const win = !drawn && m.winnerName === o.myBot;
         const spectator = m.mine < 0;
+        const crashes = m.crashes || [];
         return (
-          <div key={m.id}
-            className={`match-row ${win ? 'win' : 'loss'} ${drawn ? 'ct-draw' : ''}`}
+          <div key={m.id}>
+          <div
+            className={`match-row ${win ? 'win' : 'loss'} ${drawn ? 'ct-draw' : ''} ${crashes.length ? 'has-crash' : ''}`}
             onClick={() => nav(`/coup/matches/${m.id}`)}
             role="button" tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') nav(`/coup/matches/${m.id}`); }}>
@@ -115,6 +117,22 @@ export default function MatchesPage() {
               {o.series.map((s, i) => <span key={i} style={{ marginLeft: 8 }}>{s[0]}-{s[1]}</span>)}
             </div>
             <div className="meta">{timeAgo(m.ts)} ▸</div>
+          </div>
+          {crashes.length > 0 && (
+            <div className="crash-note">
+              <b>💥 your bot crashed {crashes.reduce((a, c) => a + c.count, 0)} time
+                {crashes.reduce((a, c) => a + c.count, 0) === 1 ? '' : 's'}</b>
+              {' '}— it took income instead. Fix these and re-run:
+              <ul>
+                {crashes.map((c, i) => (
+                  <li key={i}>
+                    <code>{c.fn}{c.line ? `, line ${c.line}` : ''}</code>: {c.message}
+                    {c.count > 1 && <span className="coup-note"> ({c.count}×)</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           </div>
         );
       })}

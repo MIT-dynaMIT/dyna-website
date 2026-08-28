@@ -28,7 +28,7 @@
  */
 'use strict';
 
-const { compile, CompileError, BotRuntimeError, repr } = require('./botlang');
+const { compile, CompileError, BotRuntimeError, repr, stdBuiltins } = require('./botlang');
 const { ACTIONS, ROLES, LIVES } = require('./coup');
 
 const ROLE_VALUE = { duke: 5, contessa: 4, captain: 3, assassin: 2, ambassador: 1 };
@@ -480,12 +480,19 @@ class ScriptBot {
     return act;
   }
 
+  /**
+   * A crashed or nonsense turn takes INCOME. Nothing cleverer: a bot that is
+   * throwing has no working opinion, and quietly couping on its behalf hides
+   * the bug behind a plausible-looking game. Income is legal from any coin
+   * count, does no damage, and leaves the crash counter as the only signal.
+   * The one exception is the rule: at 10+ coins a coup is compulsory, so the
+   * engine would reject income and we must name a card.
+   */
   _fallbackAction(state, legal, mustCoup) {
     const coup = legal.find((l) => l.type === 'coup');
-    if (coup && (mustCoup || state.my_coins >= 7)) {
-      return { type: 'coup', call: bestCoupCall(state), p: 0 };
-    }
-    return { type: 'income', call: null, p: 0 };
+    if (mustCoup && coup) return { type: 'coup', call: bestCoupCall(state), p: 0 };
+    if (legal.some((l) => l.type === 'income')) return { type: 'income', call: null, p: 0 };
+    return coup ? { type: 'coup', call: bestCoupCall(state), p: 0 } : { type: 'income', call: null, p: 0 };
   }
 
   respond(game, selfId, names, seriesCtx, rng, kind) {
@@ -578,6 +585,87 @@ class ScriptBot {
  * which function, which line, missing returns, wrong kinds of return values.
  * Returns {ok, problems: [{fn, line, message}], notes, functions: [{fn, status}]}.
  */
+/**
+ * Static pass: every name a function READS that is never defined anywhere.
+ *
+ * The scenario battery below can only catch a bug on a code path it happens to
+ * reach, and the nastiest student bugs hide behind a guard that is rarely true
+ * — `if opp_claims > 3 and ("duke" in pool)` crashed 48% of real games while
+ * passing every synthetic state. A name error does not need to be reached to
+ * be certain, so read it straight off the syntax tree.
+ *
+ * Deliberately conservative: it only reports a name that is not a builtin, not
+ * a parameter, not assigned anywhere in the same function, not a top-level
+ * variable and not a function name. Attribute names (`state.my_coins`) and
+ * dict keys are never treated as names, so `.foo` is out of scope here.
+ */
+function scanUndefinedNames(program, knownNames) {
+  const out = [];
+  const fns = program.ast.fns || {};
+  // globalNames is a Set on Program; top-level vars plus every def name
+  const globalNames = new Set([...(program.globalNames || []), ...Object.keys(fns)]);
+
+  for (const [fnName, fn] of Object.entries(fns)) {
+    const bound = new Set(fn.params || []);
+    // collect every binding in the whole function first: botlang has no
+    // declarations, so a name assigned late is still "the same variable"
+    const collect = (stmts) => {
+      for (const s of stmts || []) {
+        if (!s) continue;
+        if (s.k === 'assign' && s.target && s.target.k === 'name') bound.add(s.target.v);
+        if (s.k === 'for') { bound.add(s.v); collect(s.body); }
+        if (s.k === 'if') { collect(s.body); collect(s.alt); }
+        if (s.k === 'while') collect(s.body);
+      }
+    };
+    collect(fn.body);
+
+    const seenHere = new Set();
+    const readExpr = (e) => {
+      if (!e || typeof e !== 'object') return;
+      switch (e.k) {
+        case 'name': {
+          const n = e.v;
+          if (bound.has(n) || globalNames.has(n) || knownNames.has(n)) return;
+          if (seenHere.has(n)) return;
+          seenHere.add(n);
+          out.push({
+            fn: fnName, line: e.line,
+            message: `"${n}" is not defined here. It is not a variable in ${fnName}, not a builtin, `
+              + `and not one of your own functions or top-level variables — check the spelling, or `
+              + `whether you meant something from state (like state.my_cards).`,
+          });
+          return;
+        }
+        // an attribute's NAME is not a variable; only its object is
+        case 'attr': return readExpr(e.obj);
+        case 'index': readExpr(e.obj); return readExpr(e.idx);
+        case 'call': readExpr(e.fn); (e.args || []).forEach(readExpr); return;
+        case 'bin': case 'cmp': case 'and': case 'or': case 'in':
+          readExpr(e.l); return readExpr(e.r);
+        case 'not': case 'neg': return readExpr(e.v);
+        case 'ternary': readExpr(e.cond); readExpr(e.a); return readExpr(e.b);
+        case 'list': return (e.items || []).forEach(readExpr);
+        case 'dict': return (e.pairs || []).forEach(([k, v]) => { readExpr(k); readExpr(v); });
+        default: return;
+      }
+    };
+    const walk = (stmts) => {
+      for (const s of stmts || []) {
+        if (!s) continue;
+        if (s.k === 'assign') { readExpr(s.val); if (s.target && s.target.k === 'index') readExpr(s.target); }
+        else if (s.k === 'return') readExpr(s.val);
+        else if (s.k === 'expr') readExpr(s.expr);
+        else if (s.k === 'if') { readExpr(s.cond); walk(s.body); walk(s.alt); }
+        else if (s.k === 'while') { readExpr(s.cond); walk(s.body); }
+        else if (s.k === 'for') { readExpr(s.iter); walk(s.body); }
+      }
+    };
+    walk(fn.body);
+  }
+  return out;
+}
+
 function describeReturn(v) {
   if (v === null || v === undefined) return 'nothing (None)';
   if (typeof v === 'object') {
@@ -623,6 +711,26 @@ function checkProgram(source) {
 
   const { CoupGame } = require('./coup');
   const mkRng = (seedArr) => { let i = 0; return () => seedArr[(i++) % seedArr.length]; };
+
+  // ---- static pass: undefined names, before a single game is played
+  {
+    const g = new CoupGame(['a', 'b'], mkRng([0.5]));
+    const probe = buildState(g, 'a', { a: 'you', b: 'Rival' }, {});
+    // Read the real builtin tables rather than a hand-kept list — a name this
+    // set is missing becomes a FALSE alarm on a bot that works, which is far
+    // worse than missing a real bug.
+    const known = new Set(
+      Object.keys(gameBuiltins(probe, Math.random))
+        .concat(Object.keys(stdBuiltins(Math.random)))
+        .concat(['True', 'False', 'None']),
+    );
+    // `state`, `action`, `pool` and `reason` are hook PARAMETERS — already in
+    // scope wherever they are legal, and correctly undefined anywhere else.
+    for (const p of scanUndefinedNames(program, known)) {
+      problems.push(p);
+      status[p.fn] = 'error';
+    }
+  }
   const defLine = (fn) => (program.ast.fns[fn] ? program.ast.fns[fn].line : undefined);
   const addProblem = (fn, message, line) => {
     problems.push({ fn, line: line ?? defLine(fn), message });
@@ -636,6 +744,53 @@ function checkProgram(source) {
     } catch (err) {
       return { threw: err };
     }
+  };
+
+  /**
+   * The scenario matrix for your_turn. The old battery tried two coin counts
+   * against a blank opponent, which is why a bot that crashed in half of all
+   * real games could pass it: the crash sat behind "10+ coins AND they have
+   * claimed Duke four times", a combination the check never built.
+   *
+   * So sweep the axes a bot can actually branch on — coins across every
+   * threshold in the rules, how loudly the opponent has claimed each role,
+   * what is already face-up in the graveyard, hand shape, and a cold vs warm
+   * series. Every combination is a legal position the ladder will really hand
+   * them, so a crash here is a crash there.
+   */
+  const PROBLEM_CAP = 10;      // more than this is a wall of text, not help
+  const COIN_STEPS = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 12];
+  const CLAIM_PATTERNS = [
+    { label: 'silent', acts: [] },
+    { label: 'taxes once', acts: ['tax'] },
+    { label: 'taxes constantly', acts: ['tax', 'tax', 'tax', 'tax', 'tax', 'tax'] },
+    { label: 'exchanges a lot', acts: ['exchange', 'exchange', 'exchange', 'exchange'] },
+    { label: 'assassin-happy', acts: ['assassinate', 'assassinate', 'assassinate', 'assassinate'] },
+    { label: 'mixed talker', acts: ['tax', 'exchange', 'tax', 'assassinate', 'tax', 'exchange'] },
+  ];
+  const HANDS = [
+    ['duke', 'contessa'], ['assassin', 'contessa'], ['ambassador', 'ambassador'],
+    ['duke', 'duke'], ['assassin', 'ambassador'], ['contessa', 'contessa'],
+  ];
+  const BURIED = [[], ['duke'], ['duke', 'duke'], ['contessa', 'assassin'], ['duke', 'duke', 'duke']];
+
+  /** build one your_turn position from the axes above */
+  const makeTurnState = (seedArr, { coins, pattern, hand, buried, warm }) => {
+    const g = new CoupGame(['a', 'b'], mkRng(seedArr));
+    g.player('a').coins = coins;
+    g.player('b').coins = (coins + 5) % 11;
+    g.player('a').cards = [...hand];
+    // face-up cards: split them between the two graveyards
+    buried.forEach((r, i) => g.player(i % 2 === 0 ? 'b' : 'a').graveyard.push(r));
+    for (const act of pattern.acts) {
+      g.log.push({ n: g.log.length, t: 'action', action: act, player: 'b', target: act === 'assassinate' ? 'a' : null });
+    }
+    const seriesCtx = warm
+      ? { game: 42, total: 100, winsByName: { you: 20, Rival: 21 },
+        statsByName: { you: { challenges: 30, claims: 90, caught: 5, proofs: 4, contessaBlocks: 8 },
+          Rival: { challenges: 55, claims: 120, caught: 9, proofs: 6, contessaBlocks: 30 } } }
+      : {};
+    return { g, st: buildState(g, 'a', { a: 'you', b: 'Rival' }, seriesCtx), label: pattern.label };
   };
 
   const seeds = [[0.1, 0.5, 0.9, 0.3, 0.7], [0.8, 0.2, 0.6, 0.4, 0.05], [0.33, 0.77, 0.51, 0.12, 0.95]];
@@ -660,35 +815,40 @@ function checkProgram(source) {
       if (r0.threw) once('new_game', `crashed: ${r0.threw.message}`, r0.threw.line);
     }
 
-    // ---- state 1: your turn, mid-game flavor
-    const g1 = new CoupGame(['a', 'b'], rng);
-    g1.player('a').coins = 3;
-    g1.player('b').coins = 8;
-    g1.log.push({ n: g1.log.length, t: 'action', action: 'tax', player: 'b', target: null });
-    g1.log.push({ n: g1.log.length, t: 'action', action: 'assassinate', player: 'b', target: 'a' });
+    // ---- state 1: your_turn, swept across the whole scenario matrix
     if (program.has('your_turn')) {
-      const st = buildState(g1, 'a', names, {});
-      const r = callRaw('your_turn', st, [], rng);
-      if (r.threw) {
-        once('your_turn', `crashed: ${r.threw.message}`, r.threw.line);
-      } else {
-        const v = r.value;
-        const legal = g1.legalActions('a').map((l) => l.type);
-        if (!v || typeof v !== 'object' || !v.__act) {
-          once('your_turn', v === null || v === undefined
-            ? 'returned nothing — EVERY path through your_turn must end with "return <an action>" like "return income()". Check each if/else branch!'
-            : `returned ${describeReturn(v)} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), exchange(), coup(role) or assassinate(role, p).`);
-        } else if (!legal.includes(v.__act)) {
-          once('your_turn', `tried to ${v.__act}() with only ${g1.player('a').coins} coins — the game would reject it. Check costs (coup 7, assassinate 3) before returning.`);
+      for (const coins of COIN_STEPS) {
+        for (const pattern of CLAIM_PATTERNS) {
+          for (let hi = 0; hi < HANDS.length; hi++) {
+            const hand = HANDS[hi];
+            const buried = BURIED[(hi + coins) % BURIED.length];
+            for (const warm of [false, true]) {
+              const { g, st, label } = makeTurnState(seedArr, { coins, pattern, hand, buried, warm });
+              const r = callRaw('your_turn', st, [], rng);
+              const where = `(${coins} coins, hand ${hand.join('+')}, opponent ${label}`
+                + `${warm ? ', 40 games in' : ''})`;
+              if (r.threw) {
+                once('your_turn', `crashed ${where}: ${r.threw.message}`, r.threw.line);
+                continue;
+              }
+              const v = r.value;
+              const legal = g.legalActions('a').map((l) => l.type);
+              if (!v || typeof v !== 'object' || !v.__act) {
+                once('your_turn', v === null || v === undefined
+                  ? `returned nothing ${where} — EVERY path through your_turn must end with "return <an action>" like "return income()". Check each if/else branch!`
+                  : `returned ${describeReturn(v)} ${where} — but your_turn must return an ACTION: income(), foreign_aid(), tax(), exchange(), coup(role) or assassinate(role, p).`);
+              } else if (!legal.includes(v.__act)) {
+                once('your_turn', `tried to ${v.__act}() with only ${coins} coins ${where} — the game would reject it and take income instead. Check costs (coup 7, assassinate 3) before returning.`);
+              } else if (coins >= 10 && v.__act !== 'coup') {
+                once('your_turn', `with ${coins} coins the rules FORCE you to coup, but your bot returned ${describeReturn(v)} ${where}. Add "if state.my_coins >= 10: return coup(...)" near the top.`);
+              }
+              if (problems.length >= PROBLEM_CAP) break;
+            }
+            if (problems.length >= PROBLEM_CAP) break;
+          }
+          if (problems.length >= PROBLEM_CAP) break;
         }
-      }
-      // rich state: must be able to coup at 10+
-      const g1b = new CoupGame(['a', 'b'], mkRng(seedArr));
-      g1b.player('a').coins = 11;
-      const st2 = buildState(g1b, 'a', names, {});
-      const r2 = callRaw('your_turn', st2, [], rng);
-      if (!r2.threw && r2.value && r2.value.__act && r2.value.__act !== 'coup') {
-        once('your_turn', `with 10+ coins the rules FORCE you to coup, but your bot returned ${describeReturn(r2.value)}. Add "if state.my_coins >= 10: return coup(...)" near the top.`);
+        if (problems.length >= PROBLEM_CAP) break;
       }
     }
 
@@ -784,7 +944,7 @@ function checkProgram(source) {
       }
     }
 
-    if (problems.length >= 6) break; // enough to work on
+    if (problems.length >= PROBLEM_CAP) break; // enough to work on
   }
 
   const functions = ['your_turn', 'respond', 'when_assassinated', 'choose_card_to_lose',

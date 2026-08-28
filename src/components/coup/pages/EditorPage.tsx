@@ -53,6 +53,7 @@ export default function EditorPage({ user }: { user: CoupUser }) {
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const loadingRef = useRef(false);
   const pyHistory = useRef<string[]>([]);
+  const gutterRef = useRef<HTMLPreElement>(null);
   // bumped on every slot load so a slow /parse from a previous slot can't apply
   const loadToken = useRef(0);
 
@@ -572,12 +573,17 @@ export default function EditorPage({ user }: { user: CoupUser }) {
         {mode === 'python' && (
           <div className="ed-py coup-card">
             <div className="ed-py-inner">
-              <pre className="ed-gutter" aria-hidden>
+              <pre className="ed-gutter" aria-hidden ref={gutterRef}>
                 {Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')}
               </pre>
               <textarea
                 className="ed-py-area mono" spellCheck={false} value={pythonText}
                 onChange={(e) => onPyChange(e.target.value)}
+                // the gutter is its own element and does not scroll with the
+                // textarea on its own — keep the two in lockstep by hand
+                onScroll={(e) => {
+                  if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+                }}
                 wrap="off"
               />
             </div>

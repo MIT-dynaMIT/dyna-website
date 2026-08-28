@@ -214,6 +214,20 @@ app.post('/api/coup/bots/duel', auth, (req, res) => {
   res.json({ ok: true, job: r.job });
 });
 
+/**
+ * The crash messages a given viewer may see for a match: their own bot's, or
+ * everyone's if they are an organizer. Shape: [{who, fn, line, message, count}]
+ */
+function crashesFor(m, user) {
+  const detail = m.errorDetail || {};
+  const out = [];
+  m.players.forEach((name, i) => {
+    if (!user.isAdmin && m.owners[i] !== user.username) return;
+    for (const e of detail[name] || []) out.push({ who: name, ...e });
+  });
+  return out;
+}
+
 // ------------------------------------------------------------ match history
 app.get('/api/coup/matches', auth, (req, res) => {
   // while the scrimmage is paused its matches are part of what stays hidden
@@ -227,6 +241,9 @@ app.get('/api/coup/matches', auth, (req, res) => {
     gamesPerSeries: m.gamesPerSeries,
     series: m.series.map((s) => ({ winsA: s.winsA, winsB: s.winsB })),
     mine: m.owners.indexOf(req.user.username),
+    // Crash messages for YOUR bot only — a camper has no business reading
+    // why someone else's code threw. Organizers get both sides.
+    crashes: crashesFor(m, req.user),
   }));
   res.json({ matches: rows, pending: arena.pendingFor(req.user.username) });
 });

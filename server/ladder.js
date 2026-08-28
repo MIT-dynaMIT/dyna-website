@@ -19,9 +19,21 @@ const K = 32;
 // "who has waited longest" decides between them. 1 would be pure closest-ELO
 // (the starving behaviour); the whole board would be random pairing.
 const NEAR_POOL = 5;
-// how many recent pairings are remembered and avoided when an alternative
-// exists. 1 (the old behaviour) lets a settled board freeze into couples.
-const RECENT_PAIRS = 12;
+/**
+ * How many recent pairings are remembered and avoided when an alternative
+ * exists. 1 (the original behaviour) lets a settled board freeze into couples.
+ *
+ * It has to SCALE with the board: on a big ladder each bot plays rarely, so a
+ * fixed window ages its last partner out before it comes round again and the
+ * memory stops protecting anything. Measured as the share of a bot's matches
+ * spent on its single most-frequent opponent (an even spread over the 5 near
+ * bots would be ~20%):
+ *
+ *            6 bots   12 bots   20 bots   35 bots
+ *   fixed 12   26%       24%       23%       32%
+ *   2n (max 60) 20%      22%       19%       20%
+ */
+const recentWindow = (n) => Math.min(2 * n, 60);
 const INTERVAL_MS = Number(process.env.LADDER_INTERVAL_MS || 40_000);
 /**
  * Tick speeds an organizer can pick live. Measured on a 700-game match: 0.52s
@@ -344,7 +356,7 @@ class LadderServer {
     const key = (x, y) => [x.id, y.id].sort().join(':');
     const cand = near.find((s) => !this._recent.includes(key(a, s))) || near[0];
     this._recent.push(key(a, cand));
-    while (this._recent.length > Math.min(RECENT_PAIRS, this.sub.length)) this._recent.shift();
+    while (this._recent.length > recentWindow(this.sub.length)) this._recent.shift();
     // stamp NOW, not on completion: a match that crashes still counts as a
     // turn taken, or the same broken pair is retried on every single tick.
     // Strictly increasing rather than raw Date.now(): at MAX speed two picks

@@ -9,7 +9,6 @@ const Navbar = () => {
     { name: 'Home', href: '/' },
     { name: 'Apply', href: '/apply' },
     { name: 'Board', href: '/board' },
-    { name: 'dynaCOUP', href: '/coup' },
   ];
 
   const isCurrentPage = (path: string) => {

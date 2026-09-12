@@ -7,11 +7,13 @@ const week2Start = new Date("2026-08-24");
 const week2End = new Date("2026-08-28");
 
 export const openApps: number = 1; // whether apps are open or not
+export const openBoardApps: boolean = true; // whether board apps are open or not
 
 const studentAppLink = "https://forms.gle/yHc43JRgiVPTpegx5";
 const studentInterestLink = "https://forms.gle/soBvXqLWYAcdR8Do8";
 const mentorAppLink =
   "https://docs.google.com/forms/d/e/1FAIpQLScf5AVJsZ7CnKaLcBe3GEUQOyjnxQXWBfHtRNxCr2pa8ly2Vw/viewform?usp=dialog";
+const boardAppLink = "https://forms.gle/ZxQv1TKFrd6xACUG9";
 
 const calculateRemainingDays = (deadline: Date): number => {
   const today = new Date();
@@ -123,5 +125,6 @@ export {
   formatDateToStringWithYear,
   studentAppLink,
   mentorAppLink,
+  boardAppLink,
   studentInterestLink,
 };

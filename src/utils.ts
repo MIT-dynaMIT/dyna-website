@@ -6,14 +6,13 @@ const week1End = new Date("2026-08-21");
 const week2Start = new Date("2026-08-24");
 const week2End = new Date("2026-08-28");
 
-export const openApps: number = 1; // whether apps are open or not
-export const openBoardApps: boolean = true; // whether board apps are open or not
+export const openApps: number = 0; // whether apps are open or not
 
 const studentAppLink = "https://forms.gle/yHc43JRgiVPTpegx5";
 const studentInterestLink = "https://forms.gle/soBvXqLWYAcdR8Do8";
 const mentorAppLink =
   "https://docs.google.com/forms/d/e/1FAIpQLScf5AVJsZ7CnKaLcBe3GEUQOyjnxQXWBfHtRNxCr2pa8ly2Vw/viewform?usp=dialog";
-const boardAppLink = "https://forms.gle/ZxQv1TKFrd6xACUG9";
+const mentorInterestLink = "https://forms.gle/bvY55jiEcAU5JoY4A";
 
 const calculateRemainingDays = (deadline: Date): number => {
   const today = new Date();
@@ -74,16 +73,8 @@ interface FAQItemObj {
 
 const faqs: FAQItemObj[] = [
   {
-    question: `When is the dynaMIT Summer ${week1Start.getFullYear()} program?`,
-    answer: `Week 1 will run from ${formatDateToReadableString(
-      new Date(week1Start.toLocaleString()),
-    )} to ${formatDateToReadableString(
-      new Date(week1End.toLocaleString()),
-    )}, hosting rising 6th/7th graders. Week 2 will run from ${formatDateToReadableString(
-      new Date(week2Start.toLocaleString()),
-    )} to ${formatDateToReadableString(
-      new Date(week2End.toLocaleString()),
-    )}, hosting rising 8th/9th graders. Our program is fully in-person on MIT campus!`,
+    question: "When is the dynaMIT Summer 2027 program?",
+    answer: "Dates will be released around mid-November.",
   },
   {
     question: "Where is dynaMIT located?",
@@ -103,7 +94,7 @@ const faqs: FAQItemObj[] = [
   {
     question: "Who are the instructors at dynaMIT? How can I volunteer?",
     answer:
-      "All of our mentors are current MIT undergraduate students who volunteer a week of their time in the summer to teach at camp. MIT students interested in applying to be a mentor should apply now!",
+      "All of our mentors are current MIT undergraduate students who volunteer a week of their time in the summer to teach at camp. Applications to be a mentor open in the spring semester.",
   },
   {
     question: "How are students selected for the program?",
@@ -125,6 +116,6 @@ export {
   formatDateToStringWithYear,
   studentAppLink,
   mentorAppLink,
-  boardAppLink,
+  mentorInterestLink,
   studentInterestLink,
 };

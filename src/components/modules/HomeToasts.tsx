@@ -3,6 +3,7 @@ import {
   mentorDeadline,
   calculateRemainingDays,
   openApps,
+  mentorInterestLink,
 } from '../../utils';
 
 type ToastConfig = {
@@ -25,22 +26,14 @@ const HomeToasts = () => {
   const mentorAppsOpen = mentorDaysRemaining > 0 && openApps === 1;
   if (!mentorAppsOpen) {
     toasts.push({
-      id: 'mentors-rolling-s26',
-      title: 'Still looking for mentors',
-      message: "Email the board if you'd like to chat more.",
-      ctaLabel: 'Email us',
-      ctaHref: 'mailto:dynamit_board@mit.edu',
+      id: 'mentors-interest-s27',
+      title: 'Interested in mentoring?',
+      message: 'Mentor applications will open in the spring semester.',
+      ctaLabel: 'Mentor Interest Form',
+      ctaHref: mentorInterestLink,
+      ctaExternal: true,
     });
   }
-
-  toasts.push({
-    id: 'donate-s26',
-    title: 'Help us power summer 2026',
-    message: 'Every contribution keeps dynaMIT free for students.',
-    ctaLabel: 'Donate',
-    ctaHref: 'https://giving.mit.edu/form/?fundld=2721374#/',
-    ctaExternal: true,
-  });
 
   useEffect(() => {
     const active = toasts

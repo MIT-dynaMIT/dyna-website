@@ -1,16 +1,11 @@
 import AppCard from '../modules/AppCard.tsx';
-import { 
-  formatDateToReadableString, 
-  formatDateToStringWithYear, 
-  studentDeadline, 
-  mentorDeadline, 
-  studentAppLink, 
+import {
+  studentDeadline,
+  mentorDeadline,
+  studentAppLink,
   mentorAppLink,
-  week1Start, 
-  week1End, 
-  week2Start, 
-  week2End, 
-  studentInterestLink
+  studentInterestLink,
+  mentorInterestLink,
 } from '../../utils.ts';
 
 import { useLocation } from 'react-router-dom';
@@ -42,7 +37,6 @@ const Apply = () => {
           Whether you are a parent looking to enroll your kids in our program
           or an MIT student who wants to be a mentor for the summer, we'd love for
           you to join us. All applications for camp and for mentors open in the spring.
-          If you want to join our internal team, board applications typically open in the fall!
         </p>
       </div>
       <div>
@@ -56,9 +50,9 @@ const Apply = () => {
               deadline={studentDeadline} 
               link={studentAppLink} 
               description={`We accept students who will be entering 6th, 7th, 8th, or 9th grades in the
-                    ${week1Start.getFullYear()}-${week1Start.getFullYear() + 1} School Year.`}
+                    2027-2028 school year.`}
               linkText="Apply to dynaMIT!"
-              // Comment these to remove the interest form
+              closedMessage="Applications will open in the spring."
               interestLink={studentInterestLink}
               interestLinkText="Interest Form"
             />
@@ -72,8 +66,9 @@ const Apply = () => {
               description={`Join us as a mentor and help inspire the next generation of STEM enthusiasts.
                     All MIT undergraduate students are welcome to apply!`}
               linkText="Teach at dynaMIT!"
-              rollingEmail="dynamit_board@mit.edu"
-              rollingMessage="We're still looking for mentors! Email the board if you'd like to chat more."
+              closedMessage="Applications will open in the spring."
+              interestLink={mentorInterestLink}
+              interestLinkText="Mentor Interest Form"
             />
           </span>
         </div>
@@ -84,11 +79,11 @@ const Apply = () => {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <h3 className="mb-1 font-semibold text-dark">Week 1 — Rising 6th/7th Graders</h3>
-              <p className="text-dark/80">{formatDateToReadableString(week1Start)} to {formatDateToStringWithYear(week1End)}</p>
+              <p className="text-dark/80">Dates will be released around mid-November.</p>
             </div>
             <div>
               <h3 className="mb-1 font-semibold text-dark">Week 2 — Rising 8th/9th Graders</h3>
-              <p className="text-dark/80">{formatDateToReadableString(week2Start)} to {formatDateToStringWithYear(week2End)}</p>
+              <p className="text-dark/80">Dates will be released around mid-November.</p>
             </div>
           </div>
           <div className="mt-6 border-t border-dark/5 pt-5">

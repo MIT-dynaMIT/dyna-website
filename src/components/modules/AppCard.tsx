@@ -11,6 +11,7 @@ interface AppCardProps {
   link: string;
   description: string;
   linkText: string;
+  closedMessage?: string;
   interestLink?: string;
   interestLinkText?: string;
   rollingEmail?: string;
@@ -23,6 +24,7 @@ const AppCard: React.FC<AppCardProps> = ({
   link,
   description,
   linkText,
+  closedMessage,
   interestLink,
   interestLinkText,
   rollingEmail,
@@ -58,7 +60,7 @@ const AppCard: React.FC<AppCardProps> = ({
   } else if (isClosed) {
     banner = (
       <div className="rounded-md border-l-4 border-secondary bg-secondary-light/50 px-4 py-3">
-        <p className="text-sm font-medium text-dark">Applications are now closed.</p>
+        <p className="text-sm font-medium text-dark">{closedMessage ?? "Applications are now closed."}</p>
       </div>
     );
   } else {

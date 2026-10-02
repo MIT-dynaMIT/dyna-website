@@ -9,10 +9,10 @@ const Footer = () => {
               dyna<span className="text-secondary">MIT</span>
             </span>
             <a
-              href="mailto:dynamit_board@mit.edu"
+              href="mailto:dynamit_outreach@mit.edu"
               className="text-sm text-dark/70 transition-colors duration-200 hover:text-primary"
             >
-              dynamit_board@mit.edu
+              dynamit_outreach@mit.edu
             </a>
           </div>
 

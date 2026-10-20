@@ -30,6 +30,10 @@ const BoardMember: React.FC<BoardMemberProps> = ({
           <img
             src={imagePath}
             alt={`${name}'s profile`}
+            loading="lazy"
+            decoding="async"
+            width={192}
+            height={192}
             className="h-full w-full object-cover"
           />
         ) : (
